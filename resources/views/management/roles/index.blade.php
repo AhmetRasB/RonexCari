@@ -24,15 +24,11 @@
 </div>
 
 <div class="card">
-    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div class="card-header">
         <div class="d-flex align-items-center gap-2">
             <iconify-icon icon="solar:shield-user-outline" class="text-xl"></iconify-icon>
             <h6 class="mb-0">Rol Listesi</h6>
         </div>
-        <a href="{{ route('management.roles.create') }}" class="btn btn-primary text-sm btn-sm px-12 py-6 rounded-8 d-flex align-items-center gap-2">
-            <iconify-icon icon="ic:baseline-plus" class="icon text-xl line-height-1"></iconify-icon>
-            Yeni Rol
-        </a>
     </div>
     <div class="card-body">
         @if(session('success'))
@@ -58,7 +54,6 @@
                         <th scope="col">Kullanıcı Sayısı</th>
                         <th scope="col">İzinler</th>
                         <th scope="col">Oluşturulma</th>
-                        <th scope="col">İşlemler</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -115,27 +110,6 @@
                         </td>
                         <td>
                             <span class="text-md mb-0">{{ $role->created_at->format('d.m.Y H:i') }}</span>
-                        </td>
-                        <td>
-                            <div class="d-flex align-items-center gap-10">
-                                <a href="{{ route('management.roles.show', $role) }}" class="bg-success-focus text-success-main w-32-px h-32-px rounded-circle d-flex justify-content-center align-items-center">
-                                    <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-                                </a>
-                                
-                                <a href="{{ route('management.roles.edit', $role) }}" class="bg-warning-focus text-warning-main w-32-px h-32-px rounded-circle d-flex justify-content-center align-items-center">
-                                    <iconify-icon icon="lucide:edit"></iconify-icon>
-                                </a>
-                                
-                                @unless(in_array($role->name, ['god_mode', 'admin', 'employee']))
-                                <form action="{{ route('management.roles.destroy', $role) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu rolü silmek istediğinizden emin misiniz?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="bg-danger-focus text-danger-main w-32-px h-32-px rounded-circle d-flex justify-content-center align-items-center border-0">
-                                        <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
-                                    </button>
-                                </form>
-                                @endunless
-                            </div>
                         </td>
                     </tr>
                     @endforeach

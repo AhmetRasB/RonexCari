@@ -150,7 +150,7 @@ Route::middleware('auth')->group(function () {
     // Management Routes (Admin and God Mode only)
     Route::prefix('management')->name('management.')->middleware(['auth'])->group(function () {
         Route::resource('users', UserController::class);
-        Route::resource('roles', RoleController::class);
+        Route::resource('roles', RoleController::class)->only(['index']);
         Route::resource('employees', ManagementEmployeeController::class);
     });
 });

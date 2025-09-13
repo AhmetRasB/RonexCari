@@ -32,15 +32,19 @@ class EmployeeController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'position' => 'required|string|max:255',
-            'salary' => 'required|numeric|min:0',
-            'hire_date' => 'required|date',
+            'email' => 'required|email|max:255|unique:employees',
             'phone' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
+            'position' => 'nullable|string|max:255',
+            'salary' => 'nullable|numeric|min:0',
+            'start_date' => 'nullable|date',
             'address' => 'nullable|string',
+            'is_active' => 'boolean'
         ]);
 
-        Employee::create($request->all());
+        $data = $request->all();
+        $data['is_active'] = $request->has('is_active');
+
+        Employee::create($data);
 
         return redirect()->route('management.employees.index')
                         ->with('success', 'Çalışan başarıyla oluşturuldu.');
@@ -69,15 +73,19 @@ class EmployeeController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'position' => 'required|string|max:255',
-            'salary' => 'required|numeric|min:0',
-            'hire_date' => 'required|date',
+            'email' => 'required|email|max:255|unique:employees,email,' . $employee->id,
             'phone' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
+            'position' => 'nullable|string|max:255',
+            'salary' => 'nullable|numeric|min:0',
+            'start_date' => 'nullable|date',
             'address' => 'nullable|string',
+            'is_active' => 'boolean'
         ]);
 
-        $employee->update($request->all());
+        $data = $request->all();
+        $data['is_active'] = $request->has('is_active');
+
+        $employee->update($data);
 
         return redirect()->route('management.employees.index')
                         ->with('success', 'Çalışan başarıyla güncellendi.');
