@@ -278,6 +278,175 @@
 .position-relative {
     position: relative !important;
 }
+
+/* Mobile Responsive Invoice Table */
+@media screen and (max-width: 768px) {
+    /* Make table horizontally scrollable on mobile */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Ensure table has minimum width for readability */
+    #invoiceItemsTable {
+        min-width: 1200px;
+    }
+    
+    /* Make table cells more readable on mobile */
+    #invoiceItemsTable th,
+    #invoiceItemsTable td {
+        min-width: 120px;
+        padding: 12px 8px;
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+    
+    /* Specific column widths for better mobile experience - MUCH WIDER */
+    #invoiceItemsTable th:nth-child(1), /* ÜRÜN/HİZMET */
+    #invoiceItemsTable td:nth-child(1) {
+        min-width: 200px;
+        max-width: 200px;
+    }
+    
+    #invoiceItemsTable th:nth-child(2), /* AÇIKLAMA */
+    #invoiceItemsTable td:nth-child(2) {
+        min-width: 180px;
+        max-width: 180px;
+    }
+    
+    #invoiceItemsTable th:nth-child(3), /* MİKTAR */
+    #invoiceItemsTable td:nth-child(3) {
+        min-width: 120px;
+        max-width: 120px;
+    }
+    
+    #invoiceItemsTable th:nth-child(4), /* B. FİYAT */
+    #invoiceItemsTable td:nth-child(4) {
+        min-width: 150px;
+        max-width: 150px;
+    }
+    
+    #invoiceItemsTable th:nth-child(5), /* KDV */
+    #invoiceItemsTable td:nth-child(5) {
+        min-width: 120px;
+        max-width: 120px;
+    }
+    
+    #invoiceItemsTable th:nth-child(6), /* İNDİRİM */
+    #invoiceItemsTable td:nth-child(6) {
+        min-width: 120px;
+        max-width: 120px;
+    }
+    
+    #invoiceItemsTable th:nth-child(7), /* TOPLAM */
+    #invoiceItemsTable td:nth-child(7) {
+        min-width: 140px;
+        max-width: 140px;
+    }
+    
+    #invoiceItemsTable th:nth-child(8), /* İŞLEM */
+    #invoiceItemsTable td:nth-child(8) {
+        min-width: 100px;
+        max-width: 100px;
+    }
+    
+    /* Make form inputs more mobile-friendly */
+    .form-control, .form-select {
+        font-size: 16px; /* Prevent zoom on iOS */
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* Adjust input groups for mobile */
+    .input-group .form-control,
+    .input-group .form-select {
+        font-size: 14px;
+    }
+    
+    .input-group-text {
+        font-size: 12px;
+        padding: 0.375rem 0.5rem;
+    }
+    
+    /* Make buttons more touch-friendly */
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    /* Adjust card padding for mobile */
+    .card-body {
+        padding: 1rem;
+    }
+    
+    /* Make totals card more mobile-friendly */
+    .col-md-4 .card {
+        margin-top: 1rem;
+    }
+    
+    /* Adjust modal for mobile */
+    .modal-dialog {
+        margin: 0.5rem;
+        max-width: calc(100% - 1rem);
+    }
+    
+    .modal-body {
+        padding: 1rem;
+    }
+    
+    /* Make dropdown menus more mobile-friendly */
+    .dropdown-menu {
+        font-size: 0.875rem;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .dropdown-item {
+        padding: 0.5rem 0.75rem;
+    }
+}
+
+/* Extra small screens */
+@media screen and (max-width: 576px) {
+    /* Further reduce padding and font sizes */
+    #invoiceItemsTable th,
+    #invoiceItemsTable td {
+        padding: 6px 3px;
+        font-size: 0.8rem;
+    }
+    
+    .form-control, .form-select {
+        font-size: 16px;
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    
+    /* Stack form elements vertically on very small screens */
+    .row .col-md-3,
+    .row .col-md-6 {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Landscape mobile orientation */
+@media screen and (max-width: 768px) and (orientation: landscape) {
+    #invoiceItemsTable {
+        min-width: 1400px; /* Much wider for landscape */
+    }
+    
+    .table-responsive {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+}
 </style>
 
 <script>
