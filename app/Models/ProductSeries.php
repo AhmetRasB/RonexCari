@@ -56,16 +56,30 @@ class ProductSeries extends Model
             return null;
         }
         
-        // Linux Plesk ortamında daha güvenilir çalışması için
-        $imagePath = 'storage/' . $this->image;
-        
-        // Dosya var mı kontrol et
-        if (file_exists(public_path($imagePath))) {
-            return asset($imagePath);
+        try {
+            // Görsel yolu zaten tam yol ise (uploads/products/ ile başlıyorsa)
+            if (substr($this->image, 0, 8) === 'uploads/') {
+                return asset($this->image);
+            }
+            
+            // Storage klasöründeki görseller için
+            $imagePath = 'storage/' . $this->image;
+            
+            // Dosya var mı kontrol et
+            if (file_exists(public_path($imagePath))) {
+                return asset($imagePath);
+            }
+            
+            // Fallback olarak storage URL'i dene
+            return \Storage::url($this->image);
+        } catch (\Exception $e) {
+            // Hata durumunda null döndür
+            \Log::error('Image URL generation failed', [
+                'image' => $this->image,
+                'error' => $e->getMessage()
+            ]);
+            return null;
         }
-        
-        // Fallback olarak storage URL'i dene
-        return \Storage::url($this->image);
     }
 
     /**

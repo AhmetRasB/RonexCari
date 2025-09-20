@@ -51,6 +51,7 @@ class ProductController extends Controller
                 'barcode' => 'nullable|string',
                 'description' => 'nullable|string',
                 'image' => 'nullable|image',
+                'stock_quantity' => 'nullable|integer|min:0',
                 'initial_stock' => 'nullable|integer',
                 'critical_stock' => 'nullable|integer',
                 'is_active' => 'boolean',

@@ -231,7 +231,7 @@
                         <div class="col-md-6">
                             <label class="form-label">Başlangıç Stok Miktarı <span class="text-danger">*</span></label>
                             <div class="position-relative">
-                                <input type="number" name="initial_stock" class="form-control" placeholder="Başlangıç Stok Miktarı" value="{{ old('initial_stock', 0) }}" min="0" required>
+                                <input type="number" name="stock_quantity" class="form-control" placeholder="Stok Miktarı" value="{{ old('stock_quantity', 0) }}" min="0" required>
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:box-outline" class="text-secondary-light"></iconify-icon>
                                 </div>
