@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('products', function (Blueprint $table) {
-            $table->decimal('old_price', 10, 2)->nullable()->change();
-        });
+        // Check if old_price column exists before trying to modify it
+        if (Schema::hasColumn('products', 'old_price')) {
+            Schema::table('products', function (Blueprint $table) {
+                $table->decimal('old_price', 10, 2)->nullable()->change();
+            });
+        }
     }
 
     /**
@@ -21,8 +24,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('products', function (Blueprint $table) {
-            $table->decimal('old_price', 10, 2)->nullable(false)->change();
-        });
+        // Check if old_price column exists before trying to modify it
+        if (Schema::hasColumn('products', 'old_price')) {
+            Schema::table('products', function (Blueprint $table) {
+                $table->decimal('old_price', 10, 2)->nullable(false)->change();
+            });
+        }
     }
 };

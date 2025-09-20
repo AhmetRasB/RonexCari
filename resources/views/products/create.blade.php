@@ -32,27 +32,24 @@
                             @enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Ürün Kodu <span class="text-danger">*</span></label>
+                            <label class="form-label">Ürün Kodu</label>
                             <div class="position-relative">
-                                <input type="text" name="product_code" class="form-control" placeholder="Ürün Kodu" value="{{ old('product_code') }}" required>
+                                <input type="text" name="sku" class="form-control" placeholder="Ürün Kodu" value="{{ old('sku') }}">
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:tag-outline" class="text-secondary-light"></iconify-icon>
                                 </div>
                             </div>
-                            @error('product_code')
+                            @error('sku')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="col-md-6 mt-3">
-                            <label class="form-label">Birim <span class="text-danger">*</span></label>
+                            <label class="form-label">Birim</label>
                             <div class="position-relative">
-                                <select name="unit" class="form-control" required>
+                                <select name="unit" class="form-control">
                                     <option value="">Seçiniz</option>
                                     <option value="Adet" {{ old('unit') == 'Adet' ? 'selected' : '' }}>Adet</option>
-                                    <option value="Kg" {{ old('unit') == 'Kg' ? 'selected' : '' }}>Kg</option>
-                                    <option value="Litre" {{ old('unit') == 'Litre' ? 'selected' : '' }}>Litre</option>
                                     <option value="Metre" {{ old('unit') == 'Metre' ? 'selected' : '' }}>Metre</option>
-                                    <option value="Paket" {{ old('unit') == 'Paket' ? 'selected' : '' }}>Paket</option>
                                 </select>
                             </div>
                             @error('unit')
@@ -69,54 +66,26 @@
                         <div class="col-md-6">
                             <label class="form-label">Alış Fiyatı</label>
                             <div class="position-relative">
-                                <input type="number" name="purchase_price" class="form-control" placeholder="Alış Fiyatı" value="{{ old('purchase_price') }}" step="0.01" min="0">
+                                <input type="number" name="cost" class="form-control" placeholder="Alış Fiyatı" value="{{ old('cost') }}" step="0.01" min="0" max="999999.99">
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:dollar-outline" class="text-secondary-light"></iconify-icon>
                                 </div>
                             </div>
                             <small class="text-secondary-light">KDV Hariç</small>
-                            @error('purchase_price')
+                            @error('cost')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Satış Fiyatı</label>
                             <div class="position-relative">
-                                <input type="number" name="sale_price" class="form-control" placeholder="Satış Fiyatı" value="{{ old('sale_price') }}" step="0.01" min="0">
+                                <input type="number" name="price" class="form-control" placeholder="Satış Fiyatı" value="{{ old('price') }}" step="0.01" min="0" max="999999.99">
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:dollar-outline" class="text-secondary-light"></iconify-icon>
                                 </div>
                             </div>
                             <small class="text-secondary-light">KDV Hariç</small>
-                            @error('sale_price')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mt-3">
-                            <label class="form-label">Para Birimi <span class="text-danger">*</span></label>
-                            <div class="position-relative">
-                                <select name="currency" class="form-control" required>
-                                    <option value="TRY" {{ old('currency', 'TRY') == 'TRY' ? 'selected' : '' }}>₺ TRY</option>
-                                    <option value="USD" {{ old('currency') == 'USD' ? 'selected' : '' }}>$ USD</option>
-                                    <option value="EUR" {{ old('currency') == 'EUR' ? 'selected' : '' }}>€ EUR</option>
-                                </select>
-                            </div>
-                            @error('currency')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mt-3">
-                            <label class="form-label">KDV Oranı <span class="text-danger">*</span></label>
-                            <div class="position-relative">
-                                <select name="vat_rate" class="form-control" required>
-                                    <option value="0" {{ old('vat_rate', '20') == '0' ? 'selected' : '' }}>0%</option>
-                                    <option value="1" {{ old('vat_rate') == '1' ? 'selected' : '' }}>1%</option>
-                                    <option value="8" {{ old('vat_rate') == '8' ? 'selected' : '' }}>8%</option>
-                                    <option value="18" {{ old('vat_rate') == '18' ? 'selected' : '' }}>18%</option>
-                                    <option value="20" {{ old('vat_rate', '20') == '20' ? 'selected' : '' }}>20%</option>
-                                </select>
-                            </div>
-                            @error('vat_rate')
+                            @error('price')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>

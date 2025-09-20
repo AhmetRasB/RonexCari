@@ -84,6 +84,23 @@
                 </ul>
             </li>
 
+            <!-- SERİ ÜRÜNLER (SERIES PRODUCTS) -->
+            <li class="dropdown">
+                <a href="javascript:void(0)">
+                    <iconify-icon icon="solar:stack-outline" class="menu-icon"></iconify-icon>
+                    <span>SERİ ÜRÜNLER</span>
+                    <iconify-icon icon="solar:add-circle-outline" class="ms-auto"></iconify-icon>
+                </a>
+                <ul class="sidebar-submenu">
+                    <li>
+                        <a href="{{ route('products.series.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Seri Ürünler</a>
+                    </li>
+                    <li>
+                        <a href="{{ route('products.fixed-series-settings.index') }}"><i class="ri-circle-fill circle-icon text-info w-auto"></i> Sabit Seri Ayarları</a>
+                    </li>
+                </ul>
+            </li>
+
             <!-- RAPOR AL (REPORTS) -->
             @if(auth()->user() && auth()->user()->role && auth()->user()->canAccess('reports'))
             <li>
@@ -111,6 +128,9 @@
                     </li>
                     <li>
                         <a href="{{ route('management.employees.index') }}"><i class="ri-circle-fill circle-icon text-success-main w-auto"></i> Çalışanlar</a>
+                    </li>
+                    <li>
+                        <a href="{{ route('account.manage') }}"><i class="ri-circle-fill circle-icon text-info-main w-auto"></i> Hesap Yönetimi</a>
                     </li>
                 </ul>
             </li>

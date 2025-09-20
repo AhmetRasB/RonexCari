@@ -35,9 +35,9 @@ class EmployeeController extends Controller
             'email' => 'required|email|max:255|unique:employees',
             'phone' => 'nullable|string|max:20',
             'position' => 'nullable|string|max:255',
+            'department' => 'nullable|string|max:255',
             'salary' => 'nullable|numeric|min:0',
-            'start_date' => 'nullable|date',
-            'address' => 'nullable|string',
+            'hire_date' => 'nullable|date',
             'is_active' => 'boolean'
         ]);
 
@@ -76,9 +76,9 @@ class EmployeeController extends Controller
             'email' => 'required|email|max:255|unique:employees,email,' . $employee->id,
             'phone' => 'nullable|string|max:20',
             'position' => 'nullable|string|max:255',
+            'department' => 'nullable|string|max:255',
             'salary' => 'nullable|numeric|min:0',
-            'start_date' => 'nullable|date',
-            'address' => 'nullable|string',
+            'hire_date' => 'nullable|date',
             'is_active' => 'boolean'
         ]);
 

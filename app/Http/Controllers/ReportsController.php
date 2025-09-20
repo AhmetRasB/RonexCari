@@ -22,6 +22,19 @@ class ReportsController extends Controller
     {
         $this->currencyService = $currencyService;
     }
+    
+    /**
+     * Get current account ID
+     * Admin kullanıcılar için null döner (tüm hesapları görebilir)
+     */
+    private function getCurrentAccountId()
+    {
+        // Admin kullanıcılar tüm hesapları görebilir
+        if (auth()->user()->isAdmin()) {
+            return null;
+        }
+        return session('current_account_id');
+    }
 
     public function index()
     {
@@ -31,6 +44,9 @@ class ReportsController extends Controller
         $startOfMonth = Carbon::now()->startOfMonth();
         $startOf6Months = Carbon::now()->subMonths(6)->startOfMonth();
         $startOfYear = Carbon::now()->startOfYear();
+        
+        // Get current account ID (admin sees all, others see only their account)
+        $accountId = $this->getCurrentAccountId();
 
         // Clear cache to get fresh data every time
         $this->currencyService->clearCache();
@@ -46,49 +62,95 @@ class ReportsController extends Controller
         
         // Sales summary for different periods - convert all to TRY equivalent (ONLY APPROVED)
         $salesToday = $this->calculateTotalInTRY(
-            Invoice::where('status', 'approved')->whereDate('created_at', $today)->get(['total_amount', 'currency']),
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->whereDate('created_at', $today)->get(['total_amount', 'currency']),
             $exchangeRates
         );
         $salesThisWeek = $this->calculateTotalInTRY(
-            Invoice::where('status', 'approved')->whereBetween('created_at', [$startOfWeek, Carbon::now()])->get(['total_amount', 'currency']),
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->whereBetween('created_at', [$startOfWeek, Carbon::now()])->get(['total_amount', 'currency']),
             $exchangeRates
         );
         $salesThisMonth = $this->calculateTotalInTRY(
-            Invoice::where('status', 'approved')->whereBetween('created_at', [$startOfMonth, Carbon::now()])->get(['total_amount', 'currency']),
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOfMonth, Carbon::now()])->get(['total_amount', 'currency']),
             $exchangeRates
         );
         $salesLast6Months = $this->calculateTotalInTRY(
-            Invoice::where('status', 'approved')->whereBetween('created_at', [$startOf6Months, Carbon::now()])->get(['total_amount', 'currency']),
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOf6Months, Carbon::now()])->get(['total_amount', 'currency']),
             $exchangeRates
         );
 
         // Sales by currency for different periods (ONLY APPROVED)
         $salesTodayByCurrency = $this->getSalesByCurrency(
-            Invoice::where('status', 'approved')->whereDate('created_at', $today)->get(['total_amount', 'currency'])
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereDate('created_at', $today)->get(['total_amount', 'currency'])
         );
         $salesThisWeekByCurrency = $this->getSalesByCurrency(
-            Invoice::where('status', 'approved')->whereBetween('created_at', [$startOfWeek, Carbon::now()])->get(['total_amount', 'currency'])
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOfWeek, Carbon::now()])->get(['total_amount', 'currency'])
         );
         $salesThisMonthByCurrency = $this->getSalesByCurrency(
-            Invoice::where('status', 'approved')->whereBetween('created_at', [$startOfMonth, Carbon::now()])->get(['total_amount', 'currency'])
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOfMonth, Carbon::now()])->get(['total_amount', 'currency'])
         );
         $salesLast6MonthsByCurrency = $this->getSalesByCurrency(
-            Invoice::where('status', 'approved')->whereBetween('created_at', [$startOf6Months, Carbon::now()])->get(['total_amount', 'currency'])
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOf6Months, Carbon::now()])->get(['total_amount', 'currency'])
         );
         
         // Sales count for different periods (ONLY APPROVED)
-        $salesCountToday = Invoice::where('status', 'approved')->whereDate('created_at', $today)->count();
-        $salesCountWeek = Invoice::where('status', 'approved')->whereBetween('created_at', [$startOfWeek, Carbon::now()])->count();
-        $salesCountMonth = Invoice::where('status', 'approved')->whereBetween('created_at', [$startOfMonth, Carbon::now()])->count();
-        $salesCount6Months = Invoice::where('status', 'approved')->whereBetween('created_at', [$startOf6Months, Carbon::now()])->count();
+        $salesCountToday = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereDate('created_at', $today)->count();
+        $salesCountWeek = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOfWeek, Carbon::now()])->count();
+        $salesCountMonth = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOfMonth, Carbon::now()])->count();
+        $salesCount6Months = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOf6Months, Carbon::now()])->count();
 
         // === TOP 10 MOST SOLD PRODUCTS (ONLY FROM APPROVED INVOICES) ===
         $topSellingProducts = InvoiceItem::select('product_service_name')
             ->selectRaw('SUM(quantity) as total_quantity')
             ->selectRaw('SUM(line_total) as total_revenue')
             ->selectRaw('COUNT(*) as sale_count')
-            ->whereHas('invoice', function($query) {
-                $query->where('status', 'approved');
+            ->whereHas('invoice', function($query) use ($accountId) {
+                $query->when($accountId !== null, function($q) use ($accountId) {
+                    return $q->where('account_id', $accountId);
+                });
             })
             ->groupBy('product_service_name')
             ->orderByDesc('total_quantity')
@@ -99,51 +161,107 @@ class ReportsController extends Controller
         
         // Monthly profit/loss calculation - convert all to TRY equivalent (ONLY APPROVED)
         $monthlyRevenue = $this->calculateTotalInTRY(
-            Invoice::where('status', 'approved')->whereBetween('created_at', [$startOfMonth, Carbon::now()])->get(['total_amount', 'currency']),
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOfMonth, Carbon::now()])->get(['total_amount', 'currency']),
             $exchangeRates
         );
         
         $monthlyPurchases = $this->calculateTotalInTRY(
-            PurchaseInvoice::where('status', 'approved')->whereBetween('created_at', [$startOfMonth, Carbon::now()])->get(['total_amount', 'currency']),
+            PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOfMonth, Carbon::now()])->get(['total_amount', 'currency']),
             $exchangeRates
         );
         
-        $monthlyExpenses = Expense::whereBetween('expense_date', [$startOfMonth, Carbon::now()])
+        $monthlyExpenses = Expense::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('expense_date', [$startOfMonth, Carbon::now()])
             ->sum('amount'); // Expenses are always in TRY
+
+        // Add salary payments to monthly expenses
+        $monthlySalaryPayments = \App\Models\SalaryPayment::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('payment_date', [$startOfMonth, Carbon::now()])
+            ->sum('amount'); // Salary payments are always in TRY
+
+        $monthlyTotalExpenses = $monthlyExpenses + $monthlySalaryPayments;
         
-        $monthlyProfit = $monthlyRevenue - $monthlyPurchases - $monthlyExpenses;
+        $monthlyProfit = $monthlyRevenue - $monthlyPurchases - $monthlyTotalExpenses;
         
         // 6 months profit/loss calculation - convert all to TRY equivalent (ONLY APPROVED)
         $sixMonthRevenue = $this->calculateTotalInTRY(
-            Invoice::where('status', 'approved')->whereBetween('created_at', [$startOf6Months, Carbon::now()])->get(['total_amount', 'currency']),
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOf6Months, Carbon::now()])->get(['total_amount', 'currency']),
             $exchangeRates
         );
         
         $sixMonthPurchases = $this->calculateTotalInTRY(
-            PurchaseInvoice::where('status', 'approved')->whereBetween('created_at', [$startOf6Months, Carbon::now()])->get(['total_amount', 'currency']),
+            PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$startOf6Months, Carbon::now()])->get(['total_amount', 'currency']),
             $exchangeRates
         );
         
-        $sixMonthExpenses = Expense::whereBetween('expense_date', [$startOf6Months, Carbon::now()])
+        $sixMonthExpenses = Expense::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('expense_date', [$startOf6Months, Carbon::now()])
             ->sum('amount'); // Expenses are always in TRY
+
+        // Add salary payments to 6-month expenses
+        $sixMonthSalaryPayments = \App\Models\SalaryPayment::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('payment_date', [$startOf6Months, Carbon::now()])
+            ->sum('amount'); // Salary payments are always in TRY
+
+        $sixMonthTotalExpenses = $sixMonthExpenses + $sixMonthSalaryPayments;
         
-        $sixMonthProfit = $sixMonthRevenue - $sixMonthPurchases - $sixMonthExpenses;
+        $sixMonthProfit = $sixMonthRevenue - $sixMonthPurchases - $sixMonthTotalExpenses;
 
         // === FINANCIAL SUMMARY ===
         
         // Collections summary - convert all to TRY equivalent
         $collectionsThisMonth = $this->calculateTotalInTRY(
-            Collection::whereBetween('transaction_date', [$startOfMonth, Carbon::now()])->get(['amount as total_amount', 'currency']),
+            Collection::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('transaction_date', [$startOfMonth, Carbon::now()])->get(['amount as total_amount', 'currency']),
             $exchangeRates
         );
         $unpaidInvoicesTotal = $this->calculateTotalInTRY(
-            Invoice::where('status', 'approved')->where('payment_completed', false)->get(['total_amount', 'currency']),
+            Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->where('payment_completed', false)->get(['total_amount', 'currency']),
             $exchangeRates
         );
 
         // Collections by currency
         $collectionsThisMonthByCurrency = $this->getSalesByCurrency(
-            Collection::whereBetween('transaction_date', [$startOfMonth, Carbon::now()])->get(['amount as total_amount', 'currency'])
+            Collection::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('transaction_date', [$startOfMonth, Carbon::now()])->get(['amount as total_amount', 'currency'])
         );
         
         // Customer and supplier balances
@@ -151,9 +269,21 @@ class ReportsController extends Controller
         $customerDebtUsd = Customer::sum('balance_usd');
         $customerDebtEur = Customer::sum('balance_eur');
         
-        $supplierDebtTry = PurchaseInvoice::where('status', 'approved')->where('currency', 'TRY')->where('payment_completed', false)->sum('total_amount');
-        $supplierDebtUsd = PurchaseInvoice::where('status', 'approved')->where('currency', 'USD')->where('payment_completed', false)->sum('total_amount');
-        $supplierDebtEur = PurchaseInvoice::where('status', 'approved')->where('currency', 'EUR')->where('payment_completed', false)->sum('total_amount');
+        $supplierDebtTry = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->where('currency', 'TRY')->where('payment_completed', false)->sum('total_amount');
+        $supplierDebtUsd = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->where('currency', 'USD')->where('payment_completed', false)->sum('total_amount');
+        $supplierDebtEur = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->where('currency', 'EUR')->where('payment_completed', false)->sum('total_amount');
 
         // === CHARTS DATA ===
         
@@ -163,7 +293,11 @@ class ReportsController extends Controller
         for ($i = 11; $i >= 0; $i--) {
             $month = Carbon::now()->subMonths($i);
             $monthlyLabels[] = $month->format('M Y');
-            $monthlySalesData[] = Invoice::where('status', 'approved')->whereYear('created_at', $month->year)
+            $monthlySalesData[] = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereYear('created_at', $month->year)
                 ->whereMonth('created_at', $month->month)
                 ->sum('total_amount');
         }
@@ -175,14 +309,22 @@ class ReportsController extends Controller
             $weekStart = Carbon::now()->subWeeks($i)->startOfWeek();
             $weekEnd = Carbon::now()->subWeeks($i)->endOfWeek();
             $weeklyLabels[] = $weekStart->format('M d') . ' - ' . $weekEnd->format('M d');
-            $weeklySalesData[] = Invoice::where('status', 'approved')->whereBetween('created_at', [$weekStart, $weekEnd])->sum('total_amount');
+            $weeklySalesData[] = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('created_at', [$weekStart, $weekEnd])->sum('total_amount');
         }
 
         // Revenue by currency (this month)
         $monthlyRevenueByCurrency = $salesThisMonthByCurrency;
 
         // === TOP CUSTOMERS ===
-        $topCustomers = Invoice::select('customer_id')
+        $topCustomers = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->select('customer_id')
             ->selectRaw('SUM(total_amount) as total_amount')
             ->with('customer:id,name,company_name')
             ->groupBy('customer_id')
@@ -191,7 +333,11 @@ class ReportsController extends Controller
             ->get();
 
         // === UPCOMING DUE INVOICES ===
-        $upcomingDueInvoices = Invoice::where('payment_completed', false)
+        $upcomingDueInvoices = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->where('payment_completed', false)
             ->whereNotNull('due_date')
             ->whereBetween('due_date', [Carbon::now(), Carbon::now()->addDays(30)])
             ->with('customer:id,name,company_name')
@@ -200,12 +346,44 @@ class ReportsController extends Controller
             ->get();
 
         // === EXPENSE ANALYSIS ===
-        $monthlyExpensesByCategory = Expense::whereBetween('expense_date', [$startOfMonth, Carbon::now()])
+        // Get regular expenses
+        $regularExpenses = Expense::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('expense_date', [$startOfMonth, Carbon::now()])
             ->selectRaw('name, SUM(amount) as total_amount')
             ->groupBy('name')
-            ->orderByDesc('total_amount')
-            ->limit(10)
             ->get();
+
+        // Get salary payments as expenses
+        $salaryExpenses = \App\Models\SalaryPayment::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })->when($accountId === null, function($query) {
+                return $query;
+            })->whereBetween('payment_date', [$startOfMonth, Carbon::now()])
+            ->with('employee')
+            ->get()
+            ->groupBy(function($item) {
+                return 'Maaş - ' . $item->employee->name;
+            })
+            ->map(function($group) {
+                return (object)[
+                    'name' => $group->first()->employee->name . ' Maaşı',
+                    'total_amount' => $group->sum('amount')
+                ];
+            });
+
+        // Combine regular expenses and salary expenses
+        $monthlyExpensesByCategory = $regularExpenses->concat($salaryExpenses)
+            ->sortByDesc('total_amount')
+            ->take(10);
+
+        // === BRANCH STATISTICS (FOR ADMIN USERS) ===
+        $branchStatistics = null;
+        if (auth()->user()->isAdmin()) {
+            $branchStatistics = $this->getBranchStatistics($startOfMonth, $exchangeRates);
+        }
 
         return view('reports.index', compact(
             // Sales data
@@ -219,8 +397,8 @@ class ReportsController extends Controller
             'topSellingProducts',
             
             // Profit/Loss data
-            'monthlyRevenue', 'monthlyPurchases', 'monthlyExpenses', 'monthlyProfit',
-            'sixMonthRevenue', 'sixMonthPurchases', 'sixMonthExpenses', 'sixMonthProfit',
+            'monthlyRevenue', 'monthlyPurchases', 'monthlyExpenses', 'monthlyTotalExpenses', 'monthlyProfit',
+            'sixMonthRevenue', 'sixMonthPurchases', 'sixMonthExpenses', 'sixMonthTotalExpenses', 'sixMonthProfit',
             
             // Financial data
             'collectionsThisMonth', 'collectionsThisMonthByCurrency', 'unpaidInvoicesTotal',
@@ -234,6 +412,9 @@ class ReportsController extends Controller
             
             // Additional data
             'topCustomers', 'upcomingDueInvoices', 'monthlyExpensesByCategory',
+            
+            // Branch statistics
+            'branchStatistics',
             
             // Exchange rates
             'exchangeRates', 'testRates'
@@ -277,5 +458,105 @@ class ReportsController extends Controller
         }
         
         return $byCurrency;
+    }
+
+    /**
+     * Get branch statistics for admin users
+     */
+    private function getBranchStatistics($startOfMonth, $exchangeRates)
+    {
+        $branches = \App\Models\Account::where('is_active', true)->get();
+        $branchStats = [];
+
+        foreach ($branches as $branch) {
+            // Sales for this branch
+            $branchSales = Invoice::where('account_id', $branch->id)
+                ->whereBetween('created_at', [$startOfMonth, Carbon::now()])
+                ->get(['total_amount', 'currency']);
+            
+            $branchSalesTRY = $this->calculateTotalInTRY($branchSales, $exchangeRates);
+            $branchSalesByCurrency = $this->getSalesByCurrency($branchSales);
+            $branchSalesCount = $branchSales->count();
+
+            // Purchases for this branch
+            $branchPurchases = PurchaseInvoice::where('account_id', $branch->id)
+                ->whereBetween('created_at', [$startOfMonth, Carbon::now()])
+                ->get(['total_amount', 'currency']);
+            
+            $branchPurchasesTRY = $this->calculateTotalInTRY($branchPurchases, $exchangeRates);
+
+            // Expenses for this branch
+            $branchExpenses = Expense::where('account_id', $branch->id)
+                ->whereBetween('expense_date', [$startOfMonth, Carbon::now()])
+                ->sum('amount');
+
+            // Salary payments for this branch
+            $branchSalaryPayments = \App\Models\SalaryPayment::where('account_id', $branch->id)
+                ->whereBetween('payment_date', [$startOfMonth, Carbon::now()])
+                ->sum('amount');
+
+            // Total expenses including salary payments
+            $branchTotalExpenses = $branchExpenses + $branchSalaryPayments;
+
+            // Profit calculation
+            $branchProfit = $branchSalesTRY - $branchPurchasesTRY - $branchTotalExpenses;
+
+            // Collections for this branch
+            $branchCollections = Collection::where('account_id', $branch->id)
+                ->whereBetween('transaction_date', [$startOfMonth, Carbon::now()])
+                ->get(['amount as total_amount', 'currency']);
+            
+            $branchCollectionsTRY = $this->calculateTotalInTRY($branchCollections, $exchangeRates);
+
+            // Unpaid invoices for this branch
+            $branchUnpaidInvoices = Invoice::where('account_id', $branch->id)
+                ->where('payment_completed', false)
+                ->get(['total_amount', 'currency']);
+            
+            $branchUnpaidInvoicesTRY = $this->calculateTotalInTRY($branchUnpaidInvoices, $exchangeRates);
+
+            // Top customers for this branch
+            $branchTopCustomers = Invoice::where('account_id', $branch->id)
+                ->select('customer_id')
+                ->selectRaw('SUM(total_amount) as total_amount')
+                ->with('customer:id,name,company_name')
+                ->groupBy('customer_id')
+                ->orderByDesc('total_amount')
+                ->limit(5)
+                ->get();
+
+            // Top products for this branch
+            $branchTopProducts = InvoiceItem::select('product_service_name')
+                ->selectRaw('SUM(quantity) as total_quantity')
+                ->selectRaw('SUM(line_total) as total_revenue')
+                ->selectRaw('COUNT(*) as sale_count')
+                ->whereHas('invoice', function($query) use ($branch) {
+                    $query->where('account_id', $branch->id);
+                })
+                ->groupBy('product_service_name')
+                ->orderByDesc('total_quantity')
+                ->limit(5)
+                ->get();
+
+            $branchStats[] = [
+                'branch' => $branch,
+                'sales' => [
+                    'total_try' => $branchSalesTRY,
+                    'by_currency' => $branchSalesByCurrency,
+                    'count' => $branchSalesCount
+                ],
+                'purchases' => [
+                    'total_try' => $branchPurchasesTRY
+                ],
+                'expenses' => $branchTotalExpenses,
+                'profit' => $branchProfit,
+                'collections' => $branchCollectionsTRY,
+                'unpaid_invoices' => $branchUnpaidInvoicesTRY,
+                'top_customers' => $branchTopCustomers,
+                'top_products' => $branchTopProducts
+            ];
+        }
+
+        return $branchStats;
     }
 }

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Collection extends Model
 {
     protected $fillable = [
+        'account_id',
         'customer_id',
         'collection_type',
         'transaction_date',
@@ -22,6 +23,11 @@ class Collection extends Model
         'amount' => 'decimal:2',
         'is_active' => 'boolean'
     ];
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
 
     public function customer(): BelongsTo
     {

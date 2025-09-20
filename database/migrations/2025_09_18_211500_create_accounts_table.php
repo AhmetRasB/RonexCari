@@ -11,12 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('expenses', function (Blueprint $table) {
+        Schema::create('accounts', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->decimal('amount', 15, 2);
+            $table->string('name'); // Ronex1, Ronex2
+            $table->string('code')->unique(); // ronex1, ronex2
             $table->text('description')->nullable();
-            $table->date('expense_date');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('expenses');
+        Schema::dropIfExists('accounts');
     }
 };

@@ -1,39 +1,19 @@
 @extends('layout.layout')
 
 @section('title', 'Çalışanlar')
+@section('subTitle', 'Çalışan Listesi')
 
 @section('content')
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-    <h6 class="fw-semibold mb-0">Çalışanlar</h6>
-    <ul class="d-flex align-items-center gap-2">
-        <li class="fw-medium">
-            <a href="{{ route('dashboard') }}" class="d-flex align-items-center gap-1 hover-text-primary">
-                <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
-                Dashboard
-            </a>
-        </li>
-        <li>-</li>
-        <li class="fw-medium">
-            <a href="{{ route('management.employees.index') }}" class="d-flex align-items-center gap-1 hover-text-primary">
-                Yönetim
-            </a>
-        </li>
-        <li>-</li>
-        <li class="fw-medium">Çalışanlar</li>
-    </ul>
-</div>
-
-<div class="card">
-    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
-        <div class="d-flex align-items-center gap-2">
-            <iconify-icon icon="solar:users-group-rounded-outline" class="text-xl"></iconify-icon>
-            <h6 class="mb-0">Çalışan Listesi</h6>
-        </div>
-        <a href="{{ route('management.employees.create') }}" class="btn btn-primary text-sm btn-sm px-12 py-6 rounded-8 d-flex align-items-center gap-2">
-            <iconify-icon icon="ic:baseline-plus" class="icon text-xl line-height-1"></iconify-icon>
-            Yeni Çalışan
-        </a>
-    </div>
+<div class="row">
+    <div class="col-12">
+        <div class="card basic-data-table">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Çalışan Listesi</h5>
+                <a href="{{ route('management.employees.create') }}" class="btn btn-primary-100 text-primary-600 radius-8 px-20 py-11">
+                    <iconify-icon icon="solar:add-circle-outline" class="me-2"></iconify-icon>
+                    Yeni Çalışan
+                </a>
+            </div>
     <div class="card-body">
         @if(session('success'))
             <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -49,83 +29,186 @@
             </div>
         @endif
 
-        <div class="table-responsive">
-            <table class="table table-hover" id="dataTable">
-                <thead>
-                    <tr>
-                        <th>İsim</th>
-                        <th>Email</th>
-                        <th>Telefon</th>
-                        <th>Pozisyon</th>
-                        <th>Maaş</th>
-                        <th>Başlangıç Tarihi</th>
-                        <th>Durum</th>
-                        <th>İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($employees as $employee)
-                    <tr>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <div class="flex-grow-1">
-                                    <h6 class="text-md mb-0 fw-medium">{{ $employee->name }}</h6>
+                <div class="table-responsive">
+                    <table class="table bordered-table mb-0 responsive-table" id="dataTable" data-page-length='10' >
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                <div class="form-check style-check d-flex align-items-center">
+                                    <input class="form-check-input" type="checkbox" id="selectAll">
+                                    <label class="form-check-label">S.L</label>
+                                </div>
+                            </th>
+                            <th scope="col">İsim</th>
+                            <th scope="col">Email</th>
+                            <th scope="col">Telefon</th>
+                            <th scope="col">Pozisyon</th>
+                            <th scope="col">Departman</th>
+                            <th scope="col">Maaş</th>
+                            <th scope="col">İşe Başlama</th>
+                            <th scope="col">Durum</th>
+                            <th scope="col">İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($employees as $index => $employee)
+                            <tr>
+                                <td>
+                                    <div class="form-check style-check d-flex align-items-center">
+                                        <input class="form-check-input" type="checkbox" value="{{ $employee->id }}">
+                                        <label class="form-check-label">{{ $index + 1 }}</label>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="w-8 h-8 bg-primary-100 rounded-circle d-flex align-items-center justify-content-center me-2">
+                                            <iconify-icon icon="heroicons:user" class="text-primary-600 text-sm"></iconify-icon>
+                                        </div>
+                                        <div>
+                                            <h6 class="text-sm mb-0 fw-medium">{{ $employee->name }}</h6>
+                                            <small class="text-secondary-light">{{ $employee->email }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="text-md mb-0">{{ $employee->email }}</span>
+                                </td>
+                                <td>
+                                    <span class="text-md mb-0">{{ $employee->phone ?? '-' }}</span>
+                                </td>
+                                <td>
+                                    <span class="text-md mb-0">{{ $employee->position ?? '-' }}</span>
+                                </td>
+                                <td>
+                                    <span class="text-md mb-0">{{ $employee->department ?? '-' }}</span>
+                                </td>
+                                <td>
+                                    <span class="fw-semibold">{{ $employee->salary ? number_format($employee->salary, 2) . ' ₺' : '-' }}</span>
+                                </td>
+                                <td>{{ $employee->hire_date ? \Carbon\Carbon::parse($employee->hire_date)->format('d.m.Y') : '-' }}</td>
+                                <td>
+                                    <span class="badge {{ $employee->is_active ? 'bg-success-100 text-success-600' : 'bg-danger-100 text-danger-600' }} px-2 py-1 rounded-pill text-xs fw-medium">
+                                        {{ $employee->is_active ? 'Aktif' : 'Pasif' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button type="button" class="w-32-px h-32-px bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="İşlemler">
+                                            <iconify-icon icon="solar:menu-dots-bold"></iconify-icon>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><a class="dropdown-item" href="{{ route('management.employees.show', $employee) }}">Görüntüle</a></li>
+                                            <li><a class="dropdown-item" href="{{ route('management.employees.edit', $employee) }}">Düzenle</a></li>
+                                            <li><a class="dropdown-item" href="{{ route('management.employees.salary-payments.show', $employee) }}">Maaş Ödemeleri</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="openSalaryPaymentModal({{ $employee->id }}, '{{ $employee->name }}', {{ $employee->salary ?? 0 }}, '{{ $employee->hire_date }}')">Maaş Öde</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <form action="{{ route('management.employees.destroy', $employee) }}" method="POST" onsubmit="return confirm('Bu çalışanı silmek istediğinizden emin misiniz?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="dropdown-item text-danger">Sil</button>
+                                                </form>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="10" class="text-center py-4">Henüz çalışan bulunmuyor.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Salary Payment Modal -->
+<div class="modal fade" id="salaryPaymentModal" tabindex="-1" aria-labelledby="salaryPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="salaryPaymentModalLabel">Maaş Ödemesi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="salaryPaymentForm" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <!-- Employee Info -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Çalışan Bilgileri</h6>
+                                    <p class="mb-1"><strong>İsim:</strong> <span id="employeeName"></span></p>
+                                    <p class="mb-1"><strong>Aylık Maaş:</strong> <span id="employeeSalary"></span></p>
+                                    <p class="mb-0"><strong>İşe Başlama:</strong> <span id="employeeHireDate"></span></p>
                                 </div>
                             </div>
-                        </td>
-                        <td>
-                            <span class="text-md mb-0">{{ $employee->email }}</span>
-                        </td>
-                        <td>
-                            <span class="text-md mb-0">{{ $employee->phone ?? '-' }}</span>
-                        </td>
-                        <td>
-                            <span class="text-md mb-0">{{ $employee->position ?? '-' }}</span>
-                        </td>
-                        <td>
-                            <span class="text-md mb-0">{{ $employee->salary ? number_format($employee->salary, 2) . ' ₺' : '-' }}</span>
-                        </td>
-                        <td>
-                            <span class="text-md mb-0">{{ $employee->start_date ? \Carbon\Carbon::parse($employee->start_date)->format('d.m.Y') : '-' }}</span>
-                        </td>
-                        <td>
-                            <span class="badge bg-{{ $employee->is_active ? 'success' : 'danger' }} text-sm fw-semibold px-20 py-9 radius-4 text-white">
-                                {{ $employee->is_active ? 'Aktif' : 'Pasif' }}
-                            </span>
-                        </td>
-                        <td>
-                            <div class="d-flex align-items-center gap-2">
-                                <a href="{{ route('management.employees.show', $employee->id) }}" class="btn btn-sm btn-outline-primary" title="Görüntüle">
-                                    <iconify-icon icon="solar:eye-outline" class="icon text-lg"></iconify-icon>
-                                </a>
-                                <a href="{{ route('management.employees.edit', $employee->id) }}" class="btn btn-sm btn-outline-warning" title="Düzenle">
-                                    <iconify-icon icon="solar:pen-outline" class="icon text-lg"></iconify-icon>
-                                </a>
-                                <form action="{{ route('management.employees.destroy', $employee->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu çalışanı silmek istediğinizden emin misiniz?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Sil">
-                                        <iconify-icon icon="solar:trash-bin-outline" class="icon text-lg"></iconify-icon>
-                                    </button>
-                                </form>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-info-100">
+                                <div class="card-body">
+                                    <h6 class="card-title text-info-600">Ödeme Bilgileri</h6>
+                                    <p class="mb-1"><strong>Dönem:</strong> <span id="currentPeriod"></span></p>
+                                    <p class="mb-1"><strong>Kalan Maaş:</strong> <span id="remainingSalary" class="fw-bold text-success"></span></p>
+                                    <p class="mb-0"><strong>Maksimum Ödeme:</strong> <span id="maxPayment" class="fw-bold text-primary"></span></p>
+                                </div>
                             </div>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="8" class="text-center py-4">
-                            <div class="d-flex flex-column align-items-center gap-2">
-                                <iconify-icon icon="solar:users-group-rounded-outline" class="icon text-4xl text-muted"></iconify-icon>
-                                <span class="text-muted">Henüz çalışan eklenmemiş</span>
-                                <a href="{{ route('management.employees.create') }}" class="btn btn-primary btn-sm">
-                                    İlk Çalışanı Ekle
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
+                        </div>
+                    </div>
+
+                    <!-- Past Salary Check -->
+                    <div id="pastSalaryCheck" class="alert alert-warning" style="display: none;">
+                        <h6 class="alert-heading">Geçmiş Maaş Kontrolü</h6>
+                        <p class="mb-2">Bu çalışan <span id="hireDateText"></span> tarihinde işe başlamış. Geçmiş maaşlar ödenmiş miydi?</p>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success btn-sm" onclick="confirmPastSalary(true)">Evet, Ödendi</button>
+                            <button type="button" class="btn btn-warning btn-sm" onclick="confirmPastSalary(false)">Hayır, Ödenmedi</button>
+                        </div>
+                    </div>
+
+                    <div class="row gy-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Ödeme Tutarı (₺) <span class="text-danger-600">*</span></label>
+                            <input type="number" step="0.01" id="paymentAmount" class="form-control radius-8" name="amount" placeholder="Ödeme tutarını girin" required>
+                            <small class="text-muted" id="maxAmountText">Maksimum: 0.00 ₺</small>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Ödeme Tarihi <span class="text-danger-600">*</span></label>
+                            <input type="date" class="form-control radius-8" name="payment_date" value="{{ now()->format('Y-m-d') }}" required>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Ödeme Yöntemi <span class="text-danger-600">*</span></label>
+                            <select class="form-control radius-8" name="payment_method" required>
+                                <option value="">Ödeme yöntemi seçin</option>
+                                <option value="cash">Nakit</option>
+                                <option value="bank_transfer">Banka Havalesi</option>
+                                <option value="check">Çek</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Dönem</label>
+                            <input type="month" class="form-control radius-8" name="month_year" id="paymentMonth" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Notlar</label>
+                            <textarea class="form-control radius-8" name="notes" rows="3" placeholder="Ödeme ile ilgili notlar..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">Maaş Ödemesi Kaydet</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -133,16 +216,129 @@
 
 @push('scripts')
 <script>
-$(document).ready(function() {
-    $('#dataTable').DataTable({
-        responsive: true,
-        language: {
-            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json'
-        },
-        order: [[0, 'desc']],
-        pageLength: 25,
-        lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
+    let table = new DataTable('#dataTable');
+    let currentEmployeeId = null;
+    let currentEmployeeSalary = 0;
+    let currentHireDate = null;
+
+    // Select all functionality
+    document.getElementById('selectAll').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
     });
-});
+
+    // Open salary payment modal
+    function openSalaryPaymentModal(employeeId, employeeName, employeeSalary, hireDate) {
+        currentEmployeeId = employeeId;
+        currentEmployeeSalary = employeeSalary;
+        currentHireDate = hireDate;
+        
+        // Set employee info
+        document.getElementById('employeeName').textContent = employeeName;
+        document.getElementById('employeeSalary').textContent = employeeSalary ? employeeSalary.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺' : '-';
+        document.getElementById('employeeHireDate').textContent = hireDate ? new Date(hireDate).toLocaleDateString('tr-TR') : '-';
+        
+        // Set current period
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        document.getElementById('currentPeriod').textContent = new Date(currentMonth + '-01').toLocaleDateString('tr-TR', {month: 'long', year: 'numeric'});
+        document.getElementById('paymentMonth').value = currentMonth;
+        
+        // Set form action
+        document.getElementById('salaryPaymentForm').action = `/management/employees/${employeeId}/salary-payments`;
+        
+        // Check if employee was hired before current month
+        if (hireDate) {
+            const hireDateObj = new Date(hireDate);
+            const currentDate = new Date();
+            const hireMonth = hireDateObj.toISOString().slice(0, 7);
+            const currentMonth = currentDate.toISOString().slice(0, 7);
+            
+            if (hireMonth < currentMonth) {
+                // Show past salary check
+                document.getElementById('hireDateText').textContent = new Date(hireDate).toLocaleDateString('tr-TR');
+                document.getElementById('pastSalaryCheck').style.display = 'block';
+                
+                // Calculate remaining salary for current month
+                fetchRemainingSalary(employeeId, currentMonth);
+            } else {
+                // Hide past salary check
+                document.getElementById('pastSalaryCheck').style.display = 'none';
+                
+                // Calculate remaining salary for current month
+                fetchRemainingSalary(employeeId, currentMonth);
+            }
+        } else {
+            // No hire date, hide past salary check
+            document.getElementById('pastSalaryCheck').style.display = 'none';
+            fetchRemainingSalary(employeeId, currentMonth);
+        }
+        
+        // Show modal
+        new bootstrap.Modal(document.getElementById('salaryPaymentModal')).show();
+    }
+
+    // Fetch remaining salary
+    function fetchRemainingSalary(employeeId, monthYear) {
+        fetch(`/management/employees/${employeeId}/remaining-salary?month=${monthYear}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('remainingSalary').textContent = data.remaining.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
+                document.getElementById('maxPayment').textContent = data.remaining.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
+                document.getElementById('maxAmountText').textContent = `Maksimum: ${data.remaining.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ₺`;
+                document.getElementById('paymentAmount').max = data.remaining;
+            })
+            .catch(error => {
+                console.error('Error fetching remaining salary:', error);
+                // Fallback to full salary
+                document.getElementById('remainingSalary').textContent = currentEmployeeSalary.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
+                document.getElementById('maxPayment').textContent = currentEmployeeSalary.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
+                document.getElementById('maxAmountText').textContent = `Maksimum: ${currentEmployeeSalary.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ₺`;
+                document.getElementById('paymentAmount').max = currentEmployeeSalary;
+            });
+    }
+
+    // Confirm past salary
+    function confirmPastSalary(wasPaid) {
+        if (wasPaid) {
+            // Past salaries were paid, calculate remaining for current month
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            fetchRemainingSalary(currentEmployeeId, currentMonth);
+        } else {
+            // Past salaries were not paid, calculate from hire date
+            fetchTotalRemainingSalary(currentEmployeeId);
+        }
+        
+        // Hide the past salary check
+        document.getElementById('pastSalaryCheck').style.display = 'none';
+    }
+
+    // Fetch total remaining salary from hire date
+    function fetchTotalRemainingSalary(employeeId) {
+        fetch(`/management/employees/${employeeId}/total-remaining-salary`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('remainingSalary').textContent = data.remaining.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
+                document.getElementById('maxPayment').textContent = data.remaining.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
+                document.getElementById('maxAmountText').textContent = `Maksimum: ${data.remaining.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ₺`;
+                document.getElementById('paymentAmount').max = data.remaining;
+            })
+            .catch(error => {
+                console.error('Error fetching total remaining salary:', error);
+                // Fallback calculation
+                const hireDate = new Date(currentHireDate);
+                const hireMonth = hireDate.toISOString().slice(0, 7);
+                const currentMonth = new Date().toISOString().slice(0, 7);
+                
+                const monthsDiff = (new Date(currentMonth + '-01') - new Date(hireMonth + '-01')) / (1000 * 60 * 60 * 24 * 30.44);
+                const totalSalary = Math.ceil(monthsDiff) * currentEmployeeSalary;
+                
+                document.getElementById('remainingSalary').textContent = totalSalary.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
+                document.getElementById('maxPayment').textContent = totalSalary.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
+                document.getElementById('maxAmountText').textContent = `Maksimum: ${totalSalary.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ₺`;
+                document.getElementById('paymentAmount').max = totalSalary;
+            });
+    }
 </script>
 @endpush

@@ -7,16 +7,27 @@ use Illuminate\Database\Eloquent\Model;
 class Expense extends Model
 {
     protected $fillable = [
+        'account_id',
+        'user_id',
         'name',
         'amount',
         'description',
         'expense_date',
-        'is_active'
+        'category'
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
-        'expense_date' => 'date',
-        'is_active' => 'boolean'
+        'expense_date' => 'date'
     ];
+
+    public function account()
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

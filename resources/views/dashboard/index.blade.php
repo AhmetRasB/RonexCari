@@ -9,20 +9,30 @@
 @section('content')
 
 <!-- Kritik Uyarılar -->
-            @if(isset($lowStockProducts) || isset($dueSales) || isset($duePurchases))
+            @if(isset($lowStockProducts) || isset($lowStockSeries) || isset($dueSales) || isset($duePurchases))
 <div class="row mb-4">
     <div class="col-12">
-                @if(!empty($lowStockProducts) && $lowStockProducts->count())
+                @if((!empty($lowStockProducts) && $lowStockProducts->count()) || (!empty($lowStockSeries) && $lowStockSeries->count()))
         <div class="alert alert-danger d-flex flex-column flex-md-row align-items-start align-items-md-center mb-3" role="alert">
             <iconify-icon icon="solar:danger-triangle-outline" class="text-xl me-2 mb-2 mb-md-0 flex-shrink-0"></iconify-icon>
                     <div class="flex-grow-1">
-                <strong>🚨 Kritik Stok Uyarısı ({{ $lowStockProducts->count() }} ürün):</strong>
+                <strong>🚨 Kritik Stok Uyarısı ({{ ($lowStockProducts->count() ?? 0) + ($lowStockSeries->count() ?? 0) }} ürün):</strong>
                 <div class="mt-2 d-flex flex-wrap gap-1">
-                        @foreach($lowStockProducts as $p)
-                        <a href="{{ route('products.edit', $p->id) }}?focus=stock" class="badge bg-danger text-decoration-none text-white critical-stock-badge" title="Stok güncellemek için tıklayın - {{ $p->name }}">
-                            {{ Str::limit($p->name, 20) }} ({{ $p->initial_stock }}/{{ $p->critical_stock }}) ✏️
-                        </a>
-                        @endforeach
+                        @if(!empty($lowStockProducts))
+                            @foreach($lowStockProducts as $p)
+                            <a href="{{ route('products.edit', $p->id) }}?focus=stock" class="badge bg-danger text-decoration-none text-white critical-stock-badge" title="Stok güncellemek için tıklayın - {{ $p->name }}">
+                                {{ Str::limit($p->name, 20) }} ({{ $p->stock_quantity }}/{{ $p->critical_stock }}) ✏️
+                            </a>
+                            @endforeach
+                        @endif
+                        
+                        @if(!empty($lowStockSeries))
+                            @foreach($lowStockSeries as $s)
+                            <a href="{{ route('products.series.edit', $s->id) }}?focus=stock" class="badge bg-danger text-decoration-none text-white critical-stock-badge" title="Seri stok güncellemek için tıklayın - {{ $s->name }}">
+                                {{ Str::limit($s->name, 20) }} ({{ $s->stock_quantity }}/{{ $s->critical_stock }}) 📦
+                            </a>
+                            @endforeach
+                        @endif
                 </div>
             </div>
                     </div>
@@ -408,7 +418,6 @@
                                 <th scope="col">Müşteri</th>
                                 <th scope="col">Tarih</th>
                                 <th scope="col">Tutar</th>
-                                <th scope="col" class="text-center">Durum</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -424,21 +433,10 @@
                                                     </td>
                                 <td>{{ $invoice->created_at->format('d.m.Y') }}</td>
                                 <td>₺{{ number_format($invoice->total_amount, 2) }}</td>
-                                                    <td class="text-center">
-                                    @if($invoice->status == 'approved')
-                                        @if($invoice->payment_completed)
-                                            <span class="bg-success-focus text-success-main px-24 py-4 rounded-pill fw-medium text-sm">Ödendi</span>
-                                        @else
-                                            <span class="bg-warning-focus text-warning-main px-24 py-4 rounded-pill fw-medium text-sm">Bekliyor</span>
-                                        @endif
-                                    @else
-                                        <span class="bg-secondary-focus text-secondary-main px-24 py-4 rounded-pill fw-medium text-sm">Taslak</span>
-                                    @endif
-                                                    </td>
                                                 </tr>
                             @empty
                             <tr>
-                                <td colspan="5" class="text-center text-secondary-light">
+                                <td colspan="4" class="text-center text-secondary-light">
                                     <iconify-icon icon="solar:file-text-outline" class="text-3xl mb-2"></iconify-icon>
                                     <p>Henüz fatura oluşturulmamış</p>
                                                     </td>

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\AccountController;
 
 // Sales Controllers
 use App\Http\Controllers\Sales\CustomerController;
@@ -33,9 +34,32 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
-Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
+// API Route for series default sizes
+Route::get('api/products/series-default-sizes', [\App\Http\Controllers\Products\ProductSeriesController::class, 'getDefaultSizes'])->name('products.series.default-sizes');
 
-Route::middleware('auth')->group(function () {
+
+// Account selection routes
+Route::get('/account/select', [AccountController::class, 'select'])->middleware(['auth', 'verified'])->name('account.select');
+Route::post('/account/select', [AccountController::class, 'store'])->middleware(['auth', 'verified'])->name('account.store');
+Route::post('/account/switch', [AccountController::class, 'switch'])->middleware(['auth', 'verified'])->name('account.switch');
+Route::get('/account/manage', [AccountController::class, 'manage'])->middleware(['auth', 'verified'])->name('account.manage');
+Route::put('/account/{account}', [AccountController::class, 'update'])->middleware(['auth', 'verified'])->name('account.update');
+
+// Product Series Routes (with auth middleware only)
+Route::middleware(['auth'])->group(function () {
+    Route::prefix('products')->name('products.')->group(function () {
+        Route::resource('series', \App\Http\Controllers\Products\ProductSeriesController::class);
+        
+        // Fixed Series Settings Routes
+        Route::get('fixed-series-settings', [\App\Http\Controllers\Products\FixedSeriesSettingController::class, 'index'])->name('fixed-series-settings.index');
+        Route::get('fixed-series-settings/{fixedSeriesSetting}/edit', [\App\Http\Controllers\Products\FixedSeriesSettingController::class, 'edit'])->name('fixed-series-settings.edit');
+        Route::put('fixed-series-settings/{fixedSeriesSetting}', [\App\Http\Controllers\Products\FixedSeriesSettingController::class, 'update'])->name('fixed-series-settings.update');
+        Route::post('fixed-series-settings/create-defaults', [\App\Http\Controllers\Products\FixedSeriesSettingController::class, 'createDefaults'])->name('fixed-series-settings.create-defaults');
+    });
+});
+
+Route::middleware(['auth', 'account.selection'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -56,9 +80,7 @@ Route::middleware('auth')->group(function () {
         Route::get('invoices/{invoice}/preview', [InvoiceController::class, 'preview'])->name('invoices.preview');
         Route::get('invoices/currency/rates', [InvoiceController::class, 'getCurrencyRates'])->name('invoices.currency.rates');
         Route::get('invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
-        // Invoice actions
-        Route::post('invoices/{invoice}/approve', [InvoiceController::class, 'approve'])->name('invoices.approve');
-        Route::post('invoices/{invoice}/revert-draft', [InvoiceController::class, 'revertDraft'])->name('invoices.revertDraft');
+        // Invoice actions removed - invoices are now directly approved
     });
 
     // Purchases Routes
@@ -77,13 +99,12 @@ Route::middleware('auth')->group(function () {
         Route::get('invoices/{invoice}/preview', [\App\Http\Controllers\Purchases\InvoiceController::class, 'preview'])->name('invoices.preview');
         Route::get('invoices/currency/rates', [\App\Http\Controllers\Purchases\InvoiceController::class, 'getCurrencyRates'])->name('invoices.currency.rates');
         Route::get('invoices/{invoice}/print', [\App\Http\Controllers\Purchases\InvoiceController::class, 'print'])->name('invoices.print');
-        // Purchase invoice actions
-        Route::post('invoices/{invoice}/approve', [\App\Http\Controllers\Purchases\InvoiceController::class, 'approve'])->name('invoices.approve');
-        Route::post('invoices/{invoice}/revert-draft', [\App\Http\Controllers\Purchases\InvoiceController::class, 'revertDraft'])->name('invoices.revertDraft');
+        // Purchase invoice actions removed - invoices are now directly approved
     });
 
     // Products Routes
     Route::resource('products', ProductController::class);
+    
     
     // Services Routes (separate)
     Route::resource('services', ServiceController::class);
@@ -152,6 +173,13 @@ Route::middleware('auth')->group(function () {
         Route::resource('users', UserController::class);
         Route::resource('roles', RoleController::class)->only(['index']);
         Route::resource('employees', ManagementEmployeeController::class);
+        
+        // Salary payment routes
+        Route::get('employees/{employee}/salary-payments/create', [\App\Http\Controllers\Management\SalaryPaymentController::class, 'create'])->name('employees.salary-payments.create');
+        Route::post('employees/{employee}/salary-payments', [\App\Http\Controllers\Management\SalaryPaymentController::class, 'store'])->name('employees.salary-payments.store');
+        Route::get('employees/{employee}/salary-payments', [\App\Http\Controllers\Management\SalaryPaymentController::class, 'show'])->name('employees.salary-payments.show');
+        Route::get('employees/{employee}/remaining-salary', [\App\Http\Controllers\Management\SalaryPaymentController::class, 'getRemainingSalary'])->name('employees.remaining-salary');
+        Route::get('employees/{employee}/total-remaining-salary', [\App\Http\Controllers\Management\SalaryPaymentController::class, 'getTotalRemainingSalary'])->name('employees.total-remaining-salary');
     });
 });
 

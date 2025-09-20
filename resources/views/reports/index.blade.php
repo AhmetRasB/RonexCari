@@ -5,6 +5,174 @@
 
 @section('content')
 <div class="row g-4">
+
+    <!-- Branch Statistics (Admin Only) -->
+    @if($branchStatistics && count($branchStatistics) > 0)
+        @foreach($branchStatistics as $branchData)
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="ri-building-line me-2"></i>{{ $branchData['branch']->company_name ?? $branchData['branch']->name }}
+                        </h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary">{{ $branchData['branch']->name }}</span>
+                            <small class="text-muted">Bu Ay İstatistikleri</small>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <!-- Sales Summary -->
+                            <div class="col-md-3">
+                                <div class="p-3 bg-success-50 rounded-3 border-start border-success border-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <div class="text-secondary-light text-sm mb-1">Satışlar</div>
+                                            <div class="h5 mb-1 fw-semibold text-success">₺{{ number_format($branchData['sales']['total_try'], 2) }}</div>
+                                            <div class="text-xs text-muted">{{ $branchData['sales']['count'] }} fatura</div>
+                                            <div class="text-xs text-muted mt-1">
+                                                @if($branchData['sales']['by_currency']['USD'] > 0) ${{ number_format($branchData['sales']['by_currency']['USD'], 2) }} @endif
+                                                @if($branchData['sales']['by_currency']['EUR'] > 0) €{{ number_format($branchData['sales']['by_currency']['EUR'], 2) }} @endif
+                                            </div>
+                                        </div>
+                                        <div class="text-success">
+                                            <i class="ri-line-chart-line fs-20"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Purchases -->
+                            <div class="col-md-3">
+                                <div class="p-3 bg-info-50 rounded-3 border-start border-info border-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <div class="text-secondary-light text-sm mb-1">Alışlar</div>
+                                            <div class="h5 mb-1 fw-semibold text-info">₺{{ number_format($branchData['purchases']['total_try'], 2) }}</div>
+                                            <div class="text-xs text-muted">Maliyet</div>
+                                        </div>
+                                        <div class="text-info">
+                                            <i class="ri-shopping-cart-line fs-20"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Expenses -->
+                            <div class="col-md-3">
+                                <div class="p-3 bg-danger-50 rounded-3 border-start border-danger border-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <div class="text-secondary-light text-sm mb-1">Giderler</div>
+                                            <div class="h5 mb-1 fw-semibold text-danger">₺{{ number_format($branchData['expenses'], 2) }}</div>
+                                            <div class="text-xs text-muted">Operasyonel</div>
+                                        </div>
+                                        <div class="text-danger">
+                                            <i class="ri-file-list-3-line fs-20"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Profit/Loss -->
+                            <div class="col-md-3">
+                                <div class="p-3 {{ $branchData['profit'] >= 0 ? 'bg-success-50 border-success' : 'bg-danger-50 border-danger' }} rounded-3 border-start border-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <div class="text-secondary-light text-sm mb-1">{{ $branchData['profit'] >= 0 ? 'Kar' : 'Zarar' }}</div>
+                                            <div class="h5 mb-1 fw-semibold {{ $branchData['profit'] >= 0 ? 'text-success' : 'text-danger' }}">₺{{ number_format(abs($branchData['profit']), 2) }}</div>
+                                            <div class="text-xs text-muted">Net Sonuç</div>
+                                        </div>
+                                        <div class="{{ $branchData['profit'] >= 0 ? 'text-success' : 'text-danger' }}">
+                                            <i class="ri-{{ $branchData['profit'] >= 0 ? 'arrow-up' : 'arrow-down' }}-line fs-20"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Branch Info -->
+                        <div class="row g-3 mt-3">
+                            <div class="col-md-4">
+                                <div class="p-3 bg-primary-50 rounded-3 text-center">
+                                    <div class="text-secondary-light text-sm">Tahsilatlar</div>
+                                    <div class="h6 mb-0 fw-semibold text-primary">₺{{ number_format($branchData['collections'], 2) }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 bg-warning-50 rounded-3 text-center">
+                                    <div class="text-secondary-light text-sm">Ödenmemiş Faturalar</div>
+                                    <div class="h6 mb-0 fw-semibold text-warning">₺{{ number_format($branchData['unpaid_invoices'], 2) }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 bg-secondary-50 rounded-3 text-center">
+                                    <div class="text-secondary-light text-sm">Toplam Müşteri</div>
+                                    <div class="h6 mb-0 fw-semibold text-secondary">{{ $branchData['top_customers']->count() }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Top Customers & Products for this Branch -->
+                        <div class="row g-4 mt-3">
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-header bg-transparent border-0 pb-0">
+                                        <h6 class="card-title mb-0">En İyi Müşteriler</h6>
+                                    </div>
+                                    <div class="card-body pt-2">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm mb-0">
+                                                <tbody>
+                                                    @forelse($branchData['top_customers'] as $customer)
+                                                        <tr>
+                                                            <td class="fw-medium">{{ $customer->customer->name ?? $customer->customer->company_name ?? 'Bilinmeyen' }}</td>
+                                                            <td class="text-end fw-semibold">{{ number_format($customer->total_amount, 2) }} ₺</td>
+                                                        </tr>
+                                                    @empty
+                                                        <tr>
+                                                            <td colspan="2" class="text-center text-muted py-2">Müşteri verisi yok</td>
+                                                        </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-header bg-transparent border-0 pb-0">
+                                        <h6 class="card-title mb-0">En Çok Satan Ürünler</h6>
+                                    </div>
+                                    <div class="card-body pt-2">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm mb-0">
+                                                <tbody>
+                                                    @forelse($branchData['top_products'] as $product)
+                                                        <tr>
+                                                            <td class="fw-medium">{{ Str::limit($product->product_service_name, 25) }}</td>
+                                                            <td class="text-end">
+                                                                <span class="badge bg-info-subtle text-info">{{ number_format($product->total_quantity, 0) }}</span>
+                                                            </td>
+                                                        </tr>
+                                                    @empty
+                                                        <tr>
+                                                            <td colspan="2" class="text-center text-muted py-2">Ürün verisi yok</td>
+                                                        </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    @endif
     
     <!-- Sales Overview Cards -->
     <div class="col-12">
@@ -116,7 +284,7 @@
                                     </div>
                                     <div class="col-4">
                                         <div class="text-center">
-                                            <div class="text-danger fw-semibold">{{ number_format($monthlyPurchases + $monthlyExpenses, 0) }}</div>
+                                            <div class="text-danger fw-semibold">{{ number_format($monthlyPurchases + $monthlyTotalExpenses, 0) }}</div>
                                             <div class="text-xs text-muted">Gider</div>
                                         </div>
                                     </div>
@@ -129,8 +297,8 @@
                                 </div>
                                 <div class="progress" style="height: 8px;">
                                     @if($monthlyRevenue > 0)
-                                        <div class="progress-bar bg-success" style="width: {{ min(($monthlyRevenue / ($monthlyRevenue + $monthlyPurchases + $monthlyExpenses)) * 100, 100) }}%"></div>
-                                        <div class="progress-bar bg-danger" style="width: {{ min((($monthlyPurchases + $monthlyExpenses) / ($monthlyRevenue + $monthlyPurchases + $monthlyExpenses)) * 100, 100) }}%"></div>
+                                        <div class="progress-bar bg-success" style="width: {{ min(($monthlyRevenue / ($monthlyRevenue + $monthlyPurchases + $monthlyTotalExpenses)) * 100, 100) }}%"></div>
+                                        <div class="progress-bar bg-danger" style="width: {{ min((($monthlyPurchases + $monthlyTotalExpenses) / ($monthlyRevenue + $monthlyPurchases + $monthlyTotalExpenses)) * 100, 100) }}%"></div>
                                     @endif
                                 </div>
                             </div>
@@ -151,7 +319,7 @@
                                     </div>
                                     <div class="col-4">
                                         <div class="text-center">
-                                            <div class="text-danger fw-semibold">{{ number_format($sixMonthPurchases + $sixMonthExpenses, 0) }}</div>
+                                            <div class="text-danger fw-semibold">{{ number_format($sixMonthPurchases + $sixMonthTotalExpenses, 0) }}</div>
                                             <div class="text-xs text-muted">Gider</div>
                                         </div>
                                     </div>
@@ -164,8 +332,8 @@
                                 </div>
                                 <div class="progress" style="height: 8px;">
                                     @if($sixMonthRevenue > 0)
-                                        <div class="progress-bar bg-success" style="width: {{ min(($sixMonthRevenue / ($sixMonthRevenue + $sixMonthPurchases + $sixMonthExpenses)) * 100, 100) }}%"></div>
-                                        <div class="progress-bar bg-danger" style="width: {{ min((($sixMonthPurchases + $sixMonthExpenses) / ($sixMonthRevenue + $sixMonthPurchases + $sixMonthExpenses)) * 100, 100) }}%"></div>
+                                        <div class="progress-bar bg-success" style="width: {{ min(($sixMonthRevenue / ($sixMonthRevenue + $sixMonthPurchases + $sixMonthTotalExpenses)) * 100, 100) }}%"></div>
+                                        <div class="progress-bar bg-danger" style="width: {{ min((($sixMonthPurchases + $sixMonthTotalExpenses) / ($sixMonthRevenue + $sixMonthPurchases + $sixMonthTotalExpenses)) * 100, 100) }}%"></div>
                                     @endif
                                 </div>
                             </div>

@@ -11,33 +11,25 @@ class Product extends Model
 
     protected $fillable = [
         'name',
-        'product_code',
+        'sku',
         'unit',
-        'purchase_price',
-        'sale_price',
-        'currency',
-        'vat_rate',
+        'cost',
+        'price',
         'category',
         'brand',
         'size',
         'color',
         'barcode',
-        'supplier_code',
-        'gtip_code',
-        'class_code',
         'description',
         'image',
         'initial_stock',
         'critical_stock',
-        'is_saleable',
         'is_active'
     ];
 
     protected $casts = [
-        'purchase_price' => 'decimal:2',
-        'sale_price' => 'decimal:2',
-        'vat_rate' => 'decimal:2',
-        'is_saleable' => 'boolean',
+        'cost' => 'decimal:2',
+        'price' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 

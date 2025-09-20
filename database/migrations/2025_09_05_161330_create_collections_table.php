@@ -13,6 +13,13 @@ return new class extends Migration
     {
         Schema::create('collections', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('customer_id')->nullable()->constrained('customers')->onDelete('set null');
+            $table->string('collection_type'); // nakit, banka, kredi_karti, havale, eft
+            $table->date('transaction_date');
+            $table->decimal('amount', 15, 2);
+            $table->enum('currency', ['TRY', 'USD', 'EUR'])->default('TRY');
+            $table->text('description')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

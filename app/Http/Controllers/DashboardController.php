@@ -10,24 +10,49 @@ use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
+    /**
+     * Get current account ID from session
+     * Admin kullanıcılar için null döner (tüm hesapları görebilir)
+     */
+    private function getCurrentAccountId()
+    {
+        // Admin kullanıcılar tüm hesapları görebilir
+        if (auth()->user()->isAdmin()) {
+            return null;
+        }
+        return session('current_account_id');
+    }
+
     public function index()
     {
         // KPI'lar
         $stats = $this->getDashboardStats();
         
-        // Kritik stok uyarıları
+        // Kritik stok uyarıları - Normal ürünler
         $lowStockProducts = Product::whereNotNull('critical_stock')
             ->where('critical_stock', '>', 0)
-            ->whereColumn('initial_stock', '<=', 'critical_stock')
-            ->orderBy('initial_stock')
+            ->whereColumn('stock_quantity', '<=', 'critical_stock')
+            ->orderBy('stock_quantity')
             ->limit(10)
-            ->get(['id','name','initial_stock','critical_stock']);
+            ->get(['id','name','stock_quantity','critical_stock']);
+            
+        // Kritik stok uyarıları - Seri ürünler
+        $lowStockSeries = \App\Models\ProductSeries::whereNotNull('critical_stock')
+            ->where('critical_stock', '>', 0)
+            ->whereColumn('stock_quantity', '<=', 'critical_stock')
+            ->orderBy('stock_quantity')
+            ->limit(10)
+            ->get(['id','name','stock_quantity','critical_stock','series_size']);
 
         // Yaklaşan vadeli tahsilatlar (7 gün içinde)
         $now = Carbon::today();
         $in7 = Carbon::today()->addDays(7);
         
-        $dueSales = Invoice::where('status', 'approved')
+        $accountId = $this->getCurrentAccountId();
+        
+        $dueSales = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
             ->whereNotNull('due_date')
             ->whereBetween('due_date', [$now, $in7])
             ->where('payment_completed', false)
@@ -36,7 +61,9 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        $duePurchases = PurchaseInvoice::where('status', 'approved')
+        $duePurchases = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
             ->whereNotNull('due_date')
             ->whereBetween('due_date', [$now, $in7])
             ->where('payment_completed', false)
@@ -46,7 +73,10 @@ class DashboardController extends Controller
             ->get();
 
         // Son faturalar
-        $recentInvoices = Invoice::with('customer')
+        $recentInvoices = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->with('customer')
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
@@ -54,8 +84,10 @@ class DashboardController extends Controller
         // En çok satan ürünler - invoice_items'da product_service_name ile eşleştirme
         $topProductsQuery = \DB::table('invoice_items')
             ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('invoices.account_id', $accountId);
+            })
             ->whereMonth('invoices.created_at', Carbon::now()->month)
-            ->where('invoices.status', 'approved')
             ->select('invoice_items.product_service_name')
             ->selectRaw('SUM(invoice_items.quantity) as total_sold')
             ->groupBy('invoice_items.product_service_name')
@@ -79,7 +111,7 @@ class DashboardController extends Controller
         });
 
         return view('dashboard.index', compact(
-            'stats', 'lowStockProducts', 'dueSales', 'duePurchases', 
+            'stats', 'lowStockProducts', 'lowStockSeries', 'dueSales', 'duePurchases', 
             'recentInvoices', 'topProducts'
         ));
     }
@@ -88,52 +120,72 @@ class DashboardController extends Controller
     {
         $currentMonth = Carbon::now()->month;
         $previousMonth = Carbon::now()->subMonth()->month;
+        $accountId = $this->getCurrentAccountId();
+        
         
         // Bu ay satışlar - Para birimlerine göre ayrı
-        $thisMonthSalesTRY = Invoice::whereMonth('created_at', $currentMonth)
-            ->where('status', 'approved')
+        $thisMonthSalesTRY = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->whereMonth('created_at', $currentMonth)
             ->where('currency', 'TRY')
             ->sum('total_amount');
             
-        $thisMonthSalesUSD = Invoice::whereMonth('created_at', $currentMonth)
-            ->where('status', 'approved')
+        $thisMonthSalesUSD = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->whereMonth('created_at', $currentMonth)
             ->where('currency', 'USD')
             ->sum('total_amount');
             
-        $thisMonthSalesEUR = Invoice::whereMonth('created_at', $currentMonth)
-            ->where('status', 'approved')
+        $thisMonthSalesEUR = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->whereMonth('created_at', $currentMonth)
             ->where('currency', 'EUR')
             ->sum('total_amount');
             
         // Geçen ay satışlar - Para birimlerine göre ayrı
-        $lastMonthSalesTRY = Invoice::whereMonth('created_at', $previousMonth)
-            ->where('status', 'approved')
+        $lastMonthSalesTRY = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->whereMonth('created_at', $previousMonth)
             ->where('currency', 'TRY')
             ->sum('total_amount');
             
-        $lastMonthSalesUSD = Invoice::whereMonth('created_at', $previousMonth)
-            ->where('status', 'approved')
+        $lastMonthSalesUSD = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->whereMonth('created_at', $previousMonth)
             ->where('currency', 'USD')
             ->sum('total_amount');
             
-        $lastMonthSalesEUR = Invoice::whereMonth('created_at', $previousMonth)
-            ->where('status', 'approved')
+        $lastMonthSalesEUR = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->whereMonth('created_at', $previousMonth)
             ->where('currency', 'EUR')
             ->sum('total_amount');
             
         // Bu ay alışlar - Para birimlerine göre ayrı
-        $thisMonthPurchasesTRY = PurchaseInvoice::whereMonth('created_at', $currentMonth)
-            ->where('status', 'approved')
+        $thisMonthPurchasesTRY = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->whereMonth('created_at', $currentMonth)
             ->where('currency', 'TRY')
             ->sum('total_amount');
             
-        $thisMonthPurchasesUSD = PurchaseInvoice::whereMonth('created_at', $currentMonth)
-            ->where('status', 'approved')
+        $thisMonthPurchasesUSD = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->whereMonth('created_at', $currentMonth)
             ->where('currency', 'USD')
             ->sum('total_amount');
             
-        $thisMonthPurchasesEUR = PurchaseInvoice::whereMonth('created_at', $currentMonth)
-            ->where('status', 'approved')
+        $thisMonthPurchasesEUR = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->whereMonth('created_at', $currentMonth)
             ->where('currency', 'EUR')
             ->sum('total_amount');
             
@@ -153,12 +205,16 @@ class DashboardController extends Controller
             ->count();
             
         // Ödenmemiş faturalar
-        $unpaidInvoices = Invoice::where('status', 'approved')
+        $unpaidInvoices = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
             ->where('payment_completed', false)
             ->sum('total_amount');
             
         // Vadesi geçmiş faturalar
-        $overdueInvoices = Invoice::where('status', 'approved')
+        $overdueInvoices = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
             ->where('payment_completed', false)
             ->where('due_date', '<', Carbon::today())
             ->count();

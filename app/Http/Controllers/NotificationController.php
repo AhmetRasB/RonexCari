@@ -37,8 +37,7 @@ class NotificationController extends Controller
         $now = Carbon::today();
         $in7 = Carbon::today()->addDays(7);
         
-        $duePurchases = PurchaseInvoice::where('status', 'approved')
-            ->whereNotNull('due_date')
+        $duePurchases = PurchaseInvoice::whereNotNull('due_date')
             ->whereBetween('due_date', [$now, $in7])
             ->where('payment_completed', false)
             ->with('supplier')

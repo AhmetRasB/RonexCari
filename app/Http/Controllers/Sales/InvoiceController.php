@@ -25,7 +25,19 @@ class InvoiceController extends Controller
      */
     public function index()
     {
-        $invoices = Invoice::with('customer')->latest()->paginate(10);
+        $currentAccountId = session('current_account_id');
+        
+        // Admin kullanıcılar tüm hesapları görebilir
+        if (auth()->user()->isAdmin()) {
+            $invoices = Invoice::with(['customer', 'account', 'user'])
+                ->latest()
+                ->paginate(10);
+        } else {
+            $invoices = Invoice::with(['customer', 'account', 'user'])
+                ->where('account_id', $currentAccountId)
+                ->latest()
+                ->paginate(10);
+        }
         
         // Her fatura için tahsilat kontrolü yap
         foreach ($invoices as $invoice) {
@@ -64,8 +76,26 @@ class InvoiceController extends Controller
             'timestamp' => now()
         ]);
         
+        // Get account_id with fallback
+        $accountId = session('current_account_id');
+        if (!$accountId) {
+            // Fallback: get first active account
+            $account = \App\Models\Account::active()->first();
+            $accountId = $account ? $account->id : 1; // Default to Ronex1
+        }
+
+        // Get user_id with fallback
+        $userId = auth()->id();
+        if (!$userId) {
+            // Fallback: get first user
+            $user = \App\Models\User::first();
+            $userId = $user ? $user->id : 1;
+        }
+
         // TEMP: Skip validation per user request
         $validated = [
+            'account_id' => $accountId,
+            'user_id' => $userId,
             'customer_id' => $request->input('customer_id'),
             'invoice_date' => $request->input('invoice_date', date('Y-m-d')),
             'invoice_time' => $request->input('invoice_time', date('H:i')),
@@ -117,8 +147,23 @@ class InvoiceController extends Controller
             }
             
             $totalAmount = $subtotal + $vatAmount;
-            // Canim büllügüm etem
+            // Get account_id and user_id with fallbacks
+            $accountId = session('current_account_id');
+            $userId = auth()->id();
+            
+            // Fallback for account_id if not in session
+            if (!$accountId) {
+                $accountId = \App\Models\Account::active()->first()?->id ?? 1;
+            }
+            
+            // Fallback for user_id if not authenticated
+            if (!$userId) {
+                $userId = \App\Models\User::first()?->id ?? 1;
+            }
+            
             $invoice = Invoice::create([
+                'account_id' => $accountId,
+                'user_id' => $userId,
                 'invoice_number' => $invoiceNumber,
                 'customer_id' => $validated['customer_id'],
                 'invoice_date' => $validated['invoice_date'],
@@ -130,8 +175,7 @@ class InvoiceController extends Controller
                 'subtotal' => $subtotal,
                 'vat_amount' => $vatAmount,
                 'total_amount' => $totalAmount,
-                'payment_completed' => $validated['payment_completed'] ?? false,
-                'status' => 'draft'
+                'payment_completed' => $validated['payment_completed'] ?? false
             ]);
             
             // Create invoice items
@@ -158,6 +202,36 @@ class InvoiceController extends Controller
                     'line_total' => $lineTotalAfterDiscount,
                     'sort_order' => $index
                 ]);
+            }
+            
+            // STOK DÜŞÜMÜ - ATOMIC OPERATION
+            foreach ($validated['items'] as $item) {
+                $quantity = (float) ($item['quantity'] ?? 0);
+                $productId = $item['product_id'] ?? null;
+                $type = $item['type'] ?? 'product';
+                
+                if ($productId && $quantity > 0) {
+                    if ($type === 'product') {
+                        // Normal ürün stok düşümü
+                        $product = \App\Models\Product::find($productId);
+                        if ($product) {
+                            if ($product->stock_quantity < $quantity) {
+                                throw new \Exception("Yetersiz stok! {$product->name} için stok: {$product->stock_quantity}, istenen: {$quantity}");
+                            }
+                            $product->decrement('stock_quantity', $quantity);
+                        }
+                    } elseif ($type === 'series') {
+                        // Seri ürün stok düşümü (1 seri = 1 adet)
+                        $series = \App\Models\ProductSeries::find($productId);
+                        if ($series) {
+                            if ($series->stock_quantity < $quantity) {
+                                throw new \Exception("Yetersiz seri stoku! {$series->name} için stok: {$series->stock_quantity} seri, istenen: {$quantity} seri");
+                            }
+                            $series->decrement('stock_quantity', $quantity);
+                        }
+                    }
+                    // Service'ler için stok düşümü yok
+                }
             }
             
             // Handle customer balance if payment is not completed
@@ -302,34 +376,65 @@ class InvoiceController extends Controller
         $products = \App\Models\Product::where('is_active', true)
             ->where(function($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
-                  ->orWhere('product_code', 'like', "%{$query}%")
+                  ->orWhere('sku', 'like', "%{$query}%")
                   ->orWhere('category', 'like', "%{$query}%")
                   ->orWhere('brand', 'like', "%{$query}%")
                   ->orWhere('size', 'like', "%{$query}%")
                   ->orWhere('color', 'like', "%{$query}%")
                   ->orWhere('barcode', 'like', "%{$query}%")
-                  ->orWhere('supplier_code', 'like', "%{$query}%")
-                  ->orWhere('gtip_code', 'like', "%{$query}%")
-                  ->orWhere('class_code', 'like', "%{$query}%")
                   ->orWhere('description', 'like', "%{$query}%");
             })
-            ->select('id', 'name', 'product_code', 'category', 'brand', 'size', 'color', 'sale_price', 'purchase_price', 'vat_rate', 'currency')
+            ->select('id', 'name', 'sku', 'category', 'brand', 'size', 'color', 'price', 'cost', 'stock_quantity')
             ->limit(10)
             ->get()
             ->map(function ($product) {
                 return [
                     'id' => 'product_' . $product->id,
                     'name' => $product->name,
-                    'product_code' => $product->product_code,
+                    'product_code' => $product->sku,
                     'category' => $product->category,
                     'brand' => $product->brand,
                     'size' => $product->size,
                     'color' => $product->color,
-                    'price' => $product->sale_price,
-                    'purchase_price' => $product->purchase_price,
-                    'vat_rate' => $product->vat_rate,
-                    'currency' => $product->currency,
-                    'type' => 'product'
+                    'price' => $product->price,
+                    'purchase_price' => $product->cost,
+                    'vat_rate' => 20, // Default VAT rate
+                    'currency' => 'TRY',
+                    'type' => 'product',
+                    'stock_quantity' => $product->stock_quantity
+                ];
+            });
+        
+        // Search in product series - search in all relevant fields
+        $productSeries = \App\Models\ProductSeries::with('seriesItems')
+            ->where('is_active', true)
+            ->where(function($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                  ->orWhere('sku', 'like', "%{$query}%")
+                  ->orWhere('category', 'like', "%{$query}%")
+                  ->orWhere('brand', 'like', "%{$query}%")
+                  ->orWhere('description', 'like', "%{$query}%");
+            })
+            ->select('id', 'name', 'sku', 'category', 'brand', 'price', 'cost', 'series_size', 'stock_quantity')
+            ->limit(10)
+            ->get()
+            ->map(function ($series) {
+                return [
+                    'id' => 'series_' . $series->id,
+                    'name' => $series->name . ' (' . $series->series_size . 'li Seri)',
+                    'product_code' => $series->sku,
+                    'category' => $series->category,
+                    'brand' => $series->brand,
+                    'size' => $series->series_size . 'li Seri',
+                    'color' => null,
+                    'price' => $series->price,
+                    'purchase_price' => $series->cost,
+                    'vat_rate' => 20, // Default VAT rate
+                    'currency' => 'TRY',
+                    'type' => 'series',
+                    'stock_quantity' => $series->stock_quantity,
+                    'series_size' => $series->series_size,
+                    'sizes' => $series->seriesItems->pluck('size')->toArray()
                 ];
             });
         
@@ -341,24 +446,28 @@ class InvoiceController extends Controller
                   ->orWhere('category', 'like', "%{$query}%")
                   ->orWhere('description', 'like', "%{$query}%");
             })
-            ->select('id', 'name', 'code', 'category', 'price', 'vat_rate', 'currency')
+            ->select('id', 'name', 'code', 'category', 'price')
             ->limit(10)
             ->get()
             ->map(function ($service) {
                 return [
                     'id' => 'service_' . $service->id,
                     'name' => $service->name,
-                    'code' => $service->code,
+                    'product_code' => $service->code,
                     'category' => $service->category,
+                    'brand' => null,
+                    'size' => null,
+                    'color' => null,
                     'price' => $service->price,
-                    'vat_rate' => $service->vat_rate,
-                    'currency' => $service->currency,
+                    'purchase_price' => null,
+                    'vat_rate' => 20, // Default VAT rate
+                    'currency' => 'TRY',
                     'type' => 'service'
                 ];
             });
         
         // Combine and return
-        $results = $products->concat($services)->take(20);
+        $results = $products->concat($productSeries)->concat($services)->take(20);
         return response()->json($results);
         } catch (\Throwable $e) {
             \Log::error('searchProducts failed', ['error' => $e->getMessage(), 'q' => $request->get('q')]);
@@ -374,41 +483,7 @@ class InvoiceController extends Controller
         return view('sales.invoices.print', compact('invoice'));
     }
 
-    // Actions
-    public function approve(Invoice $invoice)
-    {
-        if ($invoice->status !== 'approved' && $invoice->status !== 'paid') {
-            // Update status to approved
-            $invoice->update(['status' => 'approved']);
-            
-            // Update customer balance when approved
-            if ($invoice->customer) {
-                $customer = $invoice->customer;
-                switch ($invoice->currency) {
-                    case 'USD':
-                        $customer->increment('balance_usd', $invoice->total_amount);
-                        break;
-                    case 'EUR':
-                        $customer->increment('balance_eur', $invoice->total_amount);
-                        break;
-                    default: // TRY
-                        $customer->increment('balance_try', $invoice->total_amount);
-                        break;
-                }
-                $customer->increment('balance', $invoice->total_amount); // General balance
-            }
-        }
-        return response()->json(['success' => true, 'status' => $invoice->status]);
-    }
-
-
-    public function revertDraft(Invoice $invoice)
-    {
-        if (!$invoice->payment_completed) {
-            $invoice->update(['status' => 'draft']);
-        }
-        return response()->json(['success' => true, 'status' => $invoice->status]);
-    }
+    // Actions removed - invoices are now directly approved
 
     /**
      * Get current currency exchange rates

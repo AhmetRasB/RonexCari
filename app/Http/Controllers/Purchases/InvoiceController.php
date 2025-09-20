@@ -26,7 +26,20 @@ class InvoiceController extends Controller
      */
     public function index()
     {
-        $invoices = PurchaseInvoice::with('supplier')->latest()->paginate(10);
+        $currentAccountId = session('current_account_id');
+        
+        // Admin kullanıcılar tüm hesapları görebilir
+        if (auth()->user()->isAdmin()) {
+            $invoices = PurchaseInvoice::with(['supplier', 'account', 'user'])
+                ->latest()
+                ->paginate(10);
+        } else {
+            $invoices = PurchaseInvoice::with(['supplier', 'account', 'user'])
+                ->where('account_id', $currentAccountId)
+                ->latest()
+                ->paginate(10);
+        }
+        
         return view('purchases.invoices.index', compact('invoices'));
     }
 
@@ -53,8 +66,26 @@ class InvoiceController extends Controller
             'timestamp' => now()
         ]);
         
+        // Get account_id with fallback
+        $accountId = session('current_account_id');
+        if (!$accountId) {
+            // Fallback: get first active account
+            $account = \App\Models\Account::active()->first();
+            $accountId = $account ? $account->id : 1; // Default to Ronex1
+        }
+
+        // Get user_id with fallback
+        $userId = auth()->id();
+        if (!$userId) {
+            // Fallback: get first user
+            $user = \App\Models\User::first();
+            $userId = $user ? $user->id : 1;
+        }
+
         // TEMP: Skip validation per user request
         $validated = [
+            'account_id' => $accountId,
+            'user_id' => $userId,
             'supplier_id' => $request->input('supplier_id'),
             'invoice_date' => $request->input('invoice_date', date('Y-m-d')),
             'invoice_time' => $request->input('invoice_time', date('H:i')),
@@ -106,8 +137,24 @@ class InvoiceController extends Controller
             
             $totalAmount = $subtotal + $vatAmount;
             
+            // Get account_id and user_id with fallbacks
+            $accountId = session('current_account_id');
+            $userId = auth()->id();
+            
+            // Fallback for account_id if not in session
+            if (!$accountId) {
+                $accountId = \App\Models\Account::active()->first()?->id ?? 1;
+            }
+            
+            // Fallback for user_id if not authenticated
+            if (!$userId) {
+                $userId = \App\Models\User::first()?->id ?? 1;
+            }
+            
             // Create invoice
             $invoice = PurchaseInvoice::create([
+                'account_id' => $accountId,
+                'user_id' => $userId,
                 'invoice_number' => $invoiceNumber,
                 'supplier_id' => $validated['supplier_id'],
                 'invoice_date' => $validated['invoice_date'],
@@ -119,8 +166,7 @@ class InvoiceController extends Controller
                 'subtotal' => $subtotal,
                 'vat_amount' => $vatAmount,
                 'total_amount' => $totalAmount,
-                'payment_completed' => $validated['payment_completed'] ?? false,
-                'status' => 'draft'
+                'payment_completed' => $validated['payment_completed'] ?? false
             ]);
             
             // Create invoice items
@@ -448,39 +494,5 @@ class InvoiceController extends Controller
         return view('purchases.invoices.print', compact('invoice'));
     }
 
-    // Actions
-    public function approve(PurchaseInvoice $invoice)
-    {
-        if ($invoice->status !== 'approved' && $invoice->status !== 'paid') {
-            // Update status to approved
-            $invoice->update(['status' => 'approved']);
-            
-            // Update supplier balance when approved
-            if ($invoice->supplier) {
-                $supplier = $invoice->supplier;
-                switch ($invoice->currency) {
-                    case 'USD':
-                        $supplier->increment('balance_usd', $invoice->total_amount);
-                        break;
-                    case 'EUR':
-                        $supplier->increment('balance_eur', $invoice->total_amount);
-                        break;
-                    default: // TRY
-                        $supplier->increment('balance_try', $invoice->total_amount);
-                        break;
-                }
-                $supplier->increment('balance', $invoice->total_amount); // General balance
-            }
-        }
-        return response()->json(['success' => true, 'status' => $invoice->status]);
-    }
-
-
-    public function revertDraft(PurchaseInvoice $invoice)
-    {
-        if (!$invoice->payment_completed) {
-            $invoice->update(['status' => 'draft']);
-        }
-        return response()->json(['success' => true, 'status' => $invoice->status]);
-    }
+    // Actions removed - invoices are now directly approved
 }

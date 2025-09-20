@@ -61,29 +61,19 @@
                             @enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Ürün Kodu <span class="text-danger">*</span></label>
-                            <div class="position-relative">
-                                <input type="text" name="product_code" class="form-control" placeholder="Ürün Kodu" value="{{ $product->product_code }}" required>
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:tag-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            @error('product_code')
+                            <label class="form-label">Ürün Kodu</label>
+                            <input type="text" name="sku" class="form-control" value="{{ $product->sku }}">
+                            @error('sku')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="col-md-6 mt-3">
-                            <label class="form-label">Birim <span class="text-danger">*</span></label>
-                            <div class="position-relative">
-                                <select name="unit" class="form-control" required>
-                                    <option value="">Seçiniz</option>
-                                    <option value="Adet" {{ $product->unit == 'Adet' ? 'selected' : '' }}>Adet</option>
-                                    <option value="Kg" {{ $product->unit == 'Kg' ? 'selected' : '' }}>Kg</option>
-                                    <option value="Litre" {{ $product->unit == 'Litre' ? 'selected' : '' }}>Litre</option>
-                                    <option value="Metre" {{ $product->unit == 'Metre' ? 'selected' : '' }}>Metre</option>
-                                    <option value="Paket" {{ $product->unit == 'Paket' ? 'selected' : '' }}>Paket</option>
-                                </select>
-                            </div>
+                            <label class="form-label">Birim</label>
+                            <select name="unit" class="form-control">
+                                <option value="">Seçiniz</option>
+                                <option value="Adet" {{ $product->unit == 'Adet' ? 'selected' : '' }}>Adet</option>
+                                <option value="Metre" {{ $product->unit == 'Metre' ? 'selected' : '' }}>Metre</option>
+                            </select>
                             @error('unit')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
@@ -97,55 +87,15 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Alış Fiyatı</label>
-                            <div class="position-relative">
-                                <input type="number" name="purchase_price" class="form-control" placeholder="Alış Fiyatı" value="{{ $product->purchase_price }}" step="0.01" min="0">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:dollar-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            <small class="text-secondary-light">KDV Hariç</small>
-                            @error('purchase_price')
+                            <input type="number" name="cost" class="form-control" value="{{ $product->cost ?? '' }}">
+                            @error('cost')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Satış Fiyatı</label>
-                            <div class="position-relative">
-                                <input type="number" name="sale_price" class="form-control" placeholder="Satış Fiyatı" value="{{ $product->sale_price }}" step="0.01" min="0">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:dollar-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            <small class="text-secondary-light">KDV Hariç</small>
-                            @error('sale_price')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mt-3">
-                            <label class="form-label">Para Birimi <span class="text-danger">*</span></label>
-                            <div class="position-relative">
-                                <select name="currency" class="form-control" required>
-                                    <option value="TRY" {{ $product->currency == 'TRY' ? 'selected' : '' }}>₺ TRY</option>
-                                    <option value="USD" {{ $product->currency == 'USD' ? 'selected' : '' }}>$ USD</option>
-                                    <option value="EUR" {{ $product->currency == 'EUR' ? 'selected' : '' }}>€ EUR</option>
-                                </select>
-                            </div>
-                            @error('currency')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mt-3">
-                            <label class="form-label">KDV Oranı <span class="text-danger">*</span></label>
-                            <div class="position-relative">
-                                <select name="vat_rate" class="form-control" required>
-                                    <option value="0" {{ $product->vat_rate == 0 ? 'selected' : '' }}>0%</option>
-                                    <option value="1" {{ $product->vat_rate == 1 ? 'selected' : '' }}>1%</option>
-                                    <option value="8" {{ $product->vat_rate == 8 ? 'selected' : '' }}>8%</option>
-                                    <option value="18" {{ $product->vat_rate == 18 ? 'selected' : '' }}>18%</option>
-                                    <option value="20" {{ $product->vat_rate == 20 ? 'selected' : '' }}>20%</option>
-                                </select>
-                            </div>
-                            @error('vat_rate')
+                            <input type="number" name="price" class="form-control" value="{{ $product->price }}">
+                            @error('price')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
@@ -233,51 +183,15 @@
                         </div>
                         <div class="col-md-6 mt-3">
                             <label class="form-label">Barkod</label>
-                            <div class="position-relative">
-                                <input type="text" name="barcode" class="form-control" placeholder="Barkod" value="{{ $product->barcode }}">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:qr-code-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
+                            <input type="text" name="barcode" class="form-control" placeholder="Barkod" value="{{ $product->barcode }}">
                             @error('barcode')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
-                        <div class="col-md-6 mt-3">
-                            <label class="form-label">Tedarikçi Kodu</label>
-                            <div class="position-relative">
-                                <input type="text" name="supplier_code" class="form-control" placeholder="Tedarikçi Kodu" value="{{ $product->supplier_code }}">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:users-group-rounded-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            @error('supplier_code')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mt-3">
-                            <label class="form-label">GTIP Kodu</label>
-                            <div class="position-relative">
-                                <input type="text" name="gtip_code" class="form-control" placeholder="GTIP Kodu" value="{{ $product->gtip_code }}">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:buildings-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            <small class="text-secondary-light">İhracat işlemleri için kullanılır</small>
-                            @error('gtip_code')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mt-3">
-                            <label class="form-label">Sınıf Kodu</label>
-                            <div class="position-relative">
-                                <input type="text" name="class_code" class="form-control" placeholder="Sınıf Kodu" value="{{ $product->class_code }}">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:users-group-two-rounded-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            <small class="text-secondary-light">Resmi kurum faturaları için kullanılır</small>
-                            @error('class_code')
+                        <div class="col-12 mt-3">
+                            <label class="form-label">Açıklama</label>
+                            <textarea name="description" class="form-control" rows="3" placeholder="Ürün açıklaması...">{{ $product->description }}</textarea>
+                            @error('description')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
@@ -295,38 +209,15 @@
                             </h6>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">
-                                Mevcut Stok Miktarı 
-                                <span class="text-danger">*</span>
-                                @if($product->initial_stock <= $product->critical_stock)
-                                    <i class="text-danger">(KRİTİK SEVİYE!)</i>
-                                @endif
-                            </label>
-                            <div class="position-relative">
-                                <input type="number" name="initial_stock" class="form-control form-control-lg {{ $product->initial_stock <= $product->critical_stock ? 'border-danger' : '' }}" placeholder="Mevcut Stok Miktarı" value="{{ $product->initial_stock }}" min="0" required style="font-weight: bold; font-size: 1.1rem;">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:box-outline" class="text-{{ $product->initial_stock <= $product->critical_stock ? 'danger' : 'secondary-light' }}"></iconify-icon>
-                                </div>
-                            </div>
-                            <small class="text-{{ $product->initial_stock <= $product->critical_stock ? 'danger fw-bold' : 'secondary-light' }}">
-                                Güncel stok miktarı • Birim: {{ $product->unit ?? 'Adet' }}
-                                @if($product->initial_stock <= $product->critical_stock)
-                                    <br><strong>⚠️ Bu ürün kritik stok seviyesinde!</strong>
-                                @endif
-                            </small>
+                            <label class="form-label">Mevcut Stok Miktarı</label>
+                            <input type="number" name="initial_stock" class="form-control" placeholder="Mevcut Stok Miktarı" value="{{ $product->initial_stock }}" min="0">
                             @error('initial_stock')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Kritik Stok Sınırı <span class="text-danger">*</span></label>
-                            <div class="position-relative">
-                                <input type="number" name="critical_stock" class="form-control form-control-lg" placeholder="Kritik Stok Sınırı" value="{{ $product->critical_stock }}" min="0" required style="font-weight: bold; font-size: 1.1rem;">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:danger-outline" class="text-warning"></iconify-icon>
-                                </div>
-                            </div>
-                            <small class="text-secondary-light">Bu miktarın altına düşünce ana ekranda uyarı gösterilir</small>
+                            <label class="form-label">Kritik Stok Sınırı</label>
+                            <input type="number" name="critical_stock" class="form-control" placeholder="Kritik Stok Sınırı" value="{{ $product->critical_stock }}" min="0">
                             @error('critical_stock')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
@@ -344,16 +235,6 @@
                         </div>
                     </div>
 
-                    <!-- Açıklama -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <label class="form-label">Açıklama</label>
-                            <textarea name="description" class="form-control" rows="3" placeholder="Ürün açıklaması">{{ $product->description }}</textarea>
-                            @error('description')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                    </div>
 
                     <!-- Görsel -->
                     <div class="row mb-4">
@@ -515,7 +396,7 @@ $(document).ready(function() {
             <div class="modal-body text-center">
                 <img src="{{ asset($product->image) }}" alt="{{ $product->name }}" class="img-fluid rounded shadow" style="max-width: 100%; max-height: 80vh;">
                 <div class="mt-3">
-                    <small class="text-muted">{{ $product->product_code ?? 'Kod yok' }} • {{ $product->category ?? 'Kategori yok' }} • {{ $product->brand ?? 'Marka yok' }}</small>
+                    <small class="text-muted">{{ $product->sku ?? 'Kod yok' }} • {{ $product->category ?? 'Kategori yok' }} • {{ $product->brand ?? 'Marka yok' }}</small>
                 </div>
             </div>
             <div class="modal-footer">

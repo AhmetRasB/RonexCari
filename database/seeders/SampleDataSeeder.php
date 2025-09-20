@@ -210,7 +210,7 @@ class SampleDataSeeder extends Seeder
 
         // Create sample expenses
         Expense::create([
-            'title' => 'Ofis Kira Ödemesi',
+            'name' => 'Ofis Kira Ödemesi',
             'description' => 'Aylık ofis kira ödemesi',
             'amount' => 15000.00,
             'expense_date' => now()->format('Y-m-d'),
@@ -221,7 +221,7 @@ class SampleDataSeeder extends Seeder
         ]);
 
         Expense::create([
-            'title' => 'Elektrik Faturası',
+            'name' => 'Elektrik Faturası',
             'description' => 'Aylık elektrik faturası',
             'amount' => 2500.00,
             'expense_date' => now()->format('Y-m-d'),

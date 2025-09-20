@@ -656,8 +656,8 @@ function addInvoiceItemRow() {
         <tr data-item-index="${itemCounter}">
             <td>
                 <div class="position-relative">
-                    <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." required>
-                    <div id="productServiceDropdown${itemCounter}" class="dropdown-menu" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1050; max-height: 200px; overflow-y: auto;">
+                    <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." data-row="${itemCounter}" required>
+                    <div id="productServiceDropdown${itemCounter}" class="dropdown-menu" style="display: none; position: fixed; z-index: 9999; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #dee2e6; border-radius: 0.375rem; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);">
                         <!-- Search results will be populated here -->
                     </div>
                 </div>
@@ -706,6 +706,9 @@ function addInvoiceItemRow() {
                     <iconify-icon icon="solar:trash-bin-minimalistic-outline"></iconify-icon>
                 </button>
             </td>
+            <!-- Hidden fields for product_id and type -->
+            <input type="hidden" name="items[${itemCounter}][product_id]" value="">
+            <input type="hidden" name="items[${itemCounter}][type]" value="">
         </tr>
     `;
     
@@ -1222,8 +1225,14 @@ function searchProductsServices(query, rowIndex) {
                         if (item.brand) details.push(`Marka: ${item.brand}`);
                         if (item.size) details.push(`Beden: ${item.size}`);
                         if (item.color) details.push(`Renk: ${item.color}`);
+                    } else if (item.type === 'series') {
+                        if (item.product_code) details.push(`Kod: ${item.product_code}`);
+                        if (item.category) details.push(`Kategori: ${item.category}`);
+                        if (item.brand) details.push(`Marka: ${item.brand}`);
+                        if (item.series_size) details.push(`Seri Boyutu: ${item.series_size} adet`);
+                        if (item.stock_quantity !== undefined) details.push(`Stok: ${item.stock_quantity} seri`);
                     } else {
-                        if (item.code) details.push(`Kod: ${item.code}`);
+                        if (item.product_code) details.push(`Kod: ${item.product_code}`);
                         if (item.category) details.push(`Kategori: ${item.category}`);
                     }
                     
@@ -1233,24 +1242,45 @@ function searchProductsServices(query, rowIndex) {
                              data-price="${item.price}" 
                              data-vat-rate="${item.vat_rate}"
                              data-type="${item.type}"
-                             style="cursor: pointer;">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="flex-grow-1">
-                                    <strong>${item.name}</strong>
-                                    <br>
-                                    <small class="text-muted">${item.type === 'product' ? 'Ürün' : 'Hizmet'}</small>
-                                    ${details.length > 0 ? `<br><small class="text-secondary">${details.join(' • ')}</small>` : ''}
+                             data-product-id="${item.id.replace(/^(product_|series_|service_)/, '')}"
+                             data-stock-quantity="${item.stock_quantity || 0}"
+                             style="cursor: pointer; padding: 12px 16px; border-bottom: 1px solid #f0f0f0;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="flex-grow-1 me-3">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <strong class="me-2">${item.name}</strong>
+                                        <span class="badge bg-${item.type === 'product' ? 'primary' : item.type === 'series' ? 'info' : 'success'}">${item.type === 'product' ? 'Ürün' : item.type === 'series' ? 'Seri' : 'Hizmet'}</span>
+                                    </div>
+                                    ${details.length > 0 ? `<div class="text-muted small">${details.join(' • ')}</div>` : ''}
+                                    ${item.type === 'series' && item.sizes && item.sizes.length > 0 ? 
+                                        `<div class="mt-1">
+                                            ${item.sizes.map(size => `<span class="badge bg-info me-1" style="font-size: 0.6rem; padding: 1px 4px;">${size}</span>`).join('')}
+                                        </div>` : ''}
                                 </div>
-                                <div class="text-end ms-2">
-                                    <span class="fw-semibold text-success">${parseFloat(item.price).toFixed(2)} ${item.currency || 'TRY'}</span>
-                                    <br>
-                                    <small class="text-muted">KDV %${item.vat_rate}</small>
-                                    ${item.purchase_price ? `<br><small class="text-info">Alış: ${parseFloat(item.purchase_price).toFixed(2)} ${item.currency || 'TRY'}</small>` : ''}
+                                <div class="text-end">
+                                    <div class="fw-bold text-success fs-6">${parseFloat(item.price).toFixed(2)} ${item.currency || 'TRY'}</div>
+                                    <div class="text-muted small">KDV %${item.vat_rate}</div>
+                                    ${item.purchase_price ? `<div class="text-info small">Alış: ${parseFloat(item.purchase_price).toFixed(2)} ${item.currency || 'TRY'}</div>` : ''}
                                 </div>
                             </div>
                         </div>
                     `;
                     dropdown.append(itemHtml);
+                });
+            }
+            
+            // Position dropdown above the table
+            const input = $(`.product-service-search[data-row="${rowIndex}"]`);
+            if (input.length > 0) {
+                const inputOffset = input.offset();
+                const inputHeight = input.outerHeight();
+                
+                dropdown.css({
+                    'position': 'fixed',
+                    'top': (inputOffset.top - 300) + 'px', // Show above
+                    'left': inputOffset.left + 'px',
+                    'width': '500px', // Fixed wider width
+                    'z-index': 9999
                 });
             }
             
@@ -1269,6 +1299,8 @@ $(document).on('click', '.product-service-item', function() {
     const name = $(this).data('name');
     const price = $(this).data('price');
     const vatRate = $(this).data('vat-rate');
+    const type = $(this).data('type');
+    const productId = $(this).data('product-id');
     
     // Set the product/service name
     row.find('input[name*="[product_service_name]"]').val(name);
@@ -1278,6 +1310,15 @@ $(document).on('click', '.product-service-item', function() {
     
     // Set the tax rate
     row.find('select[name*="[tax_rate]"]').val(vatRate);
+    
+    // Set hidden fields for product_id and type
+    row.find('input[name*="[product_id]"]').val(productId);
+    row.find('input[name*="[type]"]').val(type);
+    
+    // Store stock information for validation
+    const stockQuantity = $(this).data('stock-quantity');
+    row.data('stock-quantity', stockQuantity);
+    row.data('product-type', type);
     
     // Hide dropdown
     $(`#productServiceDropdown${rowIndex}`).hide();
@@ -1301,6 +1342,106 @@ $(document).on('click', function(e) {
         $('.dropdown-menu').hide();
     }
 });
+
+// Stock validation function
+function validateStock(row) {
+    const quantity = parseFloat(row.find('input[name*="[quantity]"]').val()) || 0;
+    const stockQuantity = row.data('stock-quantity') || 0;
+    const productType = row.data('product-type') || 'product';
+    const productName = row.find('input[name*="[product_service_name]"]').val() || 'Ürün';
+    
+    // Clear previous warnings and styling
+    row.find('.stock-warning').remove();
+    row.removeClass('table-danger');
+    row.find('td').removeClass('bg-danger-subtle');
+    
+    if (quantity > 0 && stockQuantity > 0 && quantity > stockQuantity) {
+        // Make entire row red
+        row.addClass('table-danger');
+        row.find('td').addClass('bg-danger-subtle');
+        
+        // Add warning message in the last cell
+        const warningHtml = `
+            <div class="stock-warning alert alert-danger alert-sm mt-1 mb-0" style="padding: 4px 8px; font-size: 0.75rem; border: none;">
+                <i class="ri-alert-line me-1"></i>
+                <strong>YETERSİZ STOK!</strong> 
+                ${productType === 'series' ? 'Seri' : 'Ürün'} stokta: ${stockQuantity} ${productType === 'series' ? 'seri' : 'adet'}, 
+                istenen: ${quantity} ${productType === 'series' ? 'seri' : 'adet'}
+            </div>
+        `;
+        row.find('td:last').append(warningHtml);
+        return false;
+    }
+    
+    return true;
+}
+
+// Validate stock when quantity changes
+$(document).on('input', 'input[name*="[quantity]"]', function() {
+    const row = $(this).closest('tr');
+    validateStock(row);
+});
+
+// Validate stock when product is selected
+$(document).on('change', 'input[name*="[product_service_name]"]', function() {
+    const row = $(this).closest('tr');
+    setTimeout(() => validateStock(row), 100);
+});
+
+// Form submission validation
+$('#invoiceForm').on('submit', function(e) {
+    let hasStockError = false;
+    let errorMessages = [];
+    
+    $('tbody tr').each(function() {
+        const row = $(this);
+        const quantity = parseFloat(row.find('input[name*="[quantity]"]').val()) || 0;
+        const stockQuantity = row.data('stock-quantity') || 0;
+        const productType = row.data('product-type') || 'product';
+        const productName = row.find('input[name*="[product_service_name]"]').val() || 'Ürün';
+        
+        if (quantity > 0 && stockQuantity > 0 && quantity > stockQuantity) {
+            hasStockError = true;
+            errorMessages.push(`${productName}: Stokta ${stockQuantity} ${productType === 'series' ? 'seri' : 'adet'} var, ${quantity} ${productType === 'series' ? 'seri' : 'adet'} isteniyor.`);
+        }
+    });
+    
+    if (hasStockError) {
+        e.preventDefault();
+        alert('Yetersiz Stok Uyarısı:\n\n' + errorMessages.join('\n') + '\n\nLütfen miktarları kontrol edin.');
+        return false;
+    }
+});
 </script>
+
+<style>
+.table-danger {
+    background-color: #f8d7da !important;
+    border-color: #f5c6cb !important;
+}
+
+.table-danger td {
+    background-color: #f8d7da !important;
+    border-color: #f5c6cb !important;
+    color: #721c24 !important;
+}
+
+.table-danger input,
+.table-danger select {
+    background-color: #fff !important;
+    border-color: #dc3545 !important;
+    color: #721c24 !important;
+}
+
+.table-danger .stock-warning {
+    background-color: #dc3545 !important;
+    color: white !important;
+    border: none !important;
+}
+
+.table-danger .stock-warning strong {
+    color: white !important;
+}
+</style>
 @endpush
 @endsection

@@ -40,6 +40,8 @@
                                 </div>
                             </th>
                             <th scope="col">Masraf Adı</th>
+                            <th scope="col">Mağaza</th>
+                            <th scope="col">Personel</th>
                             <th scope="col">Açıklama</th>
                             <th scope="col">Tutar</th>
                             <th scope="col">Tarih</th>
@@ -64,14 +66,40 @@
                                         <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ $expense->name }}</h6>
                                     </div>
                                 </td>
+                                <td>
+                                    @if($expense->account)
+                                        <span class="badge {{ $expense->account->code === 'ronex1' ? 'bg-primary-100 text-primary-600' : 'bg-success-100 text-success-600' }} px-2 py-1 rounded-pill text-xs fw-medium">
+                                            {{ $expense->account->name }}
+                                        </span>
+                                    @else
+                                        <span class="badge bg-gray-100 text-gray-600 px-2 py-1 rounded-pill text-xs fw-medium">
+                                            Mağaza Yok
+                                        </span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if($expense->user)
+                                        <div class="d-flex align-items-center">
+                                            <div class="w-8 h-8 bg-info-100 rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                <iconify-icon icon="heroicons:user" class="text-info-600 text-sm"></iconify-icon>
+                                            </div>
+                                            <div>
+                                                <h6 class="text-sm mb-0 fw-medium">{{ $expense->user->name }}</h6>
+                                                <small class="text-secondary-light">{{ $expense->user->email }}</small>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <span class="text-muted">Bilinmiyor</span>
+                                    @endif
+                                </td>
                                 <td>{{ $expense->description ? Str::limit($expense->description, 50) : '-' }}</td>
                                 <td>
                                     <span class="text-primary-600 fw-semibold">{{ number_format($expense->amount, 2) }} ₺</span>
                                 </td>
                                 <td>{{ $expense->expense_date->format('d.m.Y') }}</td>
                                 <td>
-                                    <span class="bg-{{ $expense->is_active ? 'success' : 'warning' }}-focus text-{{ $expense->is_active ? 'success' : 'warning' }}-main px-24 py-4 rounded-pill fw-medium text-sm">
-                                        {{ $expense->is_active ? 'Ödendi' : 'Ödenmedi' }}
+                                    <span class="bg-success-focus text-success-main px-24 py-4 rounded-pill fw-medium text-sm">
+                                        Kaydedildi
                                     </span>
                                 </td>
                                 <td>
@@ -92,7 +120,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center py-4">Henüz masraf bulunmuyor.</td>
+                                <td colspan="9" class="text-center py-4">Henüz masraf bulunmuyor.</td>
                             </tr>
                         @endforelse
                     </tbody>

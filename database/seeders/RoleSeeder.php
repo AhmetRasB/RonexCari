@@ -47,13 +47,14 @@ class RoleSeeder extends Seeder
             ['name' => 'employee'],
             [
                 'display_name' => 'Employee',
-                'description' => 'Limited access - cannot see expenses and management',
+                'description' => 'Limited access - cannot see management',
                 'permissions' => [
                     'dashboard',
                     'sales',
                     'purchases',
                     'products', 
                     'finance',
+                    'expenses',
                     'reports'
                 ]
             ]

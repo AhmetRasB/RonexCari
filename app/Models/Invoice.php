@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Invoice extends Model
 {
     protected $fillable = [
+        'account_id',
+        'user_id',
         'invoice_number',
         'customer_id',
         'invoice_date',
@@ -22,8 +24,7 @@ class Invoice extends Model
         'additional_discount',
         'vat_amount',
         'total_amount',
-        'payment_completed',
-        'status'
+        'payment_completed'
     ];
 
     protected $casts = [
@@ -36,6 +37,16 @@ class Invoice extends Model
         'total_amount' => 'decimal:2',
         'payment_completed' => 'boolean',
     ];
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function customer(): BelongsTo
     {

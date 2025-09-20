@@ -76,20 +76,21 @@
                 </div>
 
                 <div class="col-12 col-md-6">
-                    <label class="form-label fw-semibold text-primary-light text-sm mb-8">Başlangıç Tarihi</label>
-                    <input type="date" class="form-control radius-8 @error('start_date') is-invalid @enderror" name="start_date" value="{{ old('start_date', \Carbon\Carbon::now()->format('Y-m-d')) }}">
-                    @error('start_date')
+                    <label class="form-label fw-semibold text-primary-light text-sm mb-8">Departman</label>
+                    <input type="text" class="form-control radius-8 @error('department') is-invalid @enderror" name="department" value="{{ old('department') }}" placeholder="Departmanı girin">
+                    @error('department')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
 
-                <div class="col-12">
-                    <label class="form-label fw-semibold text-primary-light text-sm mb-8">Adres</label>
-                    <textarea class="form-control radius-8 @error('address') is-invalid @enderror" name="address" rows="3" placeholder="Adres bilgilerini girin">{{ old('address') }}</textarea>
-                    @error('address')
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold text-primary-light text-sm mb-8">İşe Başlama Tarihi</label>
+                    <input type="date" class="form-control radius-8 @error('hire_date') is-invalid @enderror" name="hire_date" value="{{ old('hire_date', \Carbon\Carbon::now()->format('Y-m-d')) }}">
+                    @error('hire_date')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
+
 
                 <div class="col-12">
                     <div class="form-check">

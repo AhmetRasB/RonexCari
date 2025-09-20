@@ -33,11 +33,12 @@
                                 </div>
                             </th>
                             <th scope="col">Fatura No</th>
+                            <th scope="col">Mağaza</th>
+                            <th scope="col">Personel</th>
                             <th scope="col">Tedarikçi</th>
                             <th scope="col">Tarih</th>
                             <th scope="col">Vade</th>
                             <th scope="col">Tutar</th>
-                            <th scope="col">Durum</th>
                             <th scope="col">İşlemler</th>
                         </tr>
                     </thead>
@@ -56,6 +57,32 @@
                                     </a>
                                 </td>
                                 <td>
+                                    @if($invoice->account)
+                                        <span class="badge {{ $invoice->account->code === 'ronex1' ? 'bg-primary-100 text-primary-600' : 'bg-success-100 text-success-600' }} px-2 py-1 rounded-pill text-xs fw-medium">
+                                            {{ $invoice->account->name }}
+                                        </span>
+                                    @else
+                                        <span class="badge bg-gray-100 text-gray-600 px-2 py-1 rounded-pill text-xs fw-medium">
+                                            Mağaza Yok
+                                        </span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if($invoice->user)
+                                        <div class="d-flex align-items-center">
+                                            <div class="w-8 h-8 bg-info-100 rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                <iconify-icon icon="heroicons:user" class="text-info-600 text-sm"></iconify-icon>
+                                            </div>
+                                            <div>
+                                                <h6 class="text-sm mb-0 fw-medium">{{ $invoice->user->name }}</h6>
+                                                <small class="text-secondary-light">{{ $invoice->user->email }}</small>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <span class="text-muted">Bilinmiyor</span>
+                                    @endif
+                                </td>
+                                <td>
                                     <div class="d-flex align-items-center">
                                         <div>
                                             <h6 class="text-md mb-0 fw-medium">{{ $invoice->supplier->name }}</h6>
@@ -71,35 +98,14 @@
                                     <span class="fw-semibold">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->currency }}</span>
                                 </td>
                                 <td>
-                                    @switch($invoice->status)
-                                        @case('draft')
-                                            <span class="bg-warning-focus text-warning-main px-24 py-4 rounded-pill fw-medium text-sm">Taslak</span>
-                                            @break
-                                        @case('approved')
-                                            <span class="bg-info-focus text-info-main px-24 py-4 rounded-pill fw-medium text-sm">Onaylandı</span>
-                                            @break
-                                        @case('paid')
-                                            <span class="bg-success-focus text-success-main px-24 py-4 rounded-pill fw-medium text-sm">Ödendi</span>
-                                            @break
-                                        @case('cancelled')
-                                            <span class="bg-secondary-focus text-secondary-main px-24 py-4 rounded-pill fw-medium text-sm">İptal Edildi</span>
-                                            @break
-                                        @default
-                                            <span class="bg-warning-focus text-warning-main px-24 py-4 rounded-pill fw-medium text-sm">Taslak</span>
-                                    @endswitch
-                                </td>
-                                <td>
                                     <div class="btn-group">
                                         <button type="button" class="w-32-px h-32-px bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="İşlemler">
                                             <iconify-icon icon="solar:menu-dots-bold"></iconify-icon>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end">
                                             <li><a class="dropdown-item" href="{{ route('purchases.invoices.show', $invoice) }}">Görüntüle</a></li>
-                                            <li><a class="dropdown-item {{ in_array($invoice->status, ['approved','paid']) ? 'disabled' : '' }}" href="{{ route('purchases.invoices.edit', $invoice) }}">Düzenle</a></li>
+                                            <li><a class="dropdown-item" href="{{ route('purchases.invoices.edit', $invoice) }}">Düzenle</a></li>
                                             <li><a class="dropdown-item" target="_blank" href="{{ route('purchases.invoices.print', $invoice) }}">Yazdır</a></li>
-                                            <li><hr class="dropdown-divider"></li>
-                                            <li><button class="dropdown-item" onclick="approvePurchaseInvoice({{ $invoice->id }})" {{ $invoice->status !== 'draft' ? 'disabled' : '' }}>Onayla</button></li>
-                                            <li><button class="dropdown-item" onclick="revertDraftPurchaseInvoice({{ $invoice->id }})" {{ $invoice->payment_completed ? 'disabled' : ($invoice->status === 'draft' ? 'disabled' : '') }}>Taslağa Çevir</button></li>
                                             <li><hr class="dropdown-divider"></li>
                                             <li>
                                                 <form action="{{ route('purchases.invoices.destroy', $invoice) }}" method="POST" onsubmit="return confirm('Bu alış faturasını silmek istediğinizden emin misiniz?')">
@@ -148,14 +154,7 @@
             });
         });
 
-        window.approvePurchaseInvoice = function(id) {
-            fetch(`{{ url('purchases/invoices') }}/${id}/approve`, {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}'}})
-                .then(()=>location.reload());
-        }
-        window.revertDraftPurchaseInvoice = function(id) {
-            fetch(`{{ url('purchases/invoices') }}/${id}/revert-draft`, {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}'}})
-                .then(()=>location.reload());
-        }
+        // Approval functions removed - invoices are now directly approved
     });
 
 </script>

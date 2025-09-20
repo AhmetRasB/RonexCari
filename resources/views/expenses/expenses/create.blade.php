@@ -54,6 +54,25 @@
                             @enderror
                         </div>
                         <div class="col-12">
+                            <label class="form-label">Kategori</label>
+                            <div class="icon-field">
+                                <span class="icon">
+                                    <iconify-icon icon="solar:tag-outline"></iconify-icon>
+                                </span>
+                                <select name="category" class="form-control @error('category') is-invalid @enderror">
+                                    <option value="Genel" {{ old('category', 'Genel') == 'Genel' ? 'selected' : '' }}>Genel</option>
+                                    <option value="Ofis" {{ old('category') == 'Ofis' ? 'selected' : '' }}>Ofis</option>
+                                    <option value="Ulaşım" {{ old('category') == 'Ulaşım' ? 'selected' : '' }}>Ulaşım</option>
+                                    <option value="Yemek" {{ old('category') == 'Yemek' ? 'selected' : '' }}>Yemek</option>
+                                    <option value="Malzeme" {{ old('category') == 'Malzeme' ? 'selected' : '' }}>Malzeme</option>
+                                    <option value="Diğer" {{ old('category') == 'Diğer' ? 'selected' : '' }}>Diğer</option>
+                                </select>
+                            </div>
+                            @error('category')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="col-12">
                             <label class="form-label">Açıklama</label>
                             <div class="icon-field">
                                 <span class="icon">
@@ -65,17 +84,6 @@
                             @error('description')
                                 <div class="invalid-feedback d-block">{{ $message }}</div>
                             @enderror
-                        </div>
-                        <div class="col-12">
-                            <div class="form-check">
-                                <input type="hidden" name="is_active" value="0">
-                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1" 
-                                       {{ old('is_active', false) ? 'checked' : '' }}>
-                                <label class="form-check-label" for="is_active">
-                                    <iconify-icon icon="solar:check-circle-outline" class="me-2"></iconify-icon>
-                                    Ödendi
-                                </label>
-                            </div>
                         </div>
                         <div class="col-12">
                             <button type="submit" class="btn btn-primary-600">

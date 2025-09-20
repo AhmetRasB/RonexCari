@@ -31,7 +31,7 @@
             <div>
                 <h4 class="mb-1">{{ $product->name }}</h4>
                 <p class="text-muted mb-0">
-                    <span class="badge bg-primary me-2">{{ $product->product_code ?? 'Kod yok' }}</span>
+                    <span class="badge bg-primary me-2">{{ $product->sku ?? 'Kod yok' }}</span>
                     <span class="badge bg-info me-2">{{ $product->category ?? 'Kategori yok' }}</span>
                     @if($product->brand)
                         <span class="badge bg-warning">{{ $product->brand }}</span>
@@ -86,8 +86,8 @@
                     <div class="col-6">
                         <label class="form-label text-muted small">Ürün Kodu</label>
                         <div>
-                            @if($product->product_code)
-                                <span class="badge bg-primary">{{ $product->product_code }}</span>
+                            @if($product->sku)
+                                <span class="badge bg-primary">{{ $product->sku }}</span>
                             @else
                                 <span class="text-muted">-</span>
                             @endif
@@ -157,8 +157,8 @@
                     <div class="col-md-6 mb-3">
                         <label class="form-label text-muted small">Alış Fiyatı</label>
                         <div class="fw-semibold text-info fs-5">
-                            @if($product->purchase_price)
-                                {{ number_format($product->purchase_price, 2) }} {{ $product->currency }}
+                            @if($product->cost)
+                                {{ number_format($product->cost, 2) }} TL
                             @else
                                 <span class="text-muted">-</span>
                             @endif
@@ -167,8 +167,8 @@
                     <div class="col-md-6 mb-3">
                         <label class="form-label text-muted small">Satış Fiyatı</label>
                         <div class="fw-semibold text-success fs-5">
-                            @if($product->sale_price)
-                                {{ number_format($product->sale_price, 2) }} {{ $product->currency }}
+                            @if($product->price)
+                                {{ number_format($product->price, 2) }} TL
                             @else
                                 <span class="text-muted">-</span>
                             @endif
@@ -177,17 +177,7 @@
                 </div>
                 
                 <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label text-muted small">KDV Oranı</label>
-                        <div class="fw-semibold">
-                            @if($product->vat_rate)
-                                %{{ $product->vat_rate }}
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-6 mb-3">
                         <label class="form-label text-muted small">Birim</label>
                         <div class="fw-semibold">
                             @if($product->unit)
@@ -197,14 +187,10 @@
                             @endif
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-6 mb-3">
                         <label class="form-label text-muted small">Para Birimi</label>
                         <div class="fw-semibold">
-                            @if($product->currency)
-                                {{ $product->currency }}
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
+                            TL
                         </div>
                     </div>
                 </div>
@@ -282,26 +268,6 @@
                                 @endif
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label text-muted small">Tedarikçi Kodu</label>
-                            <div class="fw-semibold">
-                                @if($product->supplier_code)
-                                    {{ $product->supplier_code }}
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
-                            </div>
-                        </div>
-                        <div class="mb-0">
-                            <label class="form-label text-muted small">GTIP Kodu</label>
-                            <div class="fw-semibold">
-                                @if($product->gtip_code)
-                                    {{ $product->gtip_code }}
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -336,7 +302,7 @@
             <div class="modal-body text-center">
                 <img src="{{ asset($product->image) }}" alt="{{ $product->name }}" class="img-fluid rounded shadow" style="max-width: 100%; max-height: 80vh;">
                 <div class="mt-3">
-                    <small class="text-muted">{{ $product->product_code ?? 'Kod yok' }} • {{ $product->category ?? 'Kategori yok' }} • {{ $product->brand ?? 'Marka yok' }}</small>
+                    <small class="text-muted">{{ $product->sku ?? 'Kod yok' }} • {{ $product->category ?? 'Kategori yok' }} • {{ $product->brand ?? 'Marka yok' }}</small>
                 </div>
             </div>
             <div class="modal-footer">

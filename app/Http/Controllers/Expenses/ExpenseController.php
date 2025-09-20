@@ -14,7 +14,20 @@ class ExpenseController extends Controller
      */
     public function index()
     {
-        $expenses = Expense::orderBy('expense_date', 'desc')->paginate(15);
+        $currentAccountId = session('current_account_id');
+        
+        // Admin kullanıcılar tüm hesapları görebilir
+        if (auth()->user()->isAdmin()) {
+            $expenses = Expense::with(['account', 'user'])
+                ->orderBy('expense_date', 'desc')
+                ->paginate(15);
+        } else {
+            $expenses = Expense::with(['account', 'user'])
+                ->where('account_id', $currentAccountId)
+                ->orderBy('expense_date', 'desc')
+                ->paginate(15);
+        }
+        
         return view('expenses.expenses.index', compact('expenses'));
     }
 
@@ -39,7 +52,6 @@ class ExpenseController extends Controller
                 'amount' => 'required|numeric|min:0',
                 'description' => 'nullable|string',
                 'expense_date' => 'required|date',
-                'is_active' => 'boolean'
             ], [
                 'name.required' => 'Gider adı gereklidir.',
                 'name.string' => 'Gider adı metin olmalıdır.',
@@ -51,8 +63,27 @@ class ExpenseController extends Controller
                 'expense_date.date' => 'Geçerli bir tarih giriniz.'
             ]);
 
+            // Get account_id with fallback
+            $accountId = session('current_account_id');
+            if (!$accountId) {
+                // Fallback: get first active account
+                $account = \App\Models\Account::active()->first();
+                $accountId = $account ? $account->id : 1; // Default to Ronex1
+            }
+
+            // Get user_id with fallback
+            $userId = auth()->id();
+            if (!$userId) {
+                // Fallback: get first user
+                $user = \App\Models\User::first();
+                $userId = $user ? $user->id : 1;
+            }
+
+
             $data = $request->all();
-            $data['is_active'] = $request->has('is_active');
+            $data['account_id'] = $accountId;
+            $data['user_id'] = $userId;
+            $data['category'] = $request->input('category', 'Genel'); // Default category
 
             $expense = Expense::create($data);
 
@@ -103,7 +134,6 @@ class ExpenseController extends Controller
                 'amount' => 'required|numeric|min:0',
                 'description' => 'nullable|string',
                 'expense_date' => 'required|date',
-                'is_active' => 'boolean'
             ], [
                 'name.required' => 'Gider adı gereklidir.',
                 'name.string' => 'Gider adı metin olmalıdır.',
