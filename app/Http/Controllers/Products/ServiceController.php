@@ -13,7 +13,7 @@ class ServiceController extends Controller
      */
     public function index()
     {
-        $services = Service::orderBy('created_at', 'desc')->get();
+        $services = Service::orderBy('created_at', 'desc')->paginate(15);
         return view('products.services.index', compact('services'));
     }
 

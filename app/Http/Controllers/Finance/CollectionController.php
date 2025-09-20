@@ -18,7 +18,7 @@ class CollectionController extends Controller
     {
         $collections = Collection::with('customer')
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate(15);
 
         return view('finance.collections.index', compact('collections'));
     }

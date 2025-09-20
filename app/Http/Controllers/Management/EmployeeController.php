@@ -13,7 +13,7 @@ class EmployeeController extends Controller
      */
     public function index()
     {
-        $employees = Employee::orderBy('created_at', 'desc')->get();
+        $employees = Employee::orderBy('created_at', 'desc')->paginate(15);
         return view('management.employees.index', compact('employees'));
     }
 
