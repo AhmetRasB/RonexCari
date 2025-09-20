@@ -175,7 +175,7 @@
                             </div>
                             <div class="card-body text-center">
                                 @if($series->image)
-                                    <img src="{{ asset('storage/' . $series->image) }}?v={{ time() }}" 
+                                    <img src="{{ $series->image_url }}?v={{ time() }}" 
                                          alt="{{ $series->name }}" 
                                          class="img-fluid rounded" 
                                          style="max-height: 200px;">

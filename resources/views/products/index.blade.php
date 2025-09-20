@@ -58,7 +58,7 @@
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 @if($product->image)
-                                                    <img src="{{ asset('storage/' . $product->image) }}?v={{ time() }}" alt="{{ $product->name }}" 
+                                                    <img src="{{ $product->image_url }}?v={{ time() }}" alt="{{ $product->name }}" 
                                                          class="rounded me-3" width="40" height="40">
                                                 @else
                                                     <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center" 

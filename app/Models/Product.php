@@ -33,6 +33,27 @@ class Product extends Model
         'is_active' => 'boolean',
     ];
 
+    /**
+     * Görsel URL'ini getir
+     */
+    public function getImageUrlAttribute()
+    {
+        if (!$this->image) {
+            return null;
+        }
+        
+        // Linux Plesk ortamında daha güvenilir çalışması için
+        $imagePath = 'storage/' . $this->image;
+        
+        // Dosya var mı kontrol et
+        if (file_exists(public_path($imagePath))) {
+            return asset($imagePath);
+        }
+        
+        // Fallback olarak storage URL'i dene
+        return \Storage::url($this->image);
+    }
+
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);

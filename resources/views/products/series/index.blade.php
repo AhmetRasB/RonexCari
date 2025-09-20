@@ -57,7 +57,7 @@
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 @if($serie->image)
-                                                    <img src="{{ asset('storage/' . $serie->image) }}?v={{ time() }}" alt="{{ $serie->name }}" 
+                                                    <img src="{{ $serie->image_url }}?v={{ time() }}" alt="{{ $serie->name }}" 
                                                          class="rounded me-3" width="40" height="40">
                                                 @else
                                                     <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center" 

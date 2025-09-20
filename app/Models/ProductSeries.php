@@ -48,6 +48,27 @@ class ProductSeries extends Model
     }
 
     /**
+     * Görsel URL'ini getir
+     */
+    public function getImageUrlAttribute()
+    {
+        if (!$this->image) {
+            return null;
+        }
+        
+        // Linux Plesk ortamında daha güvenilir çalışması için
+        $imagePath = 'storage/' . $this->image;
+        
+        // Dosya var mı kontrol et
+        if (file_exists(public_path($imagePath))) {
+            return asset($imagePath);
+        }
+        
+        // Fallback olarak storage URL'i dene
+        return \Storage::url($this->image);
+    }
+
+    /**
      * Seri boyutuna göre varsayılan bedenler (FixedSeriesSetting'den)
      */
     public static function getDefaultSizesForSeries($seriesSize)

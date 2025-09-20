@@ -136,7 +136,7 @@
                             @if($series->image)
                                 <div class="mt-2">
                                     <small class="text-muted">Mevcut görsel:</small>
-                                    <img src="{{ asset('storage/' . $series->image) }}?v={{ time() }}" alt="{{ $series->name }}" 
+                                    <img src="{{ $series->image_url }}?v={{ time() }}" alt="{{ $series->name }}" 
                                          class="img-thumbnail mt-1" style="max-width: 100px;">
                                 </div>
                             @endif

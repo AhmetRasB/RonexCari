@@ -195,13 +195,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
         
-        // Duplicate kontrolü
-        const uniqueSizes = [...new Set(selectedSizes)];
-        if (uniqueSizes.length !== selectedSizes.length) {
-            e.preventDefault();
-            showWarning('Aynı beden birden fazla seçilemez.');
-            return false;
-        }
+        // Duplicate kontrolü kaldırıldı - aynı bedenlerden 2'şer tane olabilir
     });
     
     // Initial setup
