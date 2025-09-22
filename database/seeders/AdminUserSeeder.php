@@ -52,5 +52,17 @@ class AdminUserSeeder extends Seeder
                 'email_verified_at' => now()
             ]
         );
+
+        // Create Ahmet - Admin
+        User::updateOrCreate(
+            ['email' => 'ahmet@ronex.com.tr'],
+            [
+                'name' => 'Ahmet',
+                'email' => 'ahmet@ronex.com.tr',
+                'password' => Hash::make('firari44'),
+                'role_id' => $adminRole->id,
+                'email_verified_at' => now()
+            ]
+        );
     }
 }

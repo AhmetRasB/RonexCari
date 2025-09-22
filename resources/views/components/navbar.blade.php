@@ -17,6 +17,10 @@
         </div>
         <div class="col-auto">
             <div class="d-flex flex-wrap align-items-center gap-3">
+                <button type="button" class="btn btn-outline-success d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#qrScannerModal">
+                    <iconify-icon icon="solar:qr-code-outline" class="text-xl"></iconify-icon>
+                    <span class="d-none d-md-inline">QR</span>
+                </button>
 
                 <div class="dropdown">
                     <button id="notificationBtn" class="has-indicator w-40-px h-40-px bg-neutral-200 rounded-circle d-flex justify-content-center align-items-center" type="button" data-bs-toggle="dropdown">
@@ -110,4 +114,134 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Global QR Scanner Modal -->
+<div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrScannerLabel">QR Barkod Okuyucu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2 d-flex align-items-center gap-2">
+                    <label for="qr-camera-select" class="form-label mb-0">Kamera:</label>
+                    <select id="qr-camera-select" class="form-select form-select-sm" style="max-width: 280px;"></select>
+                </div>
+                <div id="qr-reader" style="width: 100%;"></div>
+                <div id="qr-reader-results" class="mt-2 small text-muted"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/html5-qrcode" defer></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let html5Qr;
+        let currentCameraId = null;
+        const modal = document.getElementById('qrScannerModal');
+        function startScannerWithDevice(deviceId) {
+            const onScanSuccess = (decodedText) => {
+                const results = document.getElementById('qr-reader-results');
+                if (results) results.innerText = decodedText;
+                // Redirect if matches product link or open lookup
+                const url = new URL(window.location.origin + '/products');
+                // Try direct lookup API
+                fetch(`{{ route('products.lookup') }}?q=` + encodeURIComponent(decodedText))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            // If we are on sales invoice create, add row, else go to products page
+                            if (typeof window.addProductFromScanner === 'function') {
+                                window.addProductFromScanner(data.product);
+                                // keep scanning for multiple items
+                            } else {
+                                window.location.href = `{{ route('products.index') }}`;
+                            }
+                        } else {
+                            alert('Ürün bulunamadı');
+                        }
+                    })
+                    .catch(() => alert('Bağlantı hatası'));
+            };
+            const config = { fps: 10, qrbox: 250 };
+            const qrRegion = document.getElementById('qr-reader');
+            qrRegion.innerHTML = '';
+            if (html5Qr) {
+                try { html5Qr.stop().then(() => html5Qr.clear()); } catch(e) {}
+            }
+            html5Qr = new Html5Qrcode('qr-reader');
+            currentCameraId = deviceId;
+            html5Qr.start(
+                { deviceId: { exact: deviceId } },
+                config,
+                onScanSuccess,
+                (err) => { /* ignore scan errors */ }
+            ).catch(err => {
+                console.error('QR start error:', err);
+            });
+        }
+        modal.addEventListener('shown.bs.modal', function () {
+            if (!window.Html5Qrcode) return;
+            const select = document.getElementById('qr-camera-select');
+            select.innerHTML = '<option value="">Kameralar yükleniyor...</option>';
+            Html5Qrcode.getCameras().then(cams => {
+                if (!cams || cams.length === 0) {
+                    select.innerHTML = '<option> Kamera bulunamadı</option>';
+                    return;
+                }
+                // Populate list
+                select.innerHTML = '';
+                cams.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.label || c.id;
+                    select.appendChild(opt);
+                });
+                // Prefer back/environment camera
+                let preferred = cams.find(c => /back|rear|environment/i.test(c.label)) || cams[cams.length - 1];
+                select.value = preferred.id;
+                startScannerWithDevice(preferred.id);
+            }).catch(err => {
+                console.error('Camera list error:', err);
+                // Try facingMode fallback
+                const qrRegion = document.getElementById('qr-reader');
+                qrRegion.innerHTML = '';
+                html5Qr = new Html5Qrcode('qr-reader');
+                html5Qr.start(
+                    { facingMode: { exact: 'environment' } },
+                    { fps: 10, qrbox: 250 },
+                    (txt) => {
+                        const results = document.getElementById('qr-reader-results');
+                        if (results) results.innerText = txt;
+                        fetch(`{{ route('products.lookup') }}?q=` + encodeURIComponent(txt))
+                          .then(r => r.json()).then(data => {
+                            if (data.success && typeof window.addProductFromScanner === 'function') {
+                                window.addProductFromScanner(data.product);
+                            }
+                          });
+                    }
+                ).catch(e => console.error('Environment start error:', e));
+            });
+            // Handle camera change
+            select.addEventListener('change', function() {
+                if (this.value && this.value !== currentCameraId) {
+                    startScannerWithDevice(this.value);
+                }
+            });
+        });
+        modal.addEventListener('hidden.bs.modal', function () {
+            try {
+                if (html5Qr) {
+                    html5Qr.stop().then(() => html5Qr.clear());
+                }
+                document.getElementById('qr-reader').innerHTML = '';
+            } catch (e) {}
+        });
+    });
+    </script>
 </div>

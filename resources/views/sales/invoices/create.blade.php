@@ -122,6 +122,10 @@
                     <div class="row mb-4">
                         <div class="col-12">
                             <h6 class="fw-semibold mb-3">Ürün/Hizmet Detayları</h6>
+                            <button type="button" class="btn btn-outline-success mb-2" data-bs-toggle="modal" data-bs-target="#qrScannerModal">
+                                <iconify-icon icon="solar:qr-code-outline" class="me-1"></iconify-icon>
+                                QR ile Ürün Ekle
+                            </button>
                             <div class="table-responsive">
                                 <table class="table table-bordered" id="invoiceItemsTable">
                                     <thead>
@@ -501,6 +505,22 @@ $(document).ready(function() {
         console.log('Add invoice item button clicked');
         addInvoiceItemRow();
     });
+
+    // Expose scanner add function
+    window.addProductFromScanner = function(product) {
+        // Add a new row and fill it
+        addInvoiceItemRow();
+        const row = $('#invoiceItemsBody tr').last();
+        const rowIndex = row.data('item-index');
+        row.find('input[name*="[product_service_name]"]').val(product.name);
+        row.find('input[name*="[unit_price]"]').val(parseFloat(product.price || 0).toFixed(2));
+        row.find('select[name*="[tax_rate]"]').val(20);
+        row.find('input[name*="[product_id]"]').val(product.id);
+        row.find('input[name*="[type]"]').val('product');
+        row.data('stock-quantity', product.stock_quantity || 0);
+        row.data('product-type', 'product');
+        calculateLineTotal.call(row.find('.unit-price')[0]);
+    };
     
     // Remove item row
     $(document).on('click', '.remove-item', function() {

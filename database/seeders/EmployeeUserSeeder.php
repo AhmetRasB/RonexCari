@@ -18,13 +18,37 @@ class EmployeeUserSeeder extends Seeder
         // Get employee role
         $employeeRole = Role::where('name', 'employee')->first();
 
-        // Create Test Employee - Limited Access
+        // Create Emre - Employee
         User::updateOrCreate(
-            ['email' => 'employee@test.com'],
+            ['email' => 'emre@ronex.com.tr'],
             [
-                'name' => 'Test Employee',
-                'email' => 'employee@test.com',
-                'password' => Hash::make('password123'),
+                'name' => 'Emre',
+                'email' => 'emre@ronex.com.tr',
+                'password' => Hash::make('emre2025'),
+                'role_id' => $employeeRole->id,
+                'email_verified_at' => now()
+            ]
+        );
+
+        // Create Murat - Employee
+        User::updateOrCreate(
+            ['email' => 'murat@ronex.com.tr'],
+            [
+                'name' => 'Murat',
+                'email' => 'murat@ronex.com.tr',
+                'password' => Hash::make('murat2025'),
+                'role_id' => $employeeRole->id,
+                'email_verified_at' => now()
+            ]
+        );
+
+        // Create Nedim - Employee
+        User::updateOrCreate(
+            ['email' => 'nedim@ronex.com.tr'],
+            [
+                'name' => 'Nedim',
+                'email' => 'nedim@ronex.com.tr',
+                'password' => Hash::make('nedim2025'),
                 'role_id' => $employeeRole->id,
                 'email_verified_at' => now()
             ]

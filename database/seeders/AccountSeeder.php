@@ -28,7 +28,10 @@ class AccountSeeder extends Seeder
         ];
 
         foreach ($accounts as $account) {
-            \App\Models\Account::create($account);
+            \App\Models\Account::updateOrCreate(
+                ['code' => $account['code']],
+                $account
+            );
         }
         
         $this->command->info('2 accounts created successfully!');

@@ -170,4 +170,47 @@ class ProductController extends Controller
         return redirect()->route('products.index')
             ->with('success', 'Ürün başarıyla silindi.');
     }
+
+    /**
+     * Lookup product by barcode, QR code payload, or SKU/name for scanner.
+     */
+    public function lookup(Request $request)
+    {
+        $q = trim((string) $request->get('q', ''));
+        if ($q === '') {
+            return response()->json(['success' => false, 'message' => 'Sorgu boş olamaz.'], 400);
+        }
+
+        // If QR payload is a URL like ronexcari.test/p/123 or contains ?code=XYZ, extract key
+        $code = $q;
+        if (preg_match('/code=([^&]+)/', $q, $m)) {
+            $code = urldecode($m[1]);
+        } elseif (preg_match('#/p/(\d+)#', $q, $m)) {
+            $code = $m[1];
+        }
+
+        $product = Product::query()
+            ->where('barcode', $code)
+            ->orWhere('sku', $code)
+            ->orWhere('id', is_numeric($code) ? (int) $code : 0)
+            ->orWhere('name', 'like', "%{$code}%")
+            ->first();
+
+        if (!$product) {
+            return response()->json(['success' => false, 'message' => 'Ürün bulunamadı.'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'product' => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'sku' => $product->sku,
+                'barcode' => $product->barcode,
+                'price' => (float) $product->price,
+                'vat_rate' => 20, // default
+                'stock_quantity' => (int) ($product->stock_quantity ?? 0),
+            ],
+        ]);
+    }
 }
