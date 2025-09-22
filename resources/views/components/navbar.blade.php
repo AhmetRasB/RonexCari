@@ -148,9 +148,7 @@
             const onScanSuccess = (decodedText) => {
                 const results = document.getElementById('qr-reader-results');
                 if (results) results.innerText = decodedText;
-                // Redirect if matches product link or open lookup
-                const url = new URL(window.location.origin + '/products');
-                // Try direct lookup API
+                // Eğer fatura oluştur sayfasındaysak satıra ekle; değilsek ön izlemeye git
                 fetch(`{{ route('products.lookup') }}?q=` + encodeURIComponent(decodedText))
                     .then(r => r.json())
                     .then(data => {
@@ -160,7 +158,8 @@
                                 window.addProductFromScanner(data.product);
                                 // keep scanning for multiple items
                             } else {
-                                window.location.href = `{{ route('products.index') }}`;
+                                const previewUrl = `{{ route('products.qr.preview') }}` + `?q=` + encodeURIComponent(decodedText);
+                                window.location.href = previewUrl;
                             }
                         } else {
                             alert('Ürün bulunamadı');

@@ -104,8 +104,11 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
 
     // Products Routes
     Route::resource('products', ProductController::class);
+    // Products QR/lookup
     // Products API lookup for QR/barcode/SKU
     Route::get('api/products/lookup', [ProductController::class, 'lookup'])->name('products.lookup');
+    // QR preview page
+    Route::get('products/qr/preview', [ProductController::class, 'quickView'])->name('products.qr.preview');
     
     
     // Services Routes (separate)

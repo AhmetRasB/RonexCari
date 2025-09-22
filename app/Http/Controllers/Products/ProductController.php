@@ -213,4 +213,36 @@ class ProductController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Quick QR preview page for mobile: show product details with actions.
+     */
+    public function quickView(Request $request)
+    {
+        $q = trim((string) $request->get('q', ''));
+        if ($q === '') {
+            return redirect()->route('products.index')->with('error', 'QR verisi bulunamadı.');
+        }
+
+        // Reuse the same decode logic as lookup
+        $code = $q;
+        if (preg_match('/code=([^&]+)/', $q, $m)) {
+            $code = urldecode($m[1]);
+        } elseif (preg_match('#/p/(\d+)#', $q, $m)) {
+            $code = $m[1];
+        }
+
+        $product = Product::query()
+            ->where('barcode', $code)
+            ->orWhere('sku', $code)
+            ->orWhere('id', is_numeric($code) ? (int) $code : 0)
+            ->orWhere('name', 'like', "%{$code}%")
+            ->first();
+
+        if (!$product) {
+            return redirect()->route('products.index')->with('error', 'Ürün bulunamadı.');
+        }
+
+        return view('products.qr-preview', compact('product'));
+    }
 }
