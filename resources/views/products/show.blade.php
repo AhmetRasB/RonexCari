@@ -39,6 +39,14 @@
                 </p>
             </div>
             <div>
+                <button type="button" class="btn btn-outline-primary me-2" id="openNavbarScanner">
+                    <iconify-icon icon="solar:qr-code-outline" class="me-1"></iconify-icon>
+                    Tara
+                </button>
+                <button type="button" class="btn btn-warning me-2" data-bs-toggle="modal" data-bs-target="#quickStockModal">
+                    <iconify-icon icon="solar:database-outline" class="me-1"></iconify-icon>
+                    Hızlı Stok
+                </button>
                 <a href="{{ route('products.edit', $product) }}" class="btn btn-success me-2">
                     <iconify-icon icon="solar:pen-outline" class="me-1"></iconify-icon>
                     Düzenle
@@ -51,6 +59,58 @@
         </div>
     </div>
 </div>
+
+<!-- Quick Stock Modal -->
+<div class="modal fade" id="quickStockModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Hızlı Stok Güncelle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Mevcut Stok</label>
+                    <input type="text" class="form-control" value="{{ $product->initial_stock ?? 0 }}" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Ekle (Adet)</label>
+                    <input type="number" class="form-control" id="qsAddStock" min="0" step="1" placeholder="0">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Kritik Stok</label>
+                    <input type="number" class="form-control" id="qsCritical" min="0" step="1" value="{{ $product->critical_stock ?? 0 }}">
+                </div>
+                <div class="small text-muted">Eski değerler görüntülenir, yeni değerleri kaydetmek için güncelleyin.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary" id="qsSaveBtn">Kaydet</button>
+            </div>
+        </div>
+    </div>
+ </div>
+
+@push('scripts')
+<script>
+document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
+    const addStock = parseInt(document.getElementById('qsAddStock').value || '0', 10);
+    const critical = parseInt(document.getElementById('qsCritical').value || '0', 10);
+    fetch('{{ route('products.quick-stock', $product) }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+        body: JSON.stringify({ add_stock: addStock, critical_stock: critical })
+    }).then(r => r.json()).then(resp => {
+        if (resp.success) {
+            alert('Güncellendi: Yeni stok ' + resp.data.initial_stock + ', kritik ' + resp.data.critical_stock);
+            location.reload();
+        } else {
+            alert('Güncelleme başarısız');
+        }
+    }).catch(()=>alert('Hata oluştu'));
+});
+</script>
+@endpush
 
 <div class="row">
     <!-- Sol Kolon - Görsel ve Temel Bilgiler -->

@@ -461,7 +461,7 @@ let itemCounter = 0;
 $(document).ready(function() {
     // Open scanner in invoice context
     $('#openInvoiceScanner').on('click', function(){
-        if (window.openScanner) window.openScanner('invoice');
+        if (window.openGlobalScanner) window.openGlobalScanner({ invoiceContext: true, multi: true });
     });
     
     // Setup CSRF token for AJAX requests

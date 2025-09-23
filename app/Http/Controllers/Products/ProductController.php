@@ -199,4 +199,40 @@ class ProductController extends Controller
         return redirect()->route('products.index')
             ->with('success', 'Ürün başarıyla silindi.');
     }
+
+    /**
+     * Quick update for critical stock and add to stock.
+     */
+    public function quickStockUpdate(Request $request, Product $product)
+    {
+        $data = $request->validate([
+            'critical_stock' => 'nullable|integer|min:0',
+            'add_stock' => 'nullable|integer|min:0',
+        ]);
+
+        $originalInitialStock = (int) ($product->initial_stock ?? 0);
+        $originalCriticalStock = (int) ($product->critical_stock ?? 0);
+
+        if (array_key_exists('critical_stock', $data) && $data['critical_stock'] !== null) {
+            $product->critical_stock = (int) $data['critical_stock'];
+        }
+
+        if (!empty($data['add_stock'])) {
+            $product->initial_stock = $originalInitialStock + (int) $data['add_stock'];
+        }
+
+        $product->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Stok bilgileri güncellendi.',
+            'data' => [
+                'initial_stock' => (int) ($product->initial_stock ?? 0),
+                'critical_stock' => (int) ($product->critical_stock ?? 0),
+                'added' => (int) ($data['add_stock'] ?? 0),
+                'original_initial_stock' => $originalInitialStock,
+                'original_critical_stock' => $originalCriticalStock,
+            ],
+        ]);
+    }
 }

@@ -105,6 +105,7 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
 
     // Products Routes
     Route::resource('products', ProductController::class);
+    Route::post('products/{product}/quick-stock', [ProductController::class, 'quickStockUpdate'])->name('products.quick-stock');
     
     // Barcode Section
     Route::get('/barcodes', [BarcodeController::class, 'index'])->name('barcode.index');
