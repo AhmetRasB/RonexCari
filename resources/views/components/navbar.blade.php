@@ -126,11 +126,30 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div id="scannerContainer" class="w-100" style="max-width:600px;margin:0 auto;">
-                    <div id="qr-reader" style="width:100%;"></div>
-                    <div class="text-center mt-2">
-                        <small class="text-muted d-block">Mobilde kamera izni vermeyi unutmayın.</small>
-                        <small class="text-muted">Tarayıcı destekliyorsa barkodlar da okunur.</small>
+                <div class="container" style="max-width:700px;">
+                    <div id="cameraAlerts" class="alert alert-warning d-none" role="alert"></div>
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Kamera Seç</label>
+                            <select id="cameraSelector" class="form-select"></select>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <button id="btnStartScan" type="button" class="btn btn-success me-2">
+                                <iconify-icon icon="solar:play-outline" class="me-1"></iconify-icon>
+                                Kamerayı Başlat
+                            </button>
+                            <button id="btnStopScan" type="button" class="btn btn-outline-secondary" disabled>
+                                <iconify-icon icon="solar:pause-outline" class="me-1"></iconify-icon>
+                                Durdur
+                            </button>
+                        </div>
+                    </div>
+                    <div id="scannerContainer" class="w-100" style="max-width:680px;margin:0 auto;">
+                        <div id="qr-reader" style="width:100%;min-height:240px;background:#0001;border-radius:8px;"></div>
+                        <div class="text-center mt-2">
+                            <small class="text-muted d-block">Mobilde kamera izni vermeyi unutmayın.</small>
+                            <small class="text-muted">Tarayıcı destekliyorsa barkodlar da okunur.</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -162,6 +181,7 @@
         const modalEl = document.getElementById('scannerModal');
         let html5QrCode = null;
         let targetContext = 'global';
+        let isRunning = false;
 
         // Allow other pages to open scanner with context
         window.openScanner = function(context){
@@ -174,20 +194,85 @@
             window.openScanner('global');
         });
 
+        function showAlert(msg, type='warning'){
+            const a = document.getElementById('cameraAlerts');
+            a.className = 'alert alert-' + type;
+            a.textContent = msg;
+            a.classList.remove('d-none');
+        }
+
+        function clearAlert(){
+            const a = document.getElementById('cameraAlerts');
+            a.classList.add('d-none');
+            a.textContent = '';
+        }
+
+        async function populateCameras(){
+            try {
+                const devices = await Html5Qrcode.getCameras();
+                const sel = document.getElementById('cameraSelector');
+                sel.innerHTML = '';
+                if (!devices || devices.length === 0) {
+                    showAlert('Kamera bulunamadı. Tarayıcı izinlerini kontrol edin ve HTTPS kullanın.');
+                    return;
+                }
+                devices.forEach((d, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = d.id;
+                    opt.textContent = d.label || ('Kamera ' + (idx+1));
+                    sel.appendChild(opt);
+                });
+                // Prefer back camera if found
+                const back = devices.find(d => /back|rear|arka/i.test(d.label || ''));
+                if (back) sel.value = back.id;
+                clearAlert();
+            } catch (e) {
+                showAlert('Kameralara erişilemedi: ' + e.message + '. Lütfen siteye kamera izni verin ve sayfayı yenileyin.');
+            }
+        }
+
+        async function startScan(){
+            if (!window.isSecureContext) {
+                showAlert('Kamera için güvenli bağlam (HTTPS) gereklidir. Lütfen siteyi https üzerinden açın.', 'danger');
+                return;
+            }
+            try {
+                clearAlert();
+                const config = { fps: 15, qrbox: { width: 300, height: 300 }, aspectRatio: 1.7778, rememberLastUsedCamera: true };
+                const camId = document.getElementById('cameraSelector').value || { facingMode: 'environment' };
+                html5QrCode = html5QrCode || new Html5Qrcode('qr-reader');
+                await html5QrCode.start(camId, config, onScanSuccess);
+                isRunning = true;
+                document.getElementById('btnStartScan').setAttribute('disabled', 'disabled');
+                document.getElementById('btnStopScan').removeAttribute('disabled');
+            } catch (err) {
+                showAlert('Kamera başlatılamadı: ' + err.message, 'danger');
+            }
+        }
+
+        async function stopScan(){
+            try {
+                if (html5QrCode && isRunning) {
+                    await html5QrCode.stop();
+                    await html5QrCode.clear();
+                    isRunning = false;
+                    document.getElementById('btnStartScan').removeAttribute('disabled');
+                    document.getElementById('btnStopScan').setAttribute('disabled', 'disabled');
+                }
+            } catch(e) {}
+        }
+
         modalEl.addEventListener('shown.bs.modal', function(){
-            const config = { fps: 15, qrbox: { width: 300, height: 300 }, aspectRatio: 1.7778, rememberLastUsedCamera: true };
-            html5QrCode = new Html5Qrcode('qr-reader');
-            html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess)
-                .catch(err => console.error('Scanner start error', err));
+            populateCameras();
         });
 
         modalEl.addEventListener('hidden.bs.modal', function(){
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => html5QrCode.clear());
-                html5QrCode = null;
-            }
+            stopScan();
             document.getElementById('qr-reader').classList.remove('scan-success');
         });
+
+        document.getElementById('btnStartScan')?.addEventListener('click', startScan);
+        document.getElementById('btnStopScan')?.addEventListener('click', stopScan);
 
         function onScanSuccess(decodedText) {
             // Visual feedback and beep
