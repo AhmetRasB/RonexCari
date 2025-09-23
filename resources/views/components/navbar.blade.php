@@ -13,6 +13,11 @@
                     <input type="text" name="search" placeholder="Search">
                     <iconify-icon icon="ion:search-outline" class="icon"></iconify-icon>
                 </form>
+                <!-- Global QR/Barcode scan button (mobile-first) -->
+                <button type="button" class="btn btn-outline-success ms-2" id="openGlobalScanner">
+                    <iconify-icon icon="solar:qr-code-outline" class="me-1"></iconify-icon>
+                    QR
+                </button>
             </div>
         </div>
         <div class="col-auto">
@@ -111,3 +116,114 @@
         </div>
     </div>
 </div>
+
+<!-- Scanner Modal -->
+<div class="modal fade" id="scannerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen-sm-down modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">QR/Barkod Tarayıcı</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="scannerContainer" class="w-100" style="max-width:600px;margin:0 auto;">
+                    <div id="qr-reader" style="width:100%;"></div>
+                    <div class="text-center mt-2">
+                        <small class="text-muted d-block">Mobilde kamera izni vermeyi unutmayın.</small>
+                        <small class="text-muted">Tarayıcı destekliyorsa barkodlar da okunur.</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="scanMoreToggle" checked>
+                    <label class="form-check-label" for="scanMoreToggle">Bir tane daha tara</label>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <audio id="scanBeep">
+        <source src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" type="audio/ogg">
+    </audio>
+    <style>
+        #qr-reader__scan_region video { width: 100% !important; height: auto !important; }
+        .scan-success { outline: 3px solid #28a745; }
+    </style>
+</div>
+
+@push('scripts')
+<script src="https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
+<script>
+    (function(){
+        const openBtn = document.getElementById('openGlobalScanner');
+        const modalEl = document.getElementById('scannerModal');
+        let html5QrCode = null;
+        let targetContext = 'global';
+
+        // Allow other pages to open scanner with context
+        window.openScanner = function(context){
+            targetContext = context || 'global';
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
+        openBtn?.addEventListener('click', function(){
+            window.openScanner('global');
+        });
+
+        modalEl.addEventListener('shown.bs.modal', function(){
+            const config = { fps: 15, qrbox: { width: 300, height: 300 }, aspectRatio: 1.7778, rememberLastUsedCamera: true };
+            html5QrCode = new Html5Qrcode('qr-reader');
+            html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess)
+                .catch(err => console.error('Scanner start error', err));
+        });
+
+        modalEl.addEventListener('hidden.bs.modal', function(){
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => html5QrCode.clear());
+                html5QrCode = null;
+            }
+            document.getElementById('qr-reader').classList.remove('scan-success');
+        });
+
+        function onScanSuccess(decodedText) {
+            // Visual feedback and beep
+            document.getElementById('qr-reader').classList.add('scan-success');
+            document.getElementById('scanBeep')?.play().catch(()=>{});
+
+            // Handle Ronex product QR → open product detail
+            if (/ronex\.com\.tr\/products\/(\d+)/.test(decodedText)) {
+                const id = decodedText.match(/products\/(\d+)/)[1];
+                if (targetContext === 'invoice') {
+                    // In invoice page: search by product id
+                    window.addScannedProductById?.(id);
+                } else {
+                    window.location.href = '/products/' + id;
+                }
+            } else {
+                // Fallback: try to use as product code/barcode in invoice context
+                if (targetContext === 'invoice') {
+                    window.addScannedProductByCode?.(decodedText);
+                } else {
+                    // Show the result as alert
+                    alert('Taranan kod: ' + decodedText);
+                }
+            }
+
+            // Continue scanning or close
+            const keepScanning = document.getElementById('scanMoreToggle')?.checked;
+            if (!keepScanning && html5QrCode) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal?.hide();
+            } else {
+                setTimeout(()=>{
+                    document.getElementById('qr-reader').classList.remove('scan-success');
+                }, 300);
+            }
+        }
+    })();
+</script>
+@endpush

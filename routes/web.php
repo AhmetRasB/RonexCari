@@ -29,6 +29,7 @@ use App\Http\Controllers\Management\EmployeeController as ManagementEmployeeCont
 // Finance Controllers
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\BarcodeController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -104,6 +105,11 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
 
     // Products Routes
     Route::resource('products', ProductController::class);
+    
+    // Barcode Section
+    Route::get('/barcodes', [BarcodeController::class, 'index'])->name('barcode.index');
+    Route::post('/barcodes/preview', [BarcodeController::class, 'preview'])->name('barcode.preview');
+    Route::get('/barcodes/test', [BarcodeController::class, 'test'])->name('barcode.test');
     
     
     // Services Routes (separate)

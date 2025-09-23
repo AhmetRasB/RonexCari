@@ -121,7 +121,13 @@
                     <!-- Invoice Items -->
                     <div class="row mb-4">
                         <div class="col-12">
-                            <h6 class="fw-semibold mb-3">Ürün/Hizmet Detayları</h6>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-semibold mb-0">Ürün/Hizmet Detayları</h6>
+                                <button type="button" class="btn btn-outline-success btn-sm" id="openInvoiceScanner">
+                                    <iconify-icon icon="solar:qr-code-outline" class="me-1"></iconify-icon>
+                                    QR ile Ekle
+                                </button>
+                            </div>
                             <div class="table-responsive">
                                 <table class="table table-bordered" id="invoiceItemsTable">
                                     <thead>
@@ -453,6 +459,10 @@
 let itemCounter = 0;
 
 $(document).ready(function() {
+    // Open scanner in invoice context
+    $('#openInvoiceScanner').on('click', function(){
+        if (window.openScanner) window.openScanner('invoice');
+    });
     
     // Setup CSRF token for AJAX requests
     $.ajaxSetup({
@@ -578,6 +588,44 @@ $(document).ready(function() {
         console.log('Form validation passed, submitting...');
     });
 });
+// Functions to be called by global scanner
+window.addScannedProductById = function(id){
+    // Try to fetch product details via search endpoint by ID
+    $.get('{{ route("sales.invoices.search.products") }}', { q: id })
+        .done(function(list){
+            const item = list.find(i => (i.id+'').endsWith(id+''));
+            if (item) {
+                appendInvoiceItemFromResult(item);
+                toastr.success(item.name + ' eklendi');
+            } else {
+                toastr.error('Ürün bulunamadı: #' + id);
+            }
+        });
+}
+
+window.addScannedProductByCode = function(code){
+    $.get('{{ route("sales.invoices.search.products") }}', { q: code })
+        .done(function(list){
+            if (list.length > 0) {
+                appendInvoiceItemFromResult(list[0]);
+                toastr.success(list[0].name + ' eklendi');
+            } else {
+                toastr.error('Kod ile ürün bulunamadı: ' + code);
+            }
+        });
+}
+
+function appendInvoiceItemFromResult(item){
+    addInvoiceItemRow();
+    const index = itemCounter - 1;
+    const row = $(`tr[data-item-index="${index}"]`);
+    row.find('input[name*="[product_service_name]"]').val(item.name);
+    row.find('input[name*="[unit_price]"]').val(item.price);
+    row.find('select[name*="[tax_rate]"]').val(item.vat_rate);
+    row.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
+    row.find('input[name*="[type]"]').val(item.type);
+    calculateLineTotal.call(row.find('.unit-price')[0]);
+}
 
 function searchCustomers(query) {
     console.log('Searching customers with query:', query);

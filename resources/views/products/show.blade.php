@@ -268,6 +268,25 @@
                                 @endif
                             </div>
                         </div>
+                        <div class="row g-3">
+                            <div class="col-6 text-center">
+                                <small class="text-muted d-block">Kalıcı Barkod</small>
+                                @if($product->barcode_svg_path)
+                                    <img src="/{{ $product->barcode_svg_path }}" alt="Barcode" class="img-fluid" />
+                                    <div class="small mt-1">{{ $product->permanent_barcode }}</div>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </div>
+                            <div class="col-6 text-center">
+                                <small class="text-muted d-block">QR Kod</small>
+                                @if($product->qr_svg_path)
+                                    <img src="/{{ $product->qr_svg_path }}" alt="QR" class="img-fluid" style="max-width:140px" />
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

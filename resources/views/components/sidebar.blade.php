@@ -81,6 +81,9 @@
                     <li>
                         <a href="{{ route('services.index') }}"><i class="ri-circle-fill circle-icon text-warning-main w-auto"></i> Hizmetler</a>
                     </li>
+                    <li>
+                        <a href="{{ route('barcode.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Barkod Bölümü</a>
+                    </li>
                 </ul>
             </li>
 

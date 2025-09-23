@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Products;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use App\Services\QrBarcodeService;
 
 class ProductController extends Controller
 {
@@ -77,6 +78,26 @@ class ProductController extends Controller
             }
 
             $product = Product::create($validated);
+
+            // Generate permanent barcode and QR only at creation
+            $service = app(QrBarcodeService::class);
+            $barcodeValue = $product->sku ?: ('PRD-' . str_pad((string)$product->id, 8, '0', STR_PAD_LEFT));
+            $qrValue = 'https://ronex.com.tr/products/' . $product->id;
+
+            $barcodeSvg = $service->generateBarcodeSvg($barcodeValue);
+            $qrSvg = $service->generateQrSvg($qrValue, 220);
+
+            $barcodePath = 'uploads/barcodes/barcode_' . $product->id . '.svg';
+            $qrPath = 'uploads/qrcodes/qr_' . $product->id . '.svg';
+
+            $service->storeSvg($barcodeSvg, $barcodePath);
+            $service->storeSvg($qrSvg, $qrPath);
+
+            $product->permanent_barcode = $barcodeValue;
+            $product->qr_code_value = $qrValue;
+            $product->barcode_svg_path = $barcodePath;
+            $product->qr_svg_path = $qrPath;
+            $product->save();
             
             \Log::info('Product created successfully', [
                 'product_id' => $product->id,
@@ -107,6 +128,12 @@ class ProductController extends Controller
      */
     public function show(Product $product)
     {
+        // Ensure QR/Barcode files exist for this product
+        try {
+            app(QrBarcodeService::class)->ensureProductCodes($product);
+        } catch (\Throwable $e) {
+            \Log::error('ensureProductCodes failed', ['product_id' => $product->id, 'error' => $e->getMessage()]);
+        }
         return view('products.show', compact('product'));
     }
 
@@ -154,6 +181,8 @@ class ProductController extends Controller
             $validated['image'] = 'uploads/products/' . $imageName;
         }
 
+        // Never change permanent codes on edit
+        unset($validated['permanent_barcode'], $validated['qr_code_value'], $validated['barcode_svg_path'], $validated['qr_svg_path']);
         $product->update($validated);
 
         return redirect()->route('products.index')
