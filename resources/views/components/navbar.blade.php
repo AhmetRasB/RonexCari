@@ -14,7 +14,7 @@
                     <iconify-icon icon="ion:search-outline" class="icon"></iconify-icon>
                 </form>
                 <!-- Global QR/Barcode scan button (mobile-first) -->
-                <button type="button" class="btn btn-outline-success ms-2" id="openGlobalScanner">
+                <button type="button" class="btn btn-outline-success btn-sm ms-2" id="openGlobalScanner">
                     <iconify-icon icon="solar:qr-code-outline" class="me-1"></iconify-icon>
                     QR
                 </button>
@@ -183,6 +183,27 @@
         let targetContext = 'global';
         let isRunning = false;
 
+        // Dynamically load html5-qrcode if missing (Safari / CSP safe)
+        function ensureLib(){
+            return new Promise(function(resolve, reject){
+                if (window.Html5Qrcode) return resolve();
+                const existing = document.querySelector('script[data-lib="html5qrcode"]');
+                if (existing) {
+                    existing.addEventListener('load', () => resolve());
+                    existing.addEventListener('error', () => reject(new Error('html5-qrcode yüklenemedi')));
+                    return;
+                }
+                const s = document.createElement('script');
+                s.src = 'https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js';
+                s.async = true;
+                s.defer = true;
+                s.setAttribute('data-lib', 'html5qrcode');
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error('html5-qrcode yüklenemedi'));
+                document.head.appendChild(s);
+            });
+        }
+
         // Allow other pages to open scanner with context
         window.openScanner = function(context){
             targetContext = context || 'global';
@@ -209,6 +230,7 @@
 
         async function populateCameras(){
             try {
+                await ensureLib();
                 const devices = await Html5Qrcode.getCameras();
                 const sel = document.getElementById('cameraSelector');
                 sel.innerHTML = '';
@@ -237,6 +259,7 @@
                 return;
             }
             try {
+                await ensureLib();
                 clearAlert();
                 const config = { fps: 15, qrbox: { width: 300, height: 300 }, aspectRatio: 1.7778, rememberLastUsedCamera: true };
                 const camId = document.getElementById('cameraSelector').value || { facingMode: 'environment' };
@@ -311,4 +334,17 @@
         }
     })();
 </script>
+<style>
+/* Navbar responsiveness fixes for QR button */
+@media (max-width: 576px) {
+    .navbar-header .d-flex.flex-wrap.align-items-center.gap-4 { gap: .5rem !important; }
+    #openGlobalScanner { padding: .35rem .55rem; font-size: .8rem; }
+    .navbar-search { display: none !important; }
+}
+
+@media (max-width: 375px) {
+    #openGlobalScanner .me-1 { margin-right: .25rem !important; }
+    #openGlobalScanner { padding: .3rem .5rem; }
+}
+</style>
 @endpush
