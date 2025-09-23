@@ -96,7 +96,7 @@
 document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
     const addStock = parseInt(document.getElementById('qsAddStock').value || '0', 10);
     const critical = parseInt(document.getElementById('qsCritical').value || '0', 10);
-    fetch('{{ route('products.quick-stock', $product) }}', {
+    fetch('{{ url('/products/' . $product->id . '/quick-stock') }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
         body: JSON.stringify({ add_stock: addStock, critical_stock: critical })

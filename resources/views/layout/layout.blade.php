@@ -138,12 +138,12 @@
             html5Qr = new Html5Qrcode('qrReader');
             Html5Qrcode.getCameras().then(cams => {
                 const id = (cams && cams[0]) ? cams[0].id : undefined;
-                html5Qr.start({ facingMode: "environment", deviceId: id }, { fps: 10, qrbox: 250 }, (decoded)=>{
+                html5Qr.start({ facingMode: "environment", deviceId: id }, { fps: 12, qrbox: 250, formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8 ] }, (decoded)=>{
                     handlePayload(decoded);
                     if (!multiScan) { showPostScanControls(); }
                 });
             }).catch(()=>{
-                html5Qr.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decoded)=>{
+                html5Qr.start({ facingMode: "environment" }, { fps: 12, qrbox: 250, formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8 ] }, (decoded)=>{
                     handlePayload(decoded);
                     if (!multiScan) { showPostScanControls(); }
                 });
@@ -220,7 +220,15 @@
         document.addEventListener('click', function(e){
             if (e.target.closest('#openNavbarScanner')){
                 const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-                window.openGlobalScanner({ mode: isMobile ? 'qr' : 'barcode' });
+                window.openGlobalScanner({ mode: isMobile ? 'qr' : 'barcode', onResult: function(payload){
+                    // Try to route to /products/{id} if QR contains it
+                    const m = (payload||'').match(/\/products\/(\d+)/);
+                    if (m) { window.location.href = '/products/' + m[1]; return; }
+                    // Otherwise try search by code via sales invoice search endpoint then navigate
+                    fetch('{{ route('sales.invoices.search.products') }}?q=' + encodeURIComponent(payload), { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+                      .then(r=>r.json())
+                      .then(list=>{ if (list && list.length>0) { const id = (list[0].id||'').toString().replace(/^(product_|series_|service_)/,''); window.location.href = '/products/' + id; } });
+                }});
             }
             if (e.target.closest('#openInvoiceScanner')){
                 window.openGlobalScanner({ invoiceContext: true, multi: true });
