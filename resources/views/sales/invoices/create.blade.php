@@ -695,17 +695,65 @@ window.addScannedProductById = function(id){
 }
 
 window.addScannedProductByCode = function(code){
-    $.get('{{ route("sales.invoices.search.products") }}', { q: code })
-        .done(function(list){
-            if (list.length > 0) {
-                appendInvoiceItemFromResult(list[0]);
-                toastr.success(list[0].name + ' eklendi');
-            } else {
-                toastr.error('Kod ile ürün bulunamadı: ' + code);
+    // Use the dedicated barcode lookup endpoint for better accuracy
+    $.get('{{ route("barcode.lookup") }}', { barcode: code })
+        .done(function(data){
+            if (data.redirect_url) {
+                // Convert the lookup result to invoice item format
+                const item = {
+                    id: (data.type === 'series' ? 'series_' : 'product_') + data.id,
+                    name: data.name,
+                    product_code: code,
+                    type: data.type,
+                    price: 0, // Will be filled from the actual product/series data
+                    vat_rate: 20,
+                    currency: 'TRY'
+                };
+                
+                // Get detailed product/series information for pricing
+                $.get('{{ route("sales.invoices.search.products") }}', { q: data.id })
+                    .done(function(list){
+                        if (list.length > 0) {
+                            const detailedItem = list[0];
+                            item.price = detailedItem.price;
+                            item.purchase_price = detailedItem.purchase_price;
+                            item.stock_quantity = detailedItem.stock_quantity;
+                            item.category = detailedItem.category;
+                            item.brand = detailedItem.brand;
+                            item.size = detailedItem.size;
+                            item.color = detailedItem.color;
+                            
+                            appendInvoiceItemFromResult(item);
+                            toastr.success(item.name + ' eklendi');
+                        } else {
+                            // Fallback: add with basic info
+                            appendInvoiceItemFromResult(item);
+                            toastr.success(item.name + ' eklendi');
+                        }
+                    })
+                    .fail(function(){
+                        // Fallback: add with basic info
+                        appendInvoiceItemFromResult(item);
+                        toastr.success(item.name + ' eklendi');
+                    });
+            } else if (data.error) {
+                toastr.error('Barkod bulunamadı: ' + code);
             }
         })
         .fail(function(){
-            toastr.error('Ürün arama hatası');
+            // Fallback to old search method if barcode lookup fails
+            $.get('{{ route("sales.invoices.search.products") }}', { q: code })
+                .done(function(list){
+                    if (list.length > 0) {
+                        appendInvoiceItemFromResult(list[0]);
+                        toastr.success(list[0].name + ' eklendi');
+                    } else {
+                        toastr.error('Kod ile ürün bulunamadı: ' + code);
+                    }
+                })
+                .fail(function(){
+                    toastr.error('Ürün arama hatası');
+                });
         });
 }
 
