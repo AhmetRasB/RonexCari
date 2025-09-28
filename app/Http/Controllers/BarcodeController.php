@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductSeries;
 use App\Services\QrBarcodeService;
 use Illuminate\Http\Request;
 
@@ -10,32 +11,116 @@ class BarcodeController extends Controller
 {
     public function index()
     {
-        $products = Product::orderBy('name')->get(['id','name','size','sku','permanent_barcode']);
-        return view('barcode.index', compact('products'));
+        $products = Product::orderBy('name')->get(['id','name','size','sku','barcode','price','stock_quantity']);
+        $series = ProductSeries::orderBy('name')->get(['id','name','sku','barcode','price','stock_quantity']);
+        return view('barcode.index', compact('products', 'series'));
     }
 
     public function preview(Request $request)
     {
         $validated = $request->validate([
             'items' => 'required|array',
-            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.type' => 'required|in:product,series',
+            'items.*.id' => 'required|integer',
             'items.*.quantity' => 'required|integer|min:1',
             'layout' => 'required|in:a4-10',
         ]);
 
-        $products = Product::whereIn('id', collect($validated['items'])->pluck('product_id'))->get()->keyBy('id');
-
         $expanded = [];
         foreach ($validated['items'] as $row) {
-            $product = $products[$row['product_id']];
-            for ($i = 0; $i < $row['quantity']; $i++) {
-                $expanded[] = $product;
+            if ($row['type'] === 'product') {
+                // Normal ürün - sadece belirtilen adet kadar
+                $item = Product::find($row['id']);
+                if ($item) {
+                    // Kısa barkod oluştur (5 karakter)
+                    $shortBarcode = $this->generateShortBarcode('P', $item->id);
+                    
+                    for ($i = 0; $i < $row['quantity']; $i++) {
+                        $expanded[] = [
+                            'type' => 'product',
+                            'item' => $item,
+                            'label' => $item->name . ($item->size ? ' - ' . $item->size : ''),
+                            'code' => $item->sku ?: $shortBarcode,
+                            'barcode' => $shortBarcode
+                        ];
+                    }
+                }
+            } elseif ($row['type'] === 'series') {
+                // Seri - her paket için 1 dış paket + tüm beden etiketleri
+                $series = ProductSeries::find($row['id']);
+                if ($series) {
+                    // Kısa barkod oluştur (5 karakter)
+                    $shortBarcode = $this->generateShortBarcode('S', $series->id);
+                    
+                    // Seri bedenlerini al
+                    $sizes = $series->seriesItems->pluck('size')->toArray();
+                    
+                    // Her paket için
+                    for ($packageIndex = 0; $packageIndex < $row['quantity']; $packageIndex++) {
+                        // 1. Dış paket etiketi (renk varsa renk, yoksa ana)
+                        if ($series->colorVariants->count() > 0) {
+                            foreach ($series->colorVariants as $color) {
+                                $expanded[] = [
+                                    'type' => 'series_main',
+                                    'item' => $series,
+                                    'label' => $color->color . ' SERİ ' . date('Y'),
+                                    'code' => $series->sku ?: $shortBarcode,
+                                    'barcode' => $shortBarcode
+                                ];
+                                
+                                // Her renk için beden etiketleri
+                                foreach ($sizes as $size) {
+                                    $expanded[] = [
+                                        'type' => 'series_size',
+                                        'item' => $series,
+                                        'label' => $color->color . ' ' . $size . ' ' . $series->name,
+                                        'code' => $series->sku ?: $shortBarcode,
+                                        'barcode' => $shortBarcode
+                                    ];
+                                }
+                            }
+                        } else {
+                            // Renk yoksa sadece ana seri
+                            $expanded[] = [
+                                'type' => 'series_main',
+                                'item' => $series,
+                                'label' => 'ANA SERİ ' . date('Y'),
+                                'code' => $series->sku ?: $shortBarcode,
+                                'barcode' => $shortBarcode
+                            ];
+                            
+                            // Beden etiketleri
+                            foreach ($sizes as $size) {
+                                $expanded[] = [
+                                    'type' => 'series_size',
+                                    'item' => $series,
+                                    'label' => $size . ' ' . $series->name,
+                                    'code' => $series->sku ?: $shortBarcode,
+                                    'barcode' => $shortBarcode
+                                ];
+                            }
+                        }
+                    }
+                }
             }
         }
 
         return view('barcode.print-a4-10', [
             'items' => $expanded,
         ]);
+    }
+
+    /**
+     * Kısa barkod oluştur (5 karakter)
+     * Format: P1234 (Product) veya S1234 (Series)
+     */
+    private function generateShortBarcode($type, $id)
+    {
+        // ID'yi 4 haneli yap
+        $paddedId = str_pad((string)$id, 4, '0', STR_PAD_LEFT);
+        
+        // 5 karakterli barkod: P1234 veya S1234
+        return $type . $paddedId;
     }
 
     public function test(QrBarcodeService $service)

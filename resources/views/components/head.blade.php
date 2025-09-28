@@ -342,6 +342,75 @@
             70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
             100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
         }
+        
+        /* Horizontal Scroll for Invoice Tables */
+        .table-responsive {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .table-responsive::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Invoice Table Specific Styles */
+        #invoiceItemsTable {
+            table-layout: fixed;
+        }
+        
+        #invoiceItemsTable th,
+        #invoiceItemsTable td {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Dropdown Z-Index Override */
+        .dropdown-menu,
+        .product-service-dropdown {
+            z-index: 1050 !important;
+            position: absolute !important;
+            background: white !important;
+            border: 1px solid #dee2e6 !important;
+            border-radius: 0.375rem !important;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+        }
+        
+        /* Mobile Optimizations */
+        @media (max-width: 768px) {
+            .table-responsive {
+                border: 1px solid #dee2e6;
+                border-radius: 0.375rem;
+            }
+            
+            #invoiceItemsTable {
+                min-width: 1500px !important;
+            }
+            
+            .dropdown-menu,
+            .product-service-dropdown {
+                z-index: 1050 !important;
+                position: absolute !important;
+                background: white !important;
+                border: 1px solid #dee2e6 !important;
+                border-radius: 0.375rem !important;
+                box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+            }
+        }
     </style>
     <!-- Text Editor css -->
     <link rel="stylesheet"  href="{{ asset('assets/css/lib/editor-katex.min.css') }}">

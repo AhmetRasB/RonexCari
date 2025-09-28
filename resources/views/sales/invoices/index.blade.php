@@ -22,7 +22,100 @@
                     </div>
                 @endif
 
-                <div class="table-responsive">
+                <!-- Mobile Card View -->
+                <div class="d-block d-lg-none">
+                    @forelse($invoices as $index => $invoice)
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <a href="{{ route('sales.invoices.show', $invoice) }}" class="text-primary-600 text-decoration-none">
+                                                {{ $invoice->invoice_number }}
+                                            </a>
+                                        </h6>
+                                        <small class="text-muted">{{ $invoice->invoice_date->format('d.m.Y') }}</small>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
+                                            <iconify-icon icon="solar:menu-dots-bold"></iconify-icon>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><a class="dropdown-item" href="{{ route('sales.invoices.show', $invoice) }}">Görüntüle</a></li>
+                                            <li><a class="dropdown-item" href="{{ route('sales.invoices.edit', $invoice) }}">Düzenle</a></li>
+                                            <li><a class="dropdown-item" target="_blank" href="{{ route('sales.invoices.print', $invoice) }}">Yazdır</a></li>
+                                            @if(!$invoice->payment_completed)
+                                            <li>
+                                                <form action="{{ route('sales.invoices.mark-paid', $invoice) }}" method="POST" onsubmit="return confirm('Bu faturayı tahsil edildi olarak işaretlemek istediğinize emin misiniz?')">
+                                                    @csrf
+                                                    <button type="submit" class="dropdown-item">Tahsilat Yapıldı</button>
+                                                </form>
+                                            </li>
+                                            @endif
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <form action="{{ route('sales.invoices.destroy', $invoice) }}" method="POST" onsubmit="return confirm('Bu faturayı silmek istediğinizden emin misiniz?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="dropdown-item text-danger">Sil</button>
+                                                </form>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <small class="text-muted">Müşteri:</small>
+                                        <div class="fw-medium">{{ $invoice->customer->name ?? 'Müşteri Silinmiş' }}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Mağaza:</small>
+                                        <div>
+                                            @if($invoice->account)
+                                                <span class="badge {{ $invoice->account->code === 'ronex1' ? 'bg-primary-100 text-primary-600' : 'bg-success-100 text-success-600' }} px-2 py-1 rounded-pill text-xs fw-medium">
+                                                    {{ $invoice->account->code }}
+                                                </span>
+                                            @else
+                                                <span class="badge bg-gray-100 text-gray-600 px-2 py-1 rounded-pill text-xs fw-medium">
+                                                    Mağaza Yok
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="text-muted">Tutar:</small>
+                                        <div class="fw-semibold">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->currency }}</div>
+                                    </div>
+                                    <div>
+                                        @if($invoice->payment_completed)
+                                            <span class="badge bg-success-100 text-success-600 px-2 py-1 rounded-pill text-xs fw-medium">
+                                                <iconify-icon icon="solar:check-circle-outline" class="me-1"></iconify-icon>
+                                                Tahsil Edildi
+                                            </span>
+                                        @else
+                                            <span class="badge bg-warning-100 text-warning-600 px-2 py-1 rounded-pill text-xs fw-medium">
+                                                <iconify-icon icon="solar:clock-circle-outline" class="me-1"></iconify-icon>
+                                                Beklemede
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center py-4">
+                            <iconify-icon icon="solar:document-outline" class="text-4xl text-muted mb-2"></iconify-icon>
+                            <p class="text-muted">Henüz fatura bulunmuyor.</p>
+                        </div>
+                    @endforelse
+                </div>
+
+                <!-- Desktop Table View -->
+                <div class="table-responsive d-none d-lg-block">
                     <table class="table bordered-table mb-0 responsive-table" id="dataTable" data-page-length='10' >
                     <thead>
                         <tr>
@@ -95,7 +188,20 @@
                                 <td>{{ $invoice->invoice_date->format('d.m.Y') }}</td>
                                 <td>{{ $invoice->due_date->format('d.m.Y') }}</td>
                                 <td>
+                                    <div class="d-flex flex-column">
                                     <span class="fw-semibold">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->currency }}</span>
+                                        @if($invoice->payment_completed)
+                                            <span class="badge bg-success-100 text-success-600 px-2 py-1 rounded-pill text-xs fw-medium mt-1">
+                                                <iconify-icon icon="solar:check-circle-outline" class="me-1"></iconify-icon>
+                                                Tahsil Edildi
+                                            </span>
+                                        @else
+                                            <span class="badge bg-warning-100 text-warning-600 px-2 py-1 rounded-pill text-xs fw-medium mt-1">
+                                                <iconify-icon icon="solar:clock-circle-outline" class="me-1"></iconify-icon>
+                                                Beklemede
+                                            </span>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td>
                                     <div class="btn-group">
@@ -106,6 +212,14 @@
                                             <li><a class="dropdown-item" href="{{ route('sales.invoices.show', $invoice) }}">Görüntüle</a></li>
                                             <li><a class="dropdown-item" href="{{ route('sales.invoices.edit', $invoice) }}">Düzenle</a></li>
                                             <li><a class="dropdown-item" target="_blank" href="{{ route('sales.invoices.print', $invoice) }}">Yazdır</a></li>
+                                            @if(!$invoice->payment_completed)
+                                            <li>
+                                                <form action="{{ route('sales.invoices.mark-paid', $invoice) }}" method="POST" onsubmit="return confirm('Bu faturayı tahsil edildi olarak işaretlemek istediğinize emin misiniz?')">
+                                                    @csrf
+                                                    <button type="submit" class="dropdown-item">Tahsilat Yapıldı</button>
+                                                </form>
+                                            </li>
+                                            @endif
                                             <li><hr class="dropdown-divider"></li>
                                             <li>
                                                 <form action="{{ route('sales.invoices.destroy', $invoice) }}" method="POST" onsubmit="return confirm('Bu faturayı silmek istediğinizden emin misiniz?')">

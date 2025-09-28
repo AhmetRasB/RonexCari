@@ -34,11 +34,12 @@
                         <div class="col-md-6">
                             <label class="form-label">Ürün Kodu</label>
                             <div class="position-relative">
-                                <input type="text" name="sku" class="form-control" placeholder="Ürün Kodu" value="{{ old('sku') }}">
+                                <input type="text" name="sku" id="productSku" class="form-control" placeholder="Ürün Kodu" value="{{ old('sku') }}">
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:tag-outline" class="text-secondary-light"></iconify-icon>
                                 </div>
                             </div>
+                            <small class="text-secondary-light">Otomatik oluşturulur, isterseniz değiştirebilirsiniz</small>
                             @error('sku')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
@@ -101,10 +102,13 @@
                             <div class="position-relative">
                                 <select name="category" class="form-control" required>
                                     <option value="">Seçiniz</option>
-                                    <option value="Gömlek" {{ old('category') == 'Gömlek' ? 'selected' : '' }}>Gömlek</option>
-                                    <option value="Ceket" {{ old('category') == 'Ceket' ? 'selected' : '' }}>Ceket</option>
-                                    <option value="Takım Elbise" {{ old('category') == 'Takım Elbise' ? 'selected' : '' }}>Takım Elbise</option>
-                                    <option value="Aksesuar" {{ old('category') == 'Aksesuar' ? 'selected' : '' }}>Aksesuar</option>
+                                    @php
+                                    $allCategories = ['Gömlek','Ceket','Takım Elbise','Pantalon'];
+                                        $options = isset($allowedCategories) && is_array($allowedCategories) && count($allowedCategories) > 0 ? $allowedCategories : $allCategories;
+                                    @endphp
+                                    @foreach($options as $cat)
+                                        <option value="{{ $cat }}" {{ old('category') == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                    @endforeach
                                 </select>
                             </div>
                             @error('category')
@@ -156,8 +160,14 @@
                             @enderror
                         </div>
                         <div class="col-md-6 mt-3">
-                            <label class="form-label">Renk</label>
-                            <div class="position-relative">
+                            <label class="form-label d-flex align-items-center justify-content-between">
+                                <span>Renk</span>
+                                <span class="d-inline-flex align-items-center gap-2">
+                                    <input class="form-check-input" type="checkbox" id="multiColorToggle">
+                                    <label class="form-check-label small" for="multiColorToggle">Çoklu renk ekle</label>
+                                </span>
+                            </label>
+                            <div class="position-relative" id="singleColorWrapper">
                                 <input type="text" id="colorSearch" name="color" class="form-control" placeholder="Renk ara..." value="{{ old('color') }}" autocomplete="off">
                                 <input type="hidden" id="selectedColor" name="color" value="{{ old('color') }}">
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
@@ -167,6 +177,15 @@
                                     <!-- Color options will be populated here -->
                                 </div>
                             </div>
+                            <div class="d-none" id="multiColorWrapper">
+                                <div class="position-relative">
+                                    <input type="text" id="multiColorSearch" class="form-control" placeholder="Renk ara..." autocomplete="off">
+                                    <div id="multiColorDropdown" class="dropdown-menu w-100" style="display: none; max-height: 240px; overflow-y: auto; position: absolute; top: 100%; left: 0; z-index: 1060; background: white; border: 1px solid #dee2e6; border-radius: 0.375rem; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);"></div>
+                                </div>
+                                <div id="selectedColorChips" class="d-flex flex-wrap gap-2 mt-2 mb-1"></div>
+                                <div id="multiColorsHidden"></div>
+                                <small class="text-secondary-light">Birden fazla renk seçerseniz, her renk için ayrı ürün oluşturulur.</small>
+                            </div>
                             @error('color')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
@@ -174,11 +193,12 @@
                         <div class="col-md-6 mt-3">
                             <label class="form-label">Barkod</label>
                             <div class="position-relative">
-                                <input type="text" name="barcode" class="form-control" placeholder="Barkod" value="{{ old('barcode') }}">
+                                <input type="text" name="barcode" id="productBarcode" class="form-control" placeholder="Barkod" value="{{ old('barcode') }}" readonly style="background-color: #f8f9fa;">
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:qr-code-outline" class="text-secondary-light"></iconify-icon>
                                 </div>
                             </div>
+                            <small class="text-secondary-light">Otomatik oluşturulur (düzenlenemez)</small>
                             @error('barcode')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
@@ -303,8 +323,22 @@
 </div>
 
 @push('scripts')
+<style>
+    /* Tidy up multi-color select so it doesn't break the layout */
+    #multiColorWrapper { margin-top: .25rem; }
+    /* Ensure color dropdown does not overflow weirdly */
+    #colorDropdown { z-index: 1060; }
+    #multiColorDropdown { z-index: 1060; }
+    .color-option-check { display:flex; align-items:center; gap:.5rem; padding:8px 12px; cursor:pointer; }
+    .color-option-check.active { background:#d1f7d6; }
+    .chip { background:#e9f7ef; color:#198754; border:1px solid #c3e6cb; padding:2px 8px; border-radius:999px; font-size:.85rem; display:inline-flex; align-items:center; gap:.35rem; }
+    .chip .remove { cursor:pointer; }
+</style>
 <script>
 $(document).ready(function() {
+    // Otomatik SKU ve Barkod oluştur
+    generateProductCodes();
+    
     // Turkish color names
     const colors = [
         'Beyaz', 'Siyah', 'Kırmızı', 'Mavi', 'Yeşil', 'Sarı', 'Turuncu', 'Mor', 'Pembe', 'Kahverengi',
@@ -322,7 +356,7 @@ $(document).ready(function() {
         'Mat Mavi', 'Mat Kırmızı', 'Mat Yeşil', 'Mat Sarı', 'Mat Mor', 'Mat Pembe', 'Mat Kahverengi'
     ];
 
-    // Color search functionality
+    // Color search functionality (single)
     $('#colorSearch').on('input', function() {
         const query = $(this).val().toLowerCase();
         if (query.length >= 1) {
@@ -384,6 +418,114 @@ $(document).ready(function() {
             showColorDropdown(colors);
         }
     });
+
+    // Multi-color toggle wiring
+    $('#multiColorToggle').on('change', function(){
+        const isMulti = $(this).is(':checked');
+        $('#singleColorWrapper').toggleClass('d-none', isMulti);
+        $('#multiColorWrapper').toggleClass('d-none', !isMulti);
+        if (isMulti) {
+            // Hide any open single-color dropdown
+            $('#colorDropdown').hide();
+            // Clear single color field to avoid submitting both
+            $('#selectedColor').val('');
+            $('#colorSearch').val('');
+            // Render multi dropdown initially
+            renderMultiDropdown(colors);
+        }
+    });
+
+    // Multi-select via dropdown with checkmarks and green active items
+    const selectedSet = new Set();
+
+    function renderMultiDropdown(list){
+        let html = '';
+        if (list.length === 0) {
+            html = '<div class="dropdown-item text-secondary-light" style="padding: 8px 16px;">Renk bulunamadı</div>';
+        } else {
+            list.forEach(function(color){
+                const active = selectedSet.has(color) ? ' active' : '';
+                const checked = selectedSet.has(color) ? 'checked' : '';
+                html += `
+                    <div class="color-option-check dropdown-item${active}" data-color="${color}">
+                        <input type="checkbox" class="form-check-input" ${checked}>
+                        <span>${color}</span>
+                    </div>
+                `;
+            });
+        }
+        $('#multiColorDropdown').html(html).show();
+        renderChipsAndHidden();
+    }
+
+    function renderChipsAndHidden(){
+        const chipsHtml = Array.from(selectedSet).map(function(c){
+            return `<span class="chip" data-color="${c}">${c}<span class="remove" title="Kaldır">×</span></span>`;
+        }).join('');
+        $('#selectedColorChips').html(chipsHtml);
+        const hiddenHtml = Array.from(selectedSet).map(function(c){
+            return `<input type="hidden" name="colors[]" value="${c}">`;
+        }).join('');
+        $('#multiColorsHidden').html(hiddenHtml);
+    }
+
+    // Open dropdown and filter
+    $(document).on('focus click', '#multiColorSearch', function(){
+        const q = $(this).val().toLowerCase();
+        const filtered = colors.filter(c => c.toLowerCase().includes(q));
+        renderMultiDropdown(filtered);
+    });
+    $('#multiColorSearch').on('input', function(){
+        const q = $(this).val().toLowerCase();
+        const filtered = colors.filter(c => c.toLowerCase().includes(q));
+        renderMultiDropdown(filtered);
+    });
+
+    // Toggle selection with green highlight
+    $(document).on('click', '.color-option-check', function(e){
+        e.preventDefault();
+        const color = $(this).data('color');
+        if (selectedSet.has(color)) { selectedSet.delete(color); }
+        else { selectedSet.add(color); }
+        $(this).toggleClass('active');
+        $(this).find('input[type="checkbox"]').prop('checked', selectedSet.has(color));
+        renderChipsAndHidden();
+    });
+
+    // Remove chip
+    $(document).on('click', '.chip .remove', function(){
+        const color = $(this).closest('.chip').data('color');
+        selectedSet.delete(color);
+        renderChipsAndHidden();
+        $('#multiColorDropdown .color-option-check').each(function(){
+            if ($(this).data('color') === color) {
+                $(this).removeClass('active').find('input').prop('checked', false);
+            }
+        });
+    });
+
+    // Hide multi dropdown when clicking outside
+    $(document).on('click', function(e){
+        if (!$(e.target).closest('#multiColorSearch, #multiColorDropdown').length) {
+            $('#multiColorDropdown').hide();
+        }
+    });
+    
+    // Otomatik SKU ve Barkod oluşturma fonksiyonu
+    function generateProductCodes() {
+        // Eğer SKU boşsa otomatik oluştur
+        if (!$('#productSku').val()) {
+            const timestamp = Date.now().toString().slice(-6); // Son 6 hane
+            const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            const sku = 'PRD' + timestamp + randomNum;
+            $('#productSku').val(sku);
+        }
+        
+        // Barkod her zaman otomatik oluştur (kısa format)
+        const timestamp = Date.now().toString().slice(-4); // Son 4 hane
+        const barcode = 'P' + timestamp;
+        $('#productBarcode').val(barcode);
+    }
 });
 </script>
 @endpush

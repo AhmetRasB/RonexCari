@@ -1,35 +1,108 @@
 @extends('layout.layout')
 
 @php
+    $currentAccount = session('current_account_id') ? \App\Models\Account::find(session('current_account_id')) : null;
+    $accountName = $currentAccount ? $currentAccount->name : 'Tüm Hesaplar';
+    $accountCode = $currentAccount ? $currentAccount->code : 'ADMIN';
+    
     $title='Dashboard';
-    $subTitle = 'Ronex';
+    $subTitle = $accountName . ' (' . $accountCode . ')';
     $script= '<script src="' . asset('assets/js/homeOneChart.js') . '"></script>';
 @endphp
 
 @section('content')
 
+<!-- Hızlı İşlemler -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-3 p-md-4">
+                <h5 class="card-title mb-3 mb-md-4 d-flex align-items-center">
+                    <iconify-icon icon="heroicons:bolt" class="text-primary me-2"></iconify-icon>
+                    <span class="d-none d-sm-inline">Hızlı İşlemler</span>
+                    <span class="d-sm-none">Hızlı İşlemler</span>
+                </h5>
+                <div class="row g-2 g-md-3">
+                    <div class="col-6 col-sm-4 col-md-2">
+                        <a href="{{ route('sales.invoices.create') }}" class="btn btn-outline-success w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
+                            <iconify-icon icon="heroicons:document-plus" class="text-lg text-md-xl mb-1"></iconify-icon>
+                            <span class="fw-medium text-xs text-md-sm">Satış Faturası</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-2">
+                        <a href="{{ route('purchases.invoices.create') }}" class="btn btn-outline-primary w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
+                            <iconify-icon icon="heroicons:document-text" class="text-lg text-md-xl mb-1"></iconify-icon>
+                            <span class="fw-medium text-xs text-md-sm">Alış Faturası</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-2">
+                        <a href="{{ route('finance.collections.create') }}" class="btn btn-outline-warning w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
+                            <iconify-icon icon="heroicons:banknotes" class="text-lg text-md-xl mb-1"></iconify-icon>
+                            <span class="fw-medium text-xs text-md-sm">Tahsilat Yap</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-2">
+                        <a href="{{ route('products.create') }}" class="btn btn-outline-info w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
+                            <iconify-icon icon="heroicons:plus-circle" class="text-lg text-md-xl mb-1"></iconify-icon>
+                            <span class="fw-medium text-xs text-md-sm">Yeni Ürün</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-2">
+                        <a href="{{ route('barcode.index') }}" class="btn btn-outline-secondary w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
+                            <iconify-icon icon="heroicons:printer" class="text-lg text-md-xl mb-1"></iconify-icon>
+                            <span class="fw-medium text-xs text-md-sm">Barkod Yazdır</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-2">
+                        <a href="{{ route('expenses.expenses.create') }}" class="btn btn-outline-danger w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
+                            <iconify-icon icon="heroicons:currency-dollar" class="text-lg text-md-xl mb-1"></iconify-icon>
+                            <span class="fw-medium text-xs text-md-sm">Gider Ekle</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Kritik Uyarılar -->
             @if(isset($lowStockProducts) || isset($lowStockSeries) || isset($dueSales) || isset($duePurchases))
 <div class="row mb-4">
     <div class="col-12">
-                @if((!empty($lowStockProducts) && $lowStockProducts->count()) || (!empty($lowStockSeries) && $lowStockSeries->count()))
+                @if((!empty($lowStockProducts) && $lowStockProducts->count()) || (!empty($lowStockColorVariants) && $lowStockColorVariants->count()) || (!empty($lowStockSeries) && $lowStockSeries->count()) || (!empty($lowStockSeriesColorVariants) && $lowStockSeriesColorVariants->count()))
         <div class="alert alert-danger d-flex flex-column flex-md-row align-items-start align-items-md-center mb-3" role="alert">
             <iconify-icon icon="solar:danger-triangle-outline" class="text-xl me-2 mb-2 mb-md-0 flex-shrink-0"></iconify-icon>
                     <div class="flex-grow-1">
-                <strong>🚨 Kritik Stok Uyarısı ({{ ($lowStockProducts->count() ?? 0) + ($lowStockSeries->count() ?? 0) }} ürün):</strong>
+                <strong>🚨 Kritik Stok Uyarısı ({{ ($lowStockProducts->count() ?? 0) + ($lowStockColorVariants->count() ?? 0) + ($lowStockSeries->count() ?? 0) + ($lowStockSeriesColorVariants->count() ?? 0) }} ürün):</strong>
                 <div class="mt-2 d-flex flex-wrap gap-1">
                         @if(!empty($lowStockProducts))
-                            @foreach($lowStockProducts as $p)
-                            <a href="{{ route('products.edit', $p->id) }}?focus=stock" class="badge bg-danger text-decoration-none text-white critical-stock-badge" title="Stok güncellemek için tıklayın - {{ $p->name }}">
-                                {{ Str::limit($p->name, 20) }} ({{ $p->stock_quantity }}/{{ $p->critical_stock }}) ✏️
+                        @foreach($lowStockProducts as $p)
+                            <a href="{{ route('products.edit', $p->id) }}?focus=stock" class="badge bg-danger text-decoration-none text-white critical-stock-badge" title="Stok güncellemek için tıklayın - {{ $p->name }} ({{ $p->category }})">
+                                {{ Str::limit($p->name, 15) }} ({{ $p->initial_stock }}/{{ $p->critical_stock }}) [{{ $p->category }}] ✏️
+                            </a>
+                            @endforeach
+                        @endif
+                        
+                        @if(!empty($lowStockColorVariants))
+                            @foreach($lowStockColorVariants as $cv)
+                            <a href="{{ route('products.edit', $cv->product_id) }}?focus=stock" class="badge bg-warning text-decoration-none text-dark critical-stock-badge" title="Renk stok güncellemek için tıklayın - {{ $cv->product->name }} ({{ $cv->color }})">
+                                {{ Str::limit($cv->product->name, 12) }} ({{ $cv->color }}) ({{ $cv->stock_quantity }}/{{ $cv->critical_stock }}) [{{ $cv->product->category }}] 🎨
                             </a>
                             @endforeach
                         @endif
                         
                         @if(!empty($lowStockSeries))
                             @foreach($lowStockSeries as $s)
-                            <a href="{{ route('products.series.edit', $s->id) }}?focus=stock" class="badge bg-danger text-decoration-none text-white critical-stock-badge" title="Seri stok güncellemek için tıklayın - {{ $s->name }}">
-                                {{ Str::limit($s->name, 20) }} ({{ $s->stock_quantity }}/{{ $s->critical_stock }}) 📦
+                            <a href="{{ route('products.series.edit', $s->id) }}?focus=stock" class="badge bg-danger text-decoration-none text-white critical-stock-badge" title="Seri stok güncellemek için tıklayın - {{ $s->name }} ({{ $s->category }})">
+                                {{ Str::limit($s->name, 15) }} ({{ $s->stock_quantity }}/{{ $s->critical_stock }}) [{{ $s->category }}] 📦
+                            </a>
+                        @endforeach
+                        @endif
+                        
+                        @if(!empty($lowStockSeriesColorVariants))
+                            @foreach($lowStockSeriesColorVariants as $scv)
+                            <a href="{{ route('products.series.show', $scv->product_series_id) }}?focus=stock" class="badge bg-warning text-decoration-none text-dark critical-stock-badge" title="Seri renk stok güncellemek için tıklayın - {{ $scv->productSeries->name }} ({{ $scv->color }})">
+                                {{ Str::limit($scv->productSeries->name, 12) }} ({{ $scv->color }}) ({{ $scv->stock_quantity }}/{{ $scv->critical_stock }}) [{{ $scv->productSeries->category }}] 🎨📦
                             </a>
                             @endforeach
                         @endif
@@ -70,27 +143,28 @@
             @endif
 
 <!-- KPI Cards -->
-            <div class="row row-cols-xxxl-5 row-cols-xl-4 row-cols-lg-3 row-cols-md-2 row-cols-1 gy-4">
+            <div class="row row-cols-xxxl-5 row-cols-xl-4 row-cols-lg-3 row-cols-md-2 row-cols-1 gy-3 gy-md-4">
     
     <!-- Bu Ay Satışlar TRY -->
                 <div class="col">
                     <div class="card shadow-none border bg-gradient-start-1 h-100">
-                        <div class="card-body p-20">
-                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                        <div class="card-body p-3 p-md-20">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 gap-md-3">
                                 <div>
-                        <p class="fw-medium text-primary-light mb-1">Bu Ay Satışlar (TRY)</p>
-                        <h6 class="mb-0">₺{{ number_format($stats['thisMonthSalesTRY'] ?? 0, 2) }}</h6>
+                        <p class="fw-medium text-primary-light mb-1 text-sm text-md-base">Bu Ay Satışlar (TRY)</p>
+                        <h6 class="mb-0 text-lg text-md-xl">₺{{ number_format($stats['thisMonthSalesTRY'] ?? 0, 2) }}</h6>
                                 </div>
-                                <div class="w-50-px h-50-px bg-cyan rounded-circle d-flex justify-content-center align-items-center">
-                        <iconify-icon icon="solar:chart-square-outline" class="text-white text-2xl mb-0"></iconify-icon>
+                                <div class="w-40-px h-40-px w-md-50-px h-md-50-px bg-cyan rounded-circle d-flex justify-content-center align-items-center">
+                        <iconify-icon icon="solar:chart-square-outline" class="text-white text-xl text-md-2xl mb-0"></iconify-icon>
                                 </div>
                             </div>
-                            <p class="fw-medium text-sm text-primary-light mt-12 mb-0 d-flex align-items-center gap-2">
+                            <p class="fw-medium text-xs text-md-sm text-primary-light mt-2 mt-md-12 mb-0 d-flex align-items-center gap-1 gap-md-2">
                     <span class="d-inline-flex align-items-center gap-1 {{ ($stats['salesGrowthTRY'] ?? 0) >= 0 ? 'text-success-main' : 'text-danger-main' }}">
                         <iconify-icon icon="{{ ($stats['salesGrowthTRY'] ?? 0) >= 0 ? 'bxs:up-arrow' : 'bxs:down-arrow' }}" class="text-xs"></iconify-icon> 
                         %{{ number_format(abs($stats['salesGrowthTRY'] ?? 0), 1) }}
                                 </span>
-                    Geçen aya göre
+                    <span class="d-none d-md-inline">Geçen aya göre</span>
+                    <span class="d-md-none">vs önceki</span>
                             </p>
                         </div>
         </div>
@@ -382,17 +456,53 @@
                     @forelse($lowStockProducts as $product)
                     <div class="d-flex align-items-center justify-content-between gap-3 mb-12 p-2 bg-danger-focus rounded">
                         <div class="flex-grow-1">
-                            <h6 class="text-sm mb-0 fw-medium text-danger-main">{{ Str::limit($product->name, 20) }}</h6>
-                            <span class="text-xs text-danger-600 fw-medium">Stok: {{ $product->initial_stock }} / Kritik: {{ $product->critical_stock }}</span>
+                            <h6 class="text-sm mb-0 fw-medium text-danger-main">{{ Str::limit($product->name, 18) }}</h6>
+                            <span class="text-xs text-danger-600 fw-medium">Stok: {{ $product->initial_stock }} / Kritik: {{ $product->critical_stock }} [{{ $product->category }}]</span>
                         </div>
                         <iconify-icon icon="solar:danger-triangle-outline" class="text-danger-main text-lg"></iconify-icon>
                     </div>
                     @empty
+                    @endforelse
+                    
+                    @forelse($lowStockColorVariants as $cv)
+                    <div class="d-flex align-items-center justify-content-between gap-3 mb-12 p-2 bg-warning-focus rounded">
+                        <div class="flex-grow-1">
+                            <h6 class="text-sm mb-0 fw-medium text-warning-main">{{ Str::limit($cv->product->name, 15) }} ({{ $cv->color }})</h6>
+                            <span class="text-xs text-warning-600 fw-medium">Renk Stok: {{ $cv->stock_quantity }} / Kritik: {{ $cv->critical_stock }} [{{ $cv->product->category }}]</span>
+                        </div>
+                        <iconify-icon icon="solar:danger-triangle-outline" class="text-warning-main text-lg"></iconify-icon>
+                    </div>
+                    @empty
+                    @endforelse
+                    
+                    @forelse($lowStockSeries as $series)
+                    <div class="d-flex align-items-center justify-content-between gap-3 mb-12 p-2 bg-danger-focus rounded">
+                        <div class="flex-grow-1">
+                            <h6 class="text-sm mb-0 fw-medium text-danger-main">{{ Str::limit($series->name, 18) }} ({{ $series->series_size }}li)</h6>
+                            <span class="text-xs text-danger-600 fw-medium">Seri Stok: {{ $series->stock_quantity }} / Kritik: {{ $series->critical_stock }} [{{ $series->category }}]</span>
+                        </div>
+                        <iconify-icon icon="solar:danger-triangle-outline" class="text-danger-main text-lg"></iconify-icon>
+                    </div>
+                    @empty
+                    @endforelse
+                    
+                    @forelse($lowStockSeriesColorVariants as $scv)
+                    <div class="d-flex align-items-center justify-content-between gap-3 mb-12 p-2 bg-warning-focus rounded">
+                        <div class="flex-grow-1">
+                            <h6 class="text-sm mb-0 fw-medium text-warning-main">{{ Str::limit($scv->productSeries->name, 15) }} ({{ $scv->color }})</h6>
+                            <span class="text-xs text-warning-600 fw-medium">Seri Renk Stok: {{ $scv->stock_quantity }} / Kritik: {{ $scv->critical_stock }} [{{ $scv->productSeries->category }}]</span>
+                        </div>
+                        <iconify-icon icon="solar:danger-triangle-outline" class="text-warning-main text-lg"></iconify-icon>
+                    </div>
+                    @empty
+                    @endforelse
+                    
+                    @if(($lowStockProducts->count() ?? 0) == 0 && ($lowStockColorVariants->count() ?? 0) == 0 && ($lowStockSeries->count() ?? 0) == 0 && ($lowStockSeriesColorVariants->count() ?? 0) == 0)
                     <div class="text-center text-success-main">
                         <iconify-icon icon="solar:check-circle-outline" class="text-4xl mb-2"></iconify-icon>
                         <p class="text-sm">Tüm stoklar yeterli seviyede</p>
                     </div>
-                    @endforelse
+                    @endif
                 </div>
             </div>
         </div>

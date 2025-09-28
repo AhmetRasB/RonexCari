@@ -7,16 +7,34 @@
 <div class="row">
     <div class="col-12">
         <div class="card basic-data-table">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="card-title mb-0">Seri Ürünler</h5>
-                    <p class="text-muted mb-0">Toptancılık için seri bazlı ürün yönetimi</p>
-                </div>
-                <a href="{{ route('products.series.create') }}" class="btn btn-primary">
-                    <i class="ri-add-line me-1"></i>Yeni Seri Ekle
-                </a>
+            <div class="card-header">
+                <h5 class="card-title mb-0">Seri Ürün Listesi</h5>
             </div>
             <div class="card-body">
+                <form method="GET" action="{{ route('products.series.index') }}" class="row g-2 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label mb-1">Kategori</label>
+                        <select name="category" class="form-select" onchange="this.form.submit()">
+                            @php
+                                $options = isset($allowedCategories) && is_array($allowedCategories) && count($allowedCategories) > 0
+                                    ? $allowedCategories
+                                    : ['Gömlek','Ceket','Takım Elbise','Pantalon'];
+                            @endphp
+                            <option value="">Tümü</option>
+                            @foreach($options as $cat)
+                                <option value="{{ $cat }}" {{ (request('category') ?? '') === $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </form>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">Seri Ürün Listesi</h5>
+                    <a href="{{ route('products.series.create') }}" class="btn btn-primary-100 text-primary-600 radius-8 px-20 py-11">
+                        <iconify-icon icon="solar:add-circle-outline" class="me-2"></iconify-icon>
+                        Yeni Seri
+                    </a>
+                </div>
+
                 @if(session('success'))
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         <i class="ri-check-line me-2"></i>{{ session('success') }}

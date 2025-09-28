@@ -50,7 +50,7 @@
                         <div class="card bg-info-100">
                             <div class="card-body">
                                 <h6 class="card-title text-info-600">Ödeme Bilgileri</h6>
-                                <p class="mb-1"><strong>Dönem:</strong> {{ \Carbon\Carbon::parse($currentMonth . '-01')->format('F Y') }}</p>
+                                <p class="mb-1"><strong>Dönem:</strong> {{ \Carbon\Carbon::parse($currentMonth . '-01')->locale('tr')->isoFormat('MMMM Y') }}</p>
                                 <p class="mb-1"><strong>Kalan Maaş:</strong> <span class="fw-bold text-success">{{ number_format($remainingSalary, 2) }} ₺</span></p>
                                 <p class="mb-0"><strong>Maksimum Ödeme:</strong> <span class="fw-bold text-primary">{{ number_format($remainingSalary, 2) }} ₺</span></p>
                             </div>

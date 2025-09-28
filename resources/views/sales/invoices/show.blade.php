@@ -102,6 +102,7 @@
                     <div class="col-md-6">
                         <h6 class="fw-semibold mb-3">Müşteri Bilgileri</h6>
                         <table class="table table-borderless">
+                            @if($invoice->customer)
                             <tr>
                                 <td class="fw-medium">Müşteri Adı:</td>
                                 <td>{{ $invoice->customer->name }}</td>
@@ -124,10 +125,9 @@
                                 <td>{{ $invoice->customer->phone }}</td>
                             </tr>
                             @endif
-                            @if($invoice->customer->address)
+                            @else
                             <tr>
-                                <td class="fw-medium">Adres:</td>
-                                <td>{{ $invoice->customer->address }}</td>
+                                <td colspan="2" class="text-muted">Müşteri bilgisi bulunamadı</td>
                             </tr>
                             @endif
                         </table>
@@ -164,7 +164,12 @@
                                     @foreach($invoice->items as $index => $item)
                                     <tr>
                                         <td>{{ $index + 1 }}</td>
-                                        <td>{{ $item->product_service_name }}</td>
+                                        <td>
+                                            {{ $item->product_service_name }}
+                                            @if($item->selected_color)
+                                                <br><small class="text-muted">Renk: {{ $item->selected_color }}</small>
+                                            @endif
+                                        </td>
                                         <td>{{ $item->description ?? '-' }}</td>
                                         <td>{{ $item->quantity }}</td>
                                         <td>

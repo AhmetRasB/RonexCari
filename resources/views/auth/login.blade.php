@@ -44,4 +44,15 @@
             </p>
         </div>
     </form>
+
+    <script>
+        // Refresh CSRF token on page load to prevent 419 errors
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/sanctum/csrf-cookie')
+                .then(response => response.json())
+                .catch(error => {
+                    // Ignore errors, just ensure token is refreshed
+                });
+        });
+    </script>
 </x-guest-layout>

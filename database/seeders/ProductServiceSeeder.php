@@ -36,6 +36,7 @@ class ProductServiceSeeder extends Seeder
             'Gömlek' => ['Klasik Gömlek', 'Casual Gömlek', 'Formal Gömlek', 'Polo Gömlek', 'Uzun Kollu Gömlek', 'Kısa Kollu Gömlek'],
             'Ceket' => ['Blazer', 'Spor Ceket', 'Klasik Ceket', 'Deri Ceket', 'Kışlık Ceket', 'Yazlık Ceket'],
             'Takım Elbise' => ['İş Takımı', 'Resmi Takım', 'Casual Takım', 'Akşam Takımı', 'Günlük Takım'],
+            'Pantalon' => ['Klasik Pantalon', 'Spor Pantalon', 'Jean Pantalon', 'Chino Pantalon', 'Formal Pantalon', 'Casual Pantalon'],
             'Aksesuar' => ['Kravat', 'Kemer', 'Çanta', 'Cüzdan', 'Saat', 'Gözlük', 'Şapka', 'Eldiven', 'Atkı', 'Çorap']
         ];
 

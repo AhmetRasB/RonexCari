@@ -11,6 +11,23 @@
                 <h5 class="card-title mb-0">Ürün Listesi</h5>
             </div>
             <div class="card-body">
+                <form method="GET" action="{{ route('products.index') }}" class="row g-2 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label mb-1">Kategori</label>
+                        <select name="category" class="form-select" onchange="this.form.submit()">
+                            @php
+                                // Prefer the controller-provided allowedCategories for consistency
+                                $options = isset($allowedCategories) && is_array($allowedCategories) && count($allowedCategories) > 0
+                                    ? $allowedCategories
+                                    : ['Gömlek','Ceket','Takım Elbise','Pantalon'];
+                            @endphp
+                            <option value="">Tümü</option>
+                            @foreach($options as $cat)
+                                <option value="{{ $cat }}" {{ ($selectedCategory ?? '') === $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </form>
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="card-title mb-0">Tekli Ürün Listesi</h5>
                     <a href="{{ route('products.create') }}" class="btn btn-primary-100 text-primary-600 radius-8 px-20 py-11">
@@ -39,6 +56,7 @@
                                     </th>
                                     <th>Ürün Adı</th>
                                     <th>SKU</th>
+                                    <th>Renk</th>
                                     <th>Birim</th>
                                     <th>Maliyet</th>
                                     <th>Satış Fiyatı</th>
@@ -78,6 +96,26 @@
                                             <span class="badge bg-secondary">{{ $product->sku ?? 'SKU Yok' }}</span>
                                         </td>
                                         <td>
+                                            @if($product->color)
+                                                <span class="badge" style="background:#e9f7ef; color:#198754; border:1px solid #c3e6cb;">
+                                                    {{ $product->color }}
+                                                </span>
+                                            @elseif($product->colorVariants && $product->colorVariants->count() > 0)
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    @foreach($product->colorVariants->take(3) as $variant)
+                                                        <span class="badge" style="background:#e9f7ef; color:#198754; border:1px solid #c3e6cb;">
+                                                            {{ $variant->color }}
+                                                        </span>
+                                                    @endforeach
+                                                    @if($product->colorVariants->count() > 3)
+                                                        <span class="badge bg-secondary">+{{ $product->colorVariants->count() - 3 }}</span>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                        <td>
                                             <span class="badge bg-info">{{ $product->unit ?? 'Adet' }}</span>
                                         </td>
                                         <td>
@@ -87,9 +125,16 @@
                                             <span class="fw-semibold text-primary">₺{{ number_format($product->price ?? 0, 2) }}</span>
                                         </td>
                                         <td>
-                                            <span class="fw-semibold">{{ number_format($product->stock_quantity ?? 0) }}</span>
-                                            @if($product->critical_stock > 0 && $product->stock_quantity <= $product->critical_stock)
-                                                <i class="ri-alert-line text-danger ms-1" title="Kritik Stok"></i>
+                                            @if($product->colorVariants && $product->colorVariants->count() > 0)
+                                                <span class="fw-semibold">{{ $product->total_stock }}</span>
+                                                @if($product->colorVariants->where('stock_quantity', '<=', 'critical_stock')->count() > 0)
+                                                    <i class="ri-alert-line text-danger ms-1" title="Kritik Stok (Renk Varyantları)"></i>
+                                                @endif
+                                            @else
+                                                <span class="fw-semibold">{{ number_format($product->initial_stock ?? 0) }}</span>
+                                                @if($product->critical_stock > 0 && $product->initial_stock <= $product->critical_stock)
+                                                    <i class="ri-alert-line text-danger ms-1" title="Kritik Stok"></i>
+                                                @endif
                                             @endif
                                         </td>
                                         <td>

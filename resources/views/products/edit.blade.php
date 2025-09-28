@@ -39,7 +39,7 @@
                 <h5 class="card-title mb-0">Ürün Düzenle</h5>
             </div>
             <div class="card-body">
-                <form action="{{ route('products.update', $product->id) }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('products.update', $product->id) }}" method="POST" enctype="multipart/form-data" id="productEditForm">
                     @csrf
                     @method('PUT')
                     
@@ -111,10 +111,13 @@
                             <div class="position-relative">
                                 <select name="category" class="form-control" required>
                                     <option value="">Seçiniz</option>
-                                    <option value="Gömlek" {{ $product->category == 'Gömlek' ? 'selected' : '' }}>Gömlek</option>
-                                    <option value="Ceket" {{ $product->category == 'Ceket' ? 'selected' : '' }}>Ceket</option>
-                                    <option value="Takım Elbise" {{ $product->category == 'Takım Elbise' ? 'selected' : '' }}>Takım Elbise</option>
-                                    <option value="Aksesuar" {{ $product->category == 'Aksesuar' ? 'selected' : '' }}>Aksesuar</option>
+                                    @php
+                                        $allCategories = ['Gömlek','Ceket','Takım Elbise','Pantalon'];
+                                        $options = isset($allowedCategories) && is_array($allowedCategories) && count($allowedCategories) > 0 ? $allowedCategories : $allCategories;
+                                    @endphp
+                                    @foreach($options as $cat)
+                                        <option value="{{ $cat }}" {{ $product->category == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                    @endforeach
                                 </select>
                             </div>
                             @error('category')
@@ -203,27 +206,122 @@
                             <h6 class="fw-semibold mb-3 d-flex align-items-center">
                                 <iconify-icon icon="solar:box-minimalistic-outline" class="text-primary me-2"></iconify-icon>
                                 Stok Yönetimi
-                                @if($product->initial_stock <= $product->critical_stock)
-                                    <span class="badge bg-danger ms-2 blink">KRİTİK STOK!</span>
+                                @if($product->colorVariants && $product->colorVariants->count() > 0)
+                                    @if($product->colorVariants->where('stock_quantity', '<=', 'critical_stock')->count() > 0)
+                                        <span class="badge bg-danger ms-2 blink">KRİTİK STOK!</span>
+                                    @endif
+                                @else
+                                    @if($product->initial_stock <= $product->critical_stock)
+                                        <span class="badge bg-danger ms-2 blink">KRİTİK STOK!</span>
+                                    @endif
                                 @endif
                             </h6>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Mevcut Stok Miktarı</label>
-                            <input type="number" name="initial_stock" class="form-control" placeholder="Mevcut Stok Miktarı" value="{{ $product->initial_stock }}" min="0">
-                            @error('initial_stock')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Kritik Stok Sınırı</label>
-                            <input type="number" name="critical_stock" class="form-control" placeholder="Kritik Stok Sınırı" value="{{ $product->critical_stock }}" min="0">
-                            @error('critical_stock')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
+
+                        @if($product->colorVariants && $product->colorVariants->count() > 0)
+                            <!-- Multi-Color Product Stock Management -->
+                            <div class="col-12">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <h6 class="fw-semibold mb-3 text-primary">
+                                            <iconify-icon icon="solar:palette-outline" class="me-2"></iconify-icon>
+                                            Renk Bazlı Stok Yönetimi
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Renk</th>
+                                                        <th>Mevcut Stok</th>
+                                                        <th>Kritik Stok</th>
+                                                        <th>Durum</th>
+                                                        <th>İşlemler</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($product->colorVariants as $index => $variant)
+                                                        <tr class="{{ $variant->stock_quantity <= $variant->critical_stock ? 'table-warning' : '' }}">
+                                                            <td>
+                                                                <span class="badge" style="background:#e9f7ef; color:#198754; border:1px solid #c3e6cb;">
+                                                                    {{ $variant->color }}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" 
+                                                                       name="color_variants[{{ $variant->id }}][stock_quantity]" 
+                                                                       class="form-control form-control-sm" 
+                                                                       value="{{ $variant->stock_quantity }}" 
+                                                                       min="0" 
+                                                                       style="width: 80px;">
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" 
+                                                                       name="color_variants[{{ $variant->id }}][critical_stock]" 
+                                                                       class="form-control form-control-sm" 
+                                                                       value="{{ $variant->critical_stock }}" 
+                                                                       min="0" 
+                                                                       style="width: 80px;">
+                                                            </td>
+                                                            <td>
+                                                                @if($variant->stock_quantity <= $variant->critical_stock)
+                                                                    <span class="badge bg-danger">Kritik</span>
+                                                                @else
+                                                                    <span class="badge bg-success">Normal</span>
+                                                                @endif
+                                                            </td>
+                                                            <td>
+                                                                <div class="form-check form-switch">
+                                                                    <input type="hidden" name="color_variants[{{ $variant->id }}][is_active]" value="0">
+                                                                    <input class="form-check-input" 
+                                                                           type="checkbox" 
+                                                                           name="color_variants[{{ $variant->id }}][is_active]" 
+                                                                           value="1" 
+                                                                           {{ $variant->is_active ? 'checked' : '' }}>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                                <tfoot class="table-light">
+                                                    <tr>
+                                                        <th>Toplam</th>
+                                                        <th class="fw-bold">{{ $product->colorVariants->sum('stock_quantity') }}</th>
+                                                        <th class="fw-bold">{{ $product->colorVariants->sum('critical_stock') }}</th>
+                                                        <th>
+                                                            @if($product->colorVariants->where('stock_quantity', '<=', 'critical_stock')->count() > 0)
+                                                                <span class="badge bg-warning">Dikkat</span>
+                                                            @else
+                                                                <span class="badge bg-success">İyi</span>
+                                                            @endif
+                                                        </th>
+                                                        <th></th>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
+                            <!-- Single Product Stock Management -->
+                            <div class="col-md-6">
+                                <label class="form-label">Mevcut Stok Miktarı</label>
+                                <input type="number" name="initial_stock" class="form-control" placeholder="Mevcut Stok Miktarı" value="{{ $product->initial_stock }}" min="0">
+                                @error('initial_stock')
+                                    <div class="text-danger mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Kritik Stok Sınırı</label>
+                                <input type="number" name="critical_stock" class="form-control" placeholder="Kritik Stok Sınırı" value="{{ $product->critical_stock }}" min="0">
+                                @error('critical_stock')
+                                    <div class="text-danger mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        @endif
+
                         <div class="col-md-6 mt-3">
-                            <label class="form-label">Durum</label>
+                            <label class="form-label">Ürün Durumu</label>
                             <div class="form-check form-switch">
                                 <input type="hidden" name="is_active" value="0">
                                 <input class="form-check-input" type="checkbox" name="is_active" value="1" {{ $product->is_active ? 'checked' : '' }}>
@@ -356,14 +454,98 @@ $(document).ready(function() {
         $('#selectedColor').val('{{ $product->color }}');
     @endif
 
+    // Color variant stock management
+    function updateColorVariantStatus() {
+        $('input[name*="[stock_quantity]"]').each(function() {
+            const stockInput = $(this);
+            const row = stockInput.closest('tr');
+            const criticalInput = row.find('input[name*="[critical_stock]"]');
+            const statusBadge = row.find('td:nth-child(4) .badge');
+            
+            const stock = parseInt(stockInput.val()) || 0;
+            const critical = parseInt(criticalInput.val()) || 0;
+            
+            if (stock <= critical && critical > 0) {
+                statusBadge.removeClass('bg-success').addClass('bg-danger').text('Kritik');
+                row.removeClass('table-warning').addClass('table-warning');
+            } else {
+                statusBadge.removeClass('bg-danger').addClass('bg-success').text('Normal');
+                row.removeClass('table-warning');
+            }
+        });
+        
+        // Update totals
+        let totalStock = 0;
+        let totalCritical = 0;
+        let hasCritical = false;
+        
+        $('input[name*="[stock_quantity]"]').each(function() {
+            totalStock += parseInt($(this).val()) || 0;
+        });
+        
+        $('input[name*="[critical_stock]"]').each(function() {
+            const critical = parseInt($(this).val()) || 0;
+            totalCritical += critical;
+            const row = $(this).closest('tr');
+            const stock = parseInt(row.find('input[name*="[stock_quantity]"]').val()) || 0;
+            if (stock <= critical && critical > 0) {
+                hasCritical = true;
+            }
+        });
+        
+        // Update footer totals
+        $('tfoot th:nth-child(2)').text(totalStock);
+        $('tfoot th:nth-child(3)').text(totalCritical);
+        
+        const overallStatus = $('tfoot th:nth-child(4) .badge');
+        if (hasCritical) {
+            overallStatus.removeClass('bg-success').addClass('bg-warning').text('Dikkat');
+        } else {
+            overallStatus.removeClass('bg-warning').addClass('bg-success').text('İyi');
+        }
+    }
+    
+    // Bind events for color variant stock inputs
+    $(document).on('input', 'input[name*="[stock_quantity]"], input[name*="[critical_stock]"]', function() {
+        updateColorVariantStatus();
+    });
+    
+    // Initial status update
+    updateColorVariantStatus();
+    
+    // Debug form submission
+    $('#productEditForm').on('submit', function(e) {
+        const formData = new FormData(this);
+        const colorVariantsData = {};
+        
+        // Collect color variant data
+        for (let [key, value] of formData.entries()) {
+            if (key.startsWith('color_variants[')) {
+                const match = key.match(/color_variants\[(\d+)\]\[(\w+)\]/);
+                if (match) {
+                    const variantId = match[1];
+                    const field = match[2];
+                    if (!colorVariantsData[variantId]) {
+                        colorVariantsData[variantId] = {};
+                    }
+                    colorVariantsData[variantId][field] = value;
+                }
+            }
+        }
+        
+        console.log('Color variants data being submitted:', colorVariantsData);
+        
+        // Don't prevent form submission, just log for debugging
+    });
+
     // Critical stock focus - Dashboard'dan gelince stok alanına odaklan
     const urlParams = new URLSearchParams(window.location.search);
     const fromDashboard = document.referrer.includes('/dashboard') || urlParams.get('focus') === 'stock';
     
-    if (fromDashboard || {{ $product->initial_stock <= $product->critical_stock ? 'true' : 'false' }}) {
+    if (fromDashboard || {{ $product->colorVariants && $product->colorVariants->count() > 0 ? ($product->colorVariants->where('stock_quantity', '<=', 'critical_stock')->count() > 0 ? 'true' : 'false') : ($product->initial_stock <= $product->critical_stock ? 'true' : 'false') }}) {
         // Sayfayı stok yönetimi bölümüne kaydır
         setTimeout(() => {
-            const stockSection = $('[name="initial_stock"]');
+            const stockSection = $('[name="initial_stock"], input[name*="[stock_quantity]"]').first();
             if (stockSection.length) {
                 $('html, body').animate({
                     scrollTop: stockSection.offset().top - 100
@@ -375,7 +557,7 @@ $(document).ready(function() {
                 // Kısa bir titreşim efekti
                 stockSection.addClass('border-warning').removeClass('border-danger');
                 setTimeout(() => {
-                    stockSection.removeClass('border-warning').addClass({{ $product->initial_stock <= $product->critical_stock ? '"border-danger"' : '""' }});
+                    stockSection.removeClass('border-warning').addClass('border-warning');
                 }, 2000);
             }
         }, 500);

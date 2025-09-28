@@ -1,30 +1,26 @@
 <div class="navbar-header">
     <div class="row align-items-center justify-content-between">
         <div class="col-auto">
-            <div class="d-flex flex-wrap align-items-center gap-4">
+            <div class="d-flex flex-wrap align-items-center gap-2 gap-md-4">
                 <button type="button" class="sidebar-toggle">
-                    <iconify-icon icon="heroicons:bars-3-solid" class="icon text-2xl non-active"></iconify-icon>
-                    <iconify-icon icon="iconoir:arrow-right" class="icon text-2xl active"></iconify-icon>
+                    <iconify-icon icon="heroicons:bars-3-solid" class="icon text-xl text-md-2xl non-active"></iconify-icon>
+                    <iconify-icon icon="iconoir:arrow-right" class="icon text-xl text-md-2xl active"></iconify-icon>
                 </button>
                 <button type="button" class="sidebar-mobile-toggle">
-                    <iconify-icon icon="heroicons:bars-3-solid" class="icon"></iconify-icon>
+                    <iconify-icon icon="heroicons:bars-3-solid" class="icon text-lg"></iconify-icon>
                 </button>
-                <form class="navbar-search d-none d-md-block">
-                    <input type="text" name="search" placeholder="Search">
-                    <iconify-icon icon="ion:search-outline" class="icon"></iconify-icon>
-                </form>
             </div>
         </div>
         <div class="col-auto">
-            <div class="d-flex flex-wrap align-items-center gap-3">
+            <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
 
-                <button id="openNavbarScanner" class="w-40-px h-40-px bg-primary-100 rounded-circle d-flex justify-content-center align-items-center" type="button" title="QR/Barkod Tara">
-                    <iconify-icon icon="solar:qr-code-outline" class="text-primary-light text-xl"></iconify-icon>
+                <button id="openNavbarScanner" class="w-36-px h-36-px w-md-40-px h-md-40-px bg-primary-100 rounded-circle d-flex justify-content-center align-items-center" type="button" title="QR/Barkod Tara">
+                    <iconify-icon icon="solar:qr-code-outline" class="text-primary-light text-lg text-md-xl"></iconify-icon>
                 </button>
 
                 <div class="dropdown">
-                    <button id="notificationBtn" class="has-indicator w-40-px h-40-px bg-neutral-200 rounded-circle d-flex justify-content-center align-items-center" type="button" data-bs-toggle="dropdown">
-                        <iconify-icon icon="iconoir:bell" class="text-primary-light text-xl"></iconify-icon>
+                    <button id="notificationBtn" class="has-indicator w-36-px h-36-px w-md-40-px h-md-40-px bg-neutral-200 rounded-circle d-flex justify-content-center align-items-center" type="button" data-bs-toggle="dropdown">
+                        <iconify-icon icon="iconoir:bell" class="text-primary-light text-lg text-md-xl"></iconify-icon>
                     </button>
                     <div class="dropdown-menu to-top dropdown-menu-lg p-0">
                         <div class="m-16 py-12 px-16 radius-8 bg-primary-50 mb-16 d-flex align-items-center justify-content-between gap-2">
@@ -52,10 +48,11 @@
 
                 <!-- Account Dropdown -->
                 <div class="dropdown">
-                    <button class="btn btn-outline-primary d-flex align-items-center gap-2 px-3 py-2" type="button" data-bs-toggle="dropdown">
-                        <iconify-icon icon="heroicons:building-office-2" class="text-xl"></iconify-icon>
-                        <span class="fw-medium">{{ $currentAccount->name ?? 'Hesap Seç' }}</span>
-                        <iconify-icon icon="heroicons:chevron-down" class="text-sm"></iconify-icon>
+                    <button class="btn btn-outline-primary d-flex align-items-center gap-1 gap-md-2 px-2 px-md-3 py-1 py-md-2" type="button" data-bs-toggle="dropdown" title="{{ $currentAccount->name ?? 'Hesap Seç' }} (Session: {{ session('current_account_id') ?? 'NULL' }})">
+                        <iconify-icon icon="heroicons:building-office-2" class="text-lg text-md-xl"></iconify-icon>
+                        <span class="fw-medium d-none d-sm-inline">{{ $currentAccount->name ?? 'Hesap Seç' }}</span>
+                        <span class="fw-medium d-sm-none">{{ $currentAccount->code ?? '?' }}</span>
+                        <iconify-icon icon="heroicons:chevron-down" class="text-xs text-md-sm"></iconify-icon>
                     </button>
                     <div class="dropdown-menu to-top dropdown-menu-sm">
                         <div class="py-12 px-16 radius-8 bg-primary-50 mb-16 d-flex align-items-center justify-content-center">
@@ -69,9 +66,12 @@
                                     <form method="POST" action="{{ route('account.switch') }}" class="w-100">
                                         @csrf
                                         <input type="hidden" name="account_id" value="{{ $account->id }}">
-                                        <button type="submit" class="dropdown-item text-black px-0 py-8 hover-bg-transparent d-flex align-items-center gap-3 w-100 border-0 bg-transparent justify-content-center {{ $account->id === ($currentAccount->id ?? null) ? 'bg-primary-50 text-primary-600' : '' }}">
+                                        <button type="submit" class="dropdown-item text-black px-0 py-8 hover-bg-transparent d-flex align-items-center gap-3 w-100 border-0 bg-transparent justify-content-center {{ $account->id === ($currentAccount->id ?? null) ? 'bg-primary-50 text-primary-600' : '' }}" title="{{ $account->name }}">
                                             <iconify-icon icon="heroicons:building-office-2" class="icon text-xl"></iconify-icon>
-                                            <span class="fw-medium">{{ $account->name }}</span>
+                                            <div class="d-flex flex-column align-items-start">
+                                                <span class="fw-medium">{{ $account->name }}</span>
+                                                <small class="text-muted">{{ $account->code }}</small>
+                                            </div>
                                             @if($account->id === ($currentAccount->id ?? null))
                                                 <iconify-icon icon="heroicons:check" class="icon text-primary-600"></iconify-icon>
                                             @endif
@@ -91,7 +91,7 @@
 
                 <div class="dropdown">
                     <button class="d-flex justify-content-center align-items-center rounded-circle" type="button" data-bs-toggle="dropdown">
-                        <img src="{{ asset('assets/images/user.png') }}" alt="image" class="w-40-px h-40-px object-fit-cover rounded-circle">
+                        <img src="{{ asset('assets/images/user.png') }}" alt="image" class="w-36-px h-36-px w-md-40-px h-md-40-px object-fit-cover rounded-circle">
                     </button>
                     <div class="dropdown-menu to-top dropdown-menu-sm">
                         <div class="py-12 px-16 radius-8 bg-primary-50 mb-16 d-flex align-items-center justify-content-center">

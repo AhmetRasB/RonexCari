@@ -52,6 +52,7 @@
                                         <h6 class="text-md">Fatura Edilen:</h6>
                                         <table class="text-sm text-secondary-light">
                                             <tbody>
+                                                @if($invoice->customer)
                                                 <tr>
                                                     <td>Ad Soyad</td>
                                                     <td class="ps-8">: {{ $invoice->customer->name }}</td>
@@ -66,6 +67,11 @@
                                                 <tr>
                                                     <td>Adres</td>
                                                     <td class="ps-8">: {{ $invoice->customer->address }}</td>
+                                                </tr>
+                                                @endif
+                                                @else
+                                                <tr>
+                                                    <td colspan="2" class="text-muted">Müşteri bilgisi bulunamadı</td>
                                                 </tr>
                                                 @endif
                                                 @if($invoice->customer->phone)
@@ -113,13 +119,17 @@
                                                 <tr>
                                                     <td>Durum</td>
                                                     <td class="ps-8">: 
-                                                        @switch($invoice->status)
-                                                            @case('draft') Taslak @break
-                                                            @case('sent') Gönderildi @break
-                                                            @case('paid') Ödendi @break
-                                                            @case('overdue') Vadesi Geçti @break
-                                                            @case('cancelled') İptal @break
-                                                        @endswitch
+                                                        @if($invoice->payment_completed)
+                                                            Tahsilat Yapıldı
+                                                        @else
+                                                            @switch($invoice->status)
+                                                                @case('draft') Taslak @break
+                                                                @case('sent') Gönderildi @break
+                                                                @case('paid') Ödendi @break
+                                                                @case('overdue') Vadesi Geçti @break
+                                                                @case('cancelled') İptal @break
+                                                            @endswitch
+                                                        @endif
                                                     </td>
                                                 </tr>
                                             </tbody>
@@ -146,7 +156,12 @@
                                                 @foreach($invoice->items as $index => $item)
                                                 <tr>
                                                     <td>{{ $index + 1 }}</td>
-                                                    <td>{{ $item->product_service_name }}</td>
+                                                    <td>
+                                                        {{ $item->product_service_name }}
+                                                        @if($item->selected_color)
+                                                            <br><small class="text-muted">Renk: {{ $item->selected_color }}</small>
+                                                        @endif
+                                                    </td>
                                                     <td>{{ $item->description ?? '-' }}</td>
                                                     <td>{{ $item->quantity }}</td>
                                                     <td>

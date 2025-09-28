@@ -87,7 +87,7 @@
                                 <td>{{ $payment->payment_date->format('d.m.Y') }}</td>
                                 <td>
                                     <span class="badge bg-primary-100 text-primary-600 px-2 py-1 rounded-pill text-xs fw-medium">
-                                        {{ \Carbon\Carbon::parse($payment->month_year . '-01')->format('M Y') }}
+                                        {{ \Carbon\Carbon::parse($payment->month_year . '-01')->locale('tr')->isoFormat('MMM Y') }}
                                     </span>
                                 </td>
                                 <td>

@@ -53,10 +53,13 @@
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Kategori</label>
                             <select class="form-control radius-8 @error('category') is-invalid @enderror" name="category">
                                 <option value="">Kategori seçin</option>
-                                <option value="Gömlek" {{ old('category', $series->category) == 'Gömlek' ? 'selected' : '' }}>Gömlek</option>
-                                <option value="Ceket" {{ old('category', $series->category) == 'Ceket' ? 'selected' : '' }}>Ceket</option>
-                                <option value="Takım" {{ old('category', $series->category) == 'Takım' ? 'selected' : '' }}>Takım</option>
-                                <option value="Diğer" {{ old('category', $series->category) == 'Diğer' ? 'selected' : '' }}>Diğer</option>
+                                @php
+                                    $allCategories = ['Gömlek','Ceket','Takım Elbise','Pantalon'];
+                                    $options = isset($allowedCategories) && is_array($allowedCategories) && count($allowedCategories) > 0 ? $allowedCategories : $allCategories;
+                                @endphp
+                                @foreach($options as $cat)
+                                    <option value="{{ $cat }}" {{ old('category', $series->category) == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                @endforeach
                             </select>
                             @error('category')
                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -120,6 +123,98 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
+
+                        @if($series->colorVariants && $series->colorVariants->count() > 0)
+                            <!-- Multi-Color Series Stock Management -->
+                            <div class="col-12">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <h6 class="fw-semibold mb-3 text-primary">
+                                            <iconify-icon icon="solar:palette-outline" class="me-2"></iconify-icon>
+                                            Renk Bazlı Stok Yönetimi
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Renk</th>
+                                                        <th>Mevcut Stok (Seri)</th>
+                                                        <th>Kritik Stok (Seri)</th>
+                                                        <th>Durum</th>
+                                                        <th>İşlemler</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($series->colorVariants as $index => $variant)
+                                                        <tr class="{{ $variant->stock_quantity <= $variant->critical_stock ? 'table-warning' : '' }}">
+                                                            <td>
+                                                                <span class="badge" style="background:#e9f7ef; color:#198754; border:1px solid #c3e6cb;">
+                                                                    {{ $variant->color }}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" 
+                                                                       name="color_variants[{{ $variant->id }}][stock_quantity]" 
+                                                                       class="form-control form-control-sm" 
+                                                                       value="{{ $variant->stock_quantity }}" 
+                                                                       min="0" 
+                                                                       style="width: 80px;">
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" 
+                                                                       name="color_variants[{{ $variant->id }}][critical_stock]" 
+                                                                       class="form-control form-control-sm" 
+                                                                       value="{{ $variant->critical_stock }}" 
+                                                                       min="0" 
+                                                                       style="width: 80px;">
+                                                            </td>
+                                                            <td>
+                                                                @if($variant->stock_quantity <= $variant->critical_stock)
+                                                                    <span class="badge bg-danger">Kritik</span>
+                                                                @else
+                                                                    <span class="badge bg-success">Normal</span>
+                                                                @endif
+                                                            </td>
+                                                            <td>
+                                                                <div class="form-check form-switch">
+                                                                    <input type="hidden" name="color_variants[{{ $variant->id }}][is_active]" value="0">
+                                                                    <input class="form-check-input" 
+                                                                           type="checkbox" 
+                                                                           name="color_variants[{{ $variant->id }}][is_active]" 
+                                                                           value="1" 
+                                                                           {{ $variant->is_active ? 'checked' : '' }}>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                                <tfoot class="table-light">
+                                                    <tr>
+                                                        <th>Toplam</th>
+                                                        <th class="fw-bold">{{ $series->colorVariants->sum('stock_quantity') }} Seri</th>
+                                                        <th class="fw-bold">{{ $series->colorVariants->sum('critical_stock') }} Seri</th>
+                                                        <th>
+                                                            @if($series->colorVariants->where('stock_quantity', '<=', 'critical_stock')->count() > 0)
+                                                                <span class="badge bg-warning">Dikkat</span>
+                                                            @else
+                                                                <span class="badge bg-success">İyi</span>
+                                                            @endif
+                                                        </th>
+                                                        <th></th>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                        <div class="mt-3">
+                                            <small class="text-muted">
+                                                <iconify-icon icon="solar:info-circle-outline" class="me-1"></iconify-icon>
+                                                Her renk için ayrı stok takibi yapılır. Ana seri stoku otomatik olarak güncellenir.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
 
                         <!-- Görsel -->
                         <div class="col-12">

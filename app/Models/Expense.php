@@ -13,12 +13,14 @@ class Expense extends Model
         'amount',
         'description',
         'expense_date',
-        'category'
+        'category',
+        'is_active'
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
-        'expense_date' => 'date'
+        'expense_date' => 'date',
+        'is_active' => 'boolean'
     ];
 
     public function account()

@@ -40,6 +40,13 @@ class InvoiceController extends Controller
                 ->paginate(10);
         }
         
+        // Her fatura için ödeme kontrolü yap (şimdilik devre dışı - payments tablosu ile entegre edilecek)
+        foreach ($invoices as $invoice) {
+            // TODO: Implement proper payment tracking with payments table
+            $invoice->payments_amount = 0;
+            $invoice->has_payments = false;
+        }
+        
         return view('purchases.invoices.index', compact('invoices'));
     }
 
@@ -49,7 +56,17 @@ class InvoiceController extends Controller
     public function create()
     {
         $suppliers = Supplier::where('is_active', true)->get();
-        $products = Product::where('is_active', true)->get();
+        $currentAccountId = session('current_account_id');
+        $products = Product::where('is_active', true)
+            ->with('colorVariants') // Load color variants
+            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                $q->where('account_id', $currentAccountId);
+            })
+            ->when($currentAccountId === null, function($q) {
+                // Eğer hesap seçili değilse, tüm ürünleri getir
+                $q->whereNotNull('account_id');
+            })
+            ->get();
         
         return view('purchases.invoices.create', compact('suppliers', 'products'));
     }
@@ -186,6 +203,9 @@ class InvoiceController extends Controller
                     'purchase_invoice_id' => $invoice->id,
                     'product_service_name' => $item['product_service_name'],
                     'description' => $item['description'] ?? null,
+                    'selected_color' => $item['selected_color'] ?? null,
+                    'product_id' => $item['product_id'] ?? null,
+                    'product_type' => $item['type'] ?? 'product',
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice, // Already converted by JavaScript
                     'unit_currency' => $unitCurrency,
@@ -194,6 +214,48 @@ class InvoiceController extends Controller
                     'line_total' => $lineTotalAfterDiscount,
                     'sort_order' => $index
                 ]);
+            }
+            
+            // Stok artırma işlemi
+            foreach ($validated['items'] as $item) {
+                $quantity = (float) ($item['quantity'] ?? 0);
+                $productId = $item['product_id'] ?? null;
+                $type = $item['type'] ?? 'product';
+                $colorVariantId = $item['color_variant_id'] ?? null;
+                
+                if ($productId && $quantity > 0) {
+                    if ($type === 'product') {
+                        // Normal ürün stok artırma
+                        $product = \App\Models\Product::find($productId);
+                        if ($product) {
+                            // Color variant seçilmişse (öncelik ID), o rengin stokunu artır
+                            if ($colorVariantId) {
+                                $colorVariant = $product->colorVariants()->where('id', $colorVariantId)->first();
+                                if ($colorVariant) {
+                                    $colorVariant->increment('stock_quantity', $quantity);
+                                }
+                            } else if (!empty($item['selected_color']) && $product->colorVariants->count() > 0) {
+                                $colorVariant = $product->colorVariants()->where('color', $item['selected_color'])->first();
+                                if ($colorVariant) {
+                                    $colorVariant->increment('stock_quantity', $quantity);
+                                }
+                            } else {
+                                // Color variant yoksa ana ürünün stokunu artır
+                                $product->increment('stock_quantity', $quantity);
+                            }
+                            
+                            // Ana ürünün initial_stock'unu da güncelle
+                            $product->increment('initial_stock', $quantity);
+                        }
+                    } elseif ($type === 'series') {
+                        // Seri ürün stok artırma
+                        $series = \App\Models\ProductSeries::find($productId);
+                        if ($series) {
+                            $series->increment('stock_quantity', $quantity);
+                        }
+                    }
+                    // Service'ler için stok artırma yok
+                }
             }
             
             // Handle supplier balance if payment is not completed
@@ -254,13 +316,41 @@ class InvoiceController extends Controller
     }
 
     /**
+     * Display the invoice preview for printing.
+     */
+    public function preview(PurchaseInvoice $invoice)
+    {
+        $invoice->load(['supplier', 'items']);
+        return view('purchases.invoices.preview', compact('invoice'));
+    }
+
+    /**
+     * Print the invoice.
+     */
+    public function print(PurchaseInvoice $invoice)
+    {
+        $invoice->load(['supplier', 'items']);
+        return view('purchases.invoices.print', compact('invoice'));
+    }
+
+    /**
      * Show the form for editing the specified resource.
      */
     public function edit(PurchaseInvoice $invoice)
     {
         $invoice->load(['supplier', 'items']);
         $suppliers = Supplier::where('is_active', true)->get();
-        $products = Product::where('is_active', true)->get();
+        $currentAccountId = session('current_account_id');
+        $products = Product::where('is_active', true)
+            ->with('colorVariants') // Load color variants
+            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                $q->where('account_id', $currentAccountId);
+            })
+            ->when($currentAccountId === null, function($q) {
+                // Eğer hesap seçili değilse, tüm ürünleri getir
+                $q->whereNotNull('account_id');
+            })
+            ->get();
         
         return view('purchases.invoices.edit', compact('invoice', 'suppliers', 'products'));
     }
@@ -332,6 +422,9 @@ class InvoiceController extends Controller
                     'purchase_invoice_id' => $invoice->id,
                     'product_service_name' => $item['product_service_name'],
                     'description' => $item['description'],
+                    'selected_color' => $item['selected_color'] ?? null,
+                    'product_id' => $item['product_id'] ?? null,
+                    'product_type' => $item['type'] ?? 'product',
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
                     'unit_currency' => $item['unit_currency'],
@@ -413,6 +506,53 @@ class InvoiceController extends Controller
     }
 
     /**
+     * Mark invoice as paid
+     */
+    public function markPaid(PurchaseInvoice $invoice)
+    {
+        try {
+            $invoice->payment_completed = true;
+            // If status column exists on model/table, set to paid as well
+            if (\Schema::hasColumn('purchase_invoices', 'status')) {
+                $invoice->status = 'paid';
+            }
+            $invoice->save();
+
+            return redirect()
+                ->back()
+                ->with('success', 'Alış faturası ödemesi tamamlandı olarak işaretlendi.');
+        } catch (\Throwable $e) {
+            \Log::error('markPaid failed', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+            ]);
+            return redirect()
+                ->back()
+                ->with('error', 'Ödeme işaretlenemedi: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get current currency exchange rates
+     */
+    public function getCurrencyRates()
+    {
+        try {
+            $rates = $this->currencyService->getExchangeRates();
+            return response()->json([
+                'success' => true,
+                'rates' => $rates
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Döviz kurları alınamadı',
+                'rates' => $this->currencyService->getFallbackRates()
+            ], 500);
+        }
+    }
+
+    /**
      * Search products for AJAX requests
      */
     public function searchProducts(Request $request)
@@ -422,7 +562,16 @@ class InvoiceController extends Controller
             return response()->json([]);
         }
 
-        $products = Product::where('is_active', true)
+        $currentAccountId = session('current_account_id');
+        $products = Product::with('colorVariants')
+            ->where('is_active', true)
+            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                $q->where('account_id', $currentAccountId);
+            })
+            ->when($currentAccountId === null, function($q) {
+                // Eğer hesap seçili değilse, tüm ürünleri getir
+                $q->whereNotNull('account_id');
+            })
             ->where(function($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
                   ->orWhere('product_code', 'like', "%{$query}%")
@@ -440,6 +589,8 @@ class InvoiceController extends Controller
             ->limit(10)
             ->get()
             ->map(function ($product) {
+                $hasColorVariants = $product->colorVariants->count() > 0;
+                
                 return [
                     'id' => 'product_' . $product->id,
                     'name' => $product->name,
@@ -452,47 +603,24 @@ class InvoiceController extends Controller
                     'purchase_price' => $product->purchase_price,
                     'vat_rate' => $product->vat_rate,
                     'currency' => $product->currency,
-                    'type' => 'product'
+                    'type' => 'product',
+                    'has_color_variants' => $hasColorVariants,
+                    'color_variants' => $hasColorVariants ? $product->colorVariants->map(function($variant) {
+                        return [
+                            'id' => $variant->id,
+                            'color' => $variant->color,
+                            'stock_quantity' => $variant->stock_quantity,
+                            'critical_stock' => $variant->critical_stock
+                        ];
+                    })->toArray() : []
                 ];
             });
 
         return response()->json($products);
     }
 
-    /**
-     * Get currency rates
-     */
-    public function getCurrencyRates()
-    {
-        try {
-            $rates = $this->currencyService->getExchangeRates();
-            return response()->json([
-                'success' => true,
-                'rates' => $rates
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Currency rates fetch failed', ['error' => $e->getMessage()]);
-            return response()->json(['error' => 'Döviz kurları alınamadı'], 500);
-        }
-    }
 
-    /**
-     * Preview invoice
-     */
-    public function preview(PurchaseInvoice $invoice)
-    {
-        $invoice->load(['supplier', 'items']);
-        return view('purchases.invoices.preview', compact('invoice'));
-    }
 
-    /**
-     * Print invoice
-     */
-    public function print(PurchaseInvoice $invoice)
-    {
-        $invoice->load(['supplier', 'items']);
-        return view('purchases.invoices.print', compact('invoice'));
-    }
 
     // Actions removed - invoices are now directly approved
 }

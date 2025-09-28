@@ -12,37 +12,102 @@ class DashboardController extends Controller
 {
     /**
      * Get current account ID from session
-     * Admin kullanıcılar için null döner (tüm hesapları görebilir)
+     * Tüm kullanıcılar (admin dahil) seçili hesaba göre filtreleme yapar
      */
     private function getCurrentAccountId()
     {
-        // Admin kullanıcılar tüm hesapları görebilir
-        if (auth()->user()->isAdmin()) {
-            return null;
-        }
         return session('current_account_id');
     }
+
 
     public function index()
     {
         // KPI'lar
         $stats = $this->getDashboardStats();
         
+        // Get current account ID
+        $accountId = $this->getCurrentAccountId();
+        
         // Kritik stok uyarıları - Normal ürünler
-        $lowStockProducts = Product::whereNotNull('critical_stock')
+        $lowStockProductsQuery = Product::whereNotNull('critical_stock')
+            ->where('critical_stock', '>', 0)
+            ->whereColumn('initial_stock', '<=', 'critical_stock');
+            
+        // Filter by account
+        if ($accountId !== null) {
+            $lowStockProductsQuery->where('account_id', $accountId);
+        }
+        
+        $lowStockProducts = $lowStockProductsQuery->orderBy('initial_stock')
+            ->limit(10)
+            ->get(['id','name','initial_stock','critical_stock','category']);
+            
+        // Color variants kritik stok uyarıları
+        $lowStockColorVariants = collect();
+        if ($accountId) {
+            $colorVariantsQuery = \App\Models\ProductColorVariant::whereHas('product', function($query) use ($accountId) {
+                $query->where('account_id', $accountId);
+            })
+            ->whereNotNull('critical_stock')
             ->where('critical_stock', '>', 0)
             ->whereColumn('stock_quantity', '<=', 'critical_stock')
-            ->orderBy('stock_quantity')
-            ->limit(10)
-            ->get(['id','name','stock_quantity','critical_stock']);
+            ->where('is_active', true);
+            
+            $lowStockColorVariants = $colorVariantsQuery->with('product:id,name,category')
+                ->orderBy('stock_quantity')
+                ->limit(10)
+                ->get();
+        }
+            
+        // Debug: RONEX1 için kritik stok uyarılarını logla
+        if ($accountId) {
+            $account = \App\Models\Account::find($accountId);
+            if ($account && $account->code === 'RONEX1') {
+                // Tüm RONEX1 ürünlerini kontrol et
+                $allRonex1Products = \App\Models\Product::where('account_id', $accountId)->get(['id', 'name', 'initial_stock', 'critical_stock', 'category']);
+                
+                \Log::info('RONEX1 Kritik Stok Debug', [
+                    'account_id' => $accountId,
+                    'account_code' => $account->code,
+                    'all_products_count' => $allRonex1Products->count(),
+                    'all_products' => $allRonex1Products->toArray(),
+                    'low_stock_count' => $lowStockProducts->count(),
+                    'low_stock_products' => $lowStockProducts->toArray(),
+                    'color_variants_count' => $lowStockColorVariants->count(),
+                    'color_variants' => $lowStockColorVariants->toArray()
+                ]);
+            }
+        }
             
         // Kritik stok uyarıları - Seri ürünler
-        $lowStockSeries = \App\Models\ProductSeries::whereNotNull('critical_stock')
+        $lowStockSeriesQuery = \App\Models\ProductSeries::whereNotNull('critical_stock')
             ->where('critical_stock', '>', 0)
-            ->whereColumn('stock_quantity', '<=', 'critical_stock')
-            ->orderBy('stock_quantity')
+            ->whereColumn('stock_quantity', '<=', 'critical_stock');
+            
+        // Filter by account
+        if ($accountId !== null) {
+            $lowStockSeriesQuery->where('account_id', $accountId);
+        }
+        
+        $lowStockSeries = $lowStockSeriesQuery->orderBy('stock_quantity')
             ->limit(10)
-            ->get(['id','name','stock_quantity','critical_stock','series_size']);
+            ->get(['id','name','stock_quantity','critical_stock','series_size','category']);
+            
+        // Seri ürün renk varyantları kritik stok uyarıları
+        $lowStockSeriesColorVariants = collect();
+        if ($accountId) {
+            $seriesColorVariantsQuery = \App\Models\ProductSeriesColorVariant::whereHas('productSeries', function($query) use ($accountId) {
+                $query->where('account_id', $accountId);
+            })
+            ->whereNotNull('critical_stock')
+            ->where('critical_stock', '>', 0)
+            ->whereColumn('stock_quantity', '<=', 'critical_stock');
+            
+            $lowStockSeriesColorVariants = $seriesColorVariantsQuery->with('productSeries:id,name,category')
+                ->orderBy('stock_quantity')
+                ->limit(10)
+                ->get(['id','product_series_id','color','stock_quantity','critical_stock']);
+        }
 
         // Yaklaşan vadeli tahsilatlar (7 gün içinde)
         $now = Carbon::today();
@@ -87,8 +152,17 @@ class DashboardController extends Controller
             ->when($accountId !== null, function($query) use ($accountId) {
                 return $query->where('invoices.account_id', $accountId);
             })
-            ->whereMonth('invoices.created_at', Carbon::now()->month)
-            ->select('invoice_items.product_service_name')
+            ->whereMonth('invoices.created_at', Carbon::now()->month);
+            
+        // Filter by account - join with products table to filter by account_id
+        if ($accountId !== null) {
+            $topProductsQuery->join('products', function($join) use ($accountId) {
+                $join->on('invoice_items.product_service_name', '=', 'products.name')
+                     ->where('products.account_id', $accountId);
+            });
+        }
+        
+        $topProductsQuery = $topProductsQuery->select('invoice_items.product_service_name')
             ->selectRaw('SUM(invoice_items.quantity) as total_sold')
             ->groupBy('invoice_items.product_service_name')
             ->orderBy('total_sold', 'desc')
@@ -111,7 +185,7 @@ class DashboardController extends Controller
         });
 
         return view('dashboard.index', compact(
-            'stats', 'lowStockProducts', 'lowStockSeries', 'dueSales', 'duePurchases', 
+            'stats', 'lowStockProducts', 'lowStockColorVariants', 'lowStockSeries', 'lowStockSeriesColorVariants', 'dueSales', 'duePurchases', 
             'recentInvoices', 'topProducts'
         ));
     }
@@ -189,20 +263,64 @@ class DashboardController extends Controller
             ->where('currency', 'EUR')
             ->sum('total_amount');
             
-        // Toplam müşteri sayısı
+        // Toplam müşteri sayısı - Hesap bazında filtreleme yok, tüm müşteriler
         $totalCustomers = \App\Models\Customer::count();
         
-        // Bu ay yeni müşteriler
+        // Bu ay yeni müşteriler - Hesap bazında filtreleme yok, tüm müşteriler
         $newCustomers = \App\Models\Customer::whereMonth('created_at', $currentMonth)->count();
         
-        // Toplam ürün sayısı
-        $totalProducts = Product::count();
+        // Toplam ürün sayısı - Account bazında
+        $totalProductsQuery = Product::query();
+        if ($accountId !== null) {
+            $totalProductsQuery->where('account_id', $accountId);
+        }
+        $totalProducts = $totalProductsQuery->count();
         
-        // Kritik stok uyarı sayısı
-        $criticalStockCount = Product::whereNotNull('critical_stock')
+        // Kritik stok uyarı sayısı - Account bazında (normal ürünler + color variants)
+        $criticalStockQuery = Product::whereNotNull('critical_stock')
             ->where('critical_stock', '>', 0)
-            ->whereColumn('initial_stock', '<=', 'critical_stock')
+            ->whereColumn('initial_stock', '<=', 'critical_stock');
+        if ($accountId !== null) {
+            $criticalStockQuery->where('account_id', $accountId);
+        }
+        $criticalStockCount = $criticalStockQuery->count();
+        
+        // Color variants kritik stok sayısını da ekle
+        if ($accountId !== null) {
+            $colorVariantsCriticalCount = \App\Models\ProductColorVariant::whereHas('product', function($query) use ($accountId) {
+                $query->where('account_id', $accountId);
+            })
+            ->whereNotNull('critical_stock')
+            ->where('critical_stock', '>', 0)
+            ->whereColumn('stock_quantity', '<=', 'critical_stock')
+            ->where('is_active', true)
             ->count();
+            
+            $criticalStockCount += $colorVariantsCriticalCount;
+        }
+        
+        // Seri ürünler kritik stok sayısını da ekle
+        $seriesCriticalCount = \App\Models\ProductSeries::whereNotNull('critical_stock')
+            ->where('critical_stock', '>', 0)
+            ->whereColumn('stock_quantity', '<=', 'critical_stock');
+        if ($accountId !== null) {
+            $seriesCriticalCount->where('account_id', $accountId);
+        }
+        $criticalStockCount += $seriesCriticalCount->count();
+        
+        // Seri ürün renk varyantları kritik stok sayısını da ekle
+        if ($accountId !== null) {
+            $seriesColorVariantsCriticalCount = \App\Models\ProductSeriesColorVariant::whereHas('productSeries', function($query) use ($accountId) {
+                $query->where('account_id', $accountId);
+            })
+            ->whereNotNull('critical_stock')
+            ->where('critical_stock', '>', 0)
+            ->whereColumn('stock_quantity', '<=', 'critical_stock')
+            ->where('is_active', true)
+            ->count();
+            
+            $criticalStockCount += $seriesColorVariantsCriticalCount;
+        }
             
         // Ödenmemiş faturalar
         $unpaidInvoices = Invoice::when($accountId !== null, function($query) use ($accountId) {

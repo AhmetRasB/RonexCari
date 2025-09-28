@@ -232,10 +232,10 @@
         <!-- Header -->
         <div class="receipt-header">
             <h1>Tahsilat Makbuzu</h1>
-            <div class="company-name">RONEX CARİ SİSTEMİ</div>
+            <div class="company-name">RONEX TEKSTİL</div>
             <div class="company-info">
                 Finansal Yönetim Sistemi<br>
-                www.ronexcari.test
+               www.ronextekstil.com
             </div>
         </div>
         

@@ -28,7 +28,13 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Check if user has selected an account
+        if (session()->has('current_account_id')) {
+            return redirect()->intended(route('dashboard', absolute: false));
+        } else {
+            // Redirect to account selection if no account is selected
+            return redirect()->route('account.select');
+        }
     }
 
     /**

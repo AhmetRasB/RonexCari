@@ -193,6 +193,12 @@ document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
                     <div>
                         @if($product->color)
                             <span class="badge bg-secondary">{{ $product->color }}</span>
+                        @elseif($product->colorVariants->count() > 0)
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach($product->colorVariants as $variant)
+                                    <span class="badge bg-secondary">{{ $variant->color }}</span>
+                                @endforeach
+                            </div>
                         @else
                             <span class="text-muted">-</span>
                         @endif
@@ -255,28 +261,80 @@ document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
                     </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted small">Başlangıç Stok</label>
-                        <div class="fw-semibold text-primary fs-5">
-                            @if($product->initial_stock)
-                                {{ $product->initial_stock }} Adet
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
+                @if($product->colorVariants->count() > 0)
+                    <!-- Renk Varyantları Stok Bilgileri -->
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Renk Bazlı Stok Bilgileri</label>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Renk</th>
+                                        <th class="text-center">Stok</th>
+                                        <th class="text-center">Kritik Stok</th>
+                                        <th class="text-center">Durum</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($product->colorVariants as $variant)
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-secondary">{{ $variant->color }}</span>
+                                            </td>
+                                            <td class="text-center fw-semibold">{{ $variant->stock_quantity }}</td>
+                                            <td class="text-center">{{ $variant->critical_stock }}</td>
+                                            <td class="text-center">
+                                                @if($variant->stock_quantity <= $variant->critical_stock)
+                                                    <span class="badge bg-danger">Kritik</span>
+                                                @else
+                                                    <span class="badge bg-success">Normal</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr>
+                                        <th>Toplam</th>
+                                        <th class="text-center">{{ $product->total_stock }}</th>
+                                        <th class="text-center">{{ $product->colorVariants->sum('critical_stock') }}</th>
+                                        <th class="text-center">
+                                            @if($product->total_stock <= $product->colorVariants->sum('critical_stock'))
+                                                <span class="badge bg-warning">Dikkat</span>
+                                            @else
+                                                <span class="badge bg-success">İyi</span>
+                                            @endif
+                                        </th>
+                                    </tr>
+                                </tfoot>
+                            </table>
                         </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted small">Kritik Stok</label>
-                        <div class="fw-semibold text-warning fs-5">
-                            @if($product->critical_stock)
-                                {{ $product->critical_stock }} Adet
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
+                @else
+                    <!-- Tek Renk Stok Bilgileri -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted small">Başlangıç Stok</label>
+                            <div class="fw-semibold text-primary fs-5">
+                                @if($product->initial_stock)
+                                    {{ $product->initial_stock }} Adet
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted small">Kritik Stok</label>
+                            <div class="fw-semibold text-warning fs-5">
+                                @if($product->critical_stock)
+                                    {{ $product->critical_stock }} Adet
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </div>
                         </div>
                     </div>
-                </div>
+                @endif
             </div>
         </div>
 

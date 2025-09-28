@@ -14,14 +14,16 @@
             <li>
                 <a href="{{ route('dashboard') }}">
                     <iconify-icon icon="solar:home-smile-angle-outline" class="menu-icon"></iconify-icon>
-                    <span>Dashboard</span>
+                    <span class="d-none d-lg-inline">Dashboard</span>
+                    <span class="d-lg-none">Ana</span>
                 </a>
                     </li>
             <!-- SATIŞLAR (SALES) -->
             <li class="dropdown">
                 <a href="javascript:void(0)">
                     <iconify-icon icon="solar:chart-square-outline" class="menu-icon"></iconify-icon>
-                    <span>SATIŞLAR</span>
+                    <span class="d-none d-lg-inline">SATIŞLAR</span>
+                    <span class="d-lg-none">SATIŞ</span>
                     <iconify-icon icon="solar:add-circle-outline" class="ms-auto"></iconify-icon>
                 </a>
                 <ul class="sidebar-submenu">
@@ -38,7 +40,8 @@
             <li class="dropdown">
                 <a href="javascript:void(0)">
                     <iconify-icon icon="solar:shopping-cart-outline" class="menu-icon"></iconify-icon>
-                    <span>ALIŞLAR</span>
+                    <span class="d-none d-lg-inline">ALIŞLAR</span>
+                    <span class="d-lg-none">ALIŞ</span>
                     <iconify-icon icon="solar:minus-circle-outline" class="ms-auto"></iconify-icon>
                 </a>
                 <ul class="sidebar-submenu">
@@ -47,6 +50,9 @@
                     </li>
                     <li>
                         <a href="{{ route('purchases.invoices.index') }}"><i class="ri-circle-fill circle-icon text-warning-main w-auto"></i> Faturalar</a>
+                    </li>
+                    <li>
+                        <a href="{{ route('finance.supplier-payments.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Tedarikçi Ödemeleri</a>
                     </li>
                 </ul>
             </li>

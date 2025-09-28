@@ -44,7 +44,7 @@
                                 </div>
                             @endif
 
-                            <form action="{{ route('finance.collections.store') }}" method="POST">
+                            <form action="{{ route('finance.collections.store') }}" method="POST" onsubmit="return validateForm()">
                                 @csrf
                                 
                                 <div class="row">
@@ -276,5 +276,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Form validation
+function validateForm() {
+    const customerId = document.getElementById('customer_id').value;
+    const customerSearch = document.getElementById('customer_search').value;
+    
+    if (!customerId || customerId.trim() === '') {
+        alert('Lütfen bir müşteri seçin!');
+        document.getElementById('customer_search').focus();
+        return false;
+    }
+    
+    if (!customerSearch || customerSearch.trim() === '') {
+        alert('Lütfen bir müşteri seçin!');
+        document.getElementById('customer_search').focus();
+        return false;
+    }
+    
+    return true;
+}
 </script>
 @endsection

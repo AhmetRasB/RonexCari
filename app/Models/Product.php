@@ -10,6 +10,8 @@ class Product extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
+        'account_id',
         'name',
         'sku',
         'unit',
@@ -77,5 +79,40 @@ class Product extends Model
     public function invoiceItems()
     {
         return $this->hasMany(InvoiceItem::class);
+    }
+
+    /**
+     * Get all color variants for this product
+     */
+    public function colorVariants()
+    {
+        return $this->hasMany(ProductColorVariant::class);
+    }
+
+    /**
+     * Get total stock across all color variants
+     */
+    public function getTotalStockAttribute()
+    {
+        if ($this->colorVariants && $this->colorVariants->count() > 0) {
+            return $this->colorVariants()->sum('stock_quantity');
+        }
+        return $this->initial_stock ?? 0;
+    }
+
+    /**
+     * Get all available colors for this product
+     */
+    public function getAvailableColorsAttribute()
+    {
+        return $this->colorVariants()->where('is_active', true)->pluck('color')->toArray();
+    }
+
+    /**
+     * Get the account that owns this product
+     */
+    public function account()
+    {
+        return $this->belongsTo(Account::class);
     }
 }

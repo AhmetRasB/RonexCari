@@ -52,6 +52,7 @@ class ExpenseController extends Controller
                 'amount' => 'required|numeric|min:0',
                 'description' => 'nullable|string',
                 'expense_date' => 'required|date',
+                'is_active' => 'nullable|boolean',
             ], [
                 'name.required' => 'Gider adı gereklidir.',
                 'name.string' => 'Gider adı metin olmalıdır.',
@@ -84,6 +85,7 @@ class ExpenseController extends Controller
             $data['account_id'] = $accountId;
             $data['user_id'] = $userId;
             $data['category'] = $request->input('category', 'Genel'); // Default category
+            $data['is_active'] = $request->has('is_active');
 
             $expense = Expense::create($data);
 
@@ -134,6 +136,7 @@ class ExpenseController extends Controller
                 'amount' => 'required|numeric|min:0',
                 'description' => 'nullable|string',
                 'expense_date' => 'required|date',
+                'is_active' => 'nullable|boolean',
             ], [
                 'name.required' => 'Gider adı gereklidir.',
                 'name.string' => 'Gider adı metin olmalıdır.',

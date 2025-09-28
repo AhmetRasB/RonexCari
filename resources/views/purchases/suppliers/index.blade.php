@@ -9,10 +9,16 @@
         <div class="card basic-data-table">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Tedarikçi Listesi</h5>
-                <a href="{{ route('purchases.suppliers.create') }}" class="btn btn-primary-100 text-primary-600 radius-8 px-20 py-11">
-                    <iconify-icon icon="solar:add-circle-outline" class="me-2"></iconify-icon>
-                    Yeni Tedarikçi
-                </a>
+                <div class="d-flex gap-2">
+                    <a href="{{ route('finance.supplier-payments.index') }}" class="btn btn-warning-100 text-warning-600 radius-8 px-20 py-11">
+                        <iconify-icon icon="solar:wallet-money-outline" class="me-2"></iconify-icon>
+                        Tedarikçi Ödemeleri
+                    </a>
+                    <a href="{{ route('purchases.suppliers.create') }}" class="btn btn-primary-100 text-primary-600 radius-8 px-20 py-11">
+                        <iconify-icon icon="solar:add-circle-outline" class="me-2"></iconify-icon>
+                        Yeni Tedarikçi
+                    </a>
+                </div>
             </div>
             <div class="card-body">
                 @if(session('success'))
@@ -115,11 +121,9 @@
                                     <a href="{{ route('purchases.suppliers.edit', $supplier) }}" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
                                         <iconify-icon icon="lucide:edit"></iconify-icon>
                                     </a>
-                                    @if($supplier->remaining_balance_try > 0 || $supplier->remaining_balance_usd > 0 || $supplier->remaining_balance_eur > 0)
-                                        <button type="button" class="w-32-px h-32-px bg-warning-focus text-warning-main rounded-circle d-inline-flex align-items-center justify-content-center border-0" data-bs-toggle="modal" data-bs-target="#makePaymentModal{{ $supplier->id }}">
-                                            <iconify-icon icon="solar:dollar-minimalistic-outline"></iconify-icon>
-                                        </button>
-                                    @endif
+                                    <a href="{{ route('finance.supplier-payments.create') }}?supplier_id={{ $supplier->id }}" class="w-32-px h-32-px bg-warning-focus text-warning-main rounded-circle d-inline-flex align-items-center justify-content-center" title="Ödeme Yap">
+                                        <iconify-icon icon="solar:dollar-minimalistic-outline"></iconify-icon>
+                                    </a>
                                     <form action="{{ route('purchases.suppliers.destroy', $supplier) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu tedarikçiyi silmek istediğinizden emin misiniz?')">
                                         @csrf
                                         @method('DELETE')
@@ -142,86 +146,6 @@
     </div>
 </div>
 
-<!-- Make Payment Modals -->
-@foreach($suppliers as $supplier)
-    @if($supplier->remaining_balance_try > 0 || $supplier->remaining_balance_usd > 0 || $supplier->remaining_balance_eur > 0)
-        <div class="modal fade" id="makePaymentModal{{ $supplier->id }}" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Ödeme Yap - {{ $supplier->name }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <form action="{{ route('purchases.suppliers.makePayment', $supplier) }}" method="POST">
-                        @csrf
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label class="form-label">Tedarikçi</label>
-                                <p class="form-control-plaintext fw-bold">{{ $supplier->name }}</p>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Kalan Borçlar</label>
-                                <div class="row">
-                                    @if($supplier->remaining_balance_try > 0)
-                                        <div class="col-4">
-                                            <small class="text-danger fw-bold">{{ number_format($supplier->remaining_balance_try, 2) }} ₺</small>
-                                        </div>
-                                    @endif
-                                    @if($supplier->remaining_balance_usd > 0)
-                                        <div class="col-4">
-                                            <small class="text-danger fw-bold">${{ number_format($supplier->remaining_balance_usd, 2) }}</small>
-                                        </div>
-                                    @endif
-                                    @if($supplier->remaining_balance_eur > 0)
-                                        <div class="col-4">
-                                            <small class="text-danger fw-bold">€{{ number_format($supplier->remaining_balance_eur, 2) }}</small>
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="currency{{ $supplier->id }}" class="form-label">Para Birimi <span class="text-danger">*</span></label>
-                                <select name="currency" class="form-control" id="currency{{ $supplier->id }}" required onchange="updateMaxAmount({{ $supplier->id }})">
-                                    <option value="">Seçiniz</option>
-                                    @if($supplier->remaining_balance_try > 0)
-                                        <option value="TRY">TRY</option>
-                                    @endif
-                                    @if($supplier->remaining_balance_usd > 0)
-                                        <option value="USD">USD</option>
-                                    @endif
-                                    @if($supplier->remaining_balance_eur > 0)
-                                        <option value="EUR">EUR</option>
-                                    @endif
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="amount{{ $supplier->id }}" class="form-label">Ödeme Tutarı <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" min="0.01" 
-                                       class="form-control" id="amount{{ $supplier->id }}" name="amount" required>
-                                <div class="form-text">Maksimum: <span id="maxAmount{{ $supplier->id }}">0</span></div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="description{{ $supplier->id }}" class="form-label">Açıklama</label>
-                                <textarea name="description" class="form-control" id="description{{ $supplier->id }}" rows="2" placeholder="Ödeme açıklaması (isteğe bağlı)"></textarea>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                            <button type="submit" class="btn btn-success">
-                                <iconify-icon icon="solar:dollar-minimalistic-outline" class="me-2"></iconify-icon>
-                                Ödeme Yap
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    @endif
-@endforeach
 
 @push('scripts')
 <script>
@@ -234,39 +158,6 @@
             checkbox.checked = this.checked;
         });
     });
-
-    // Update max amount based on selected currency
-    function updateMaxAmount(supplierId) {
-        const currencySelect = document.getElementById('currency' + supplierId);
-        const amountInput = document.getElementById('amount' + supplierId);
-        const maxAmountSpan = document.getElementById('maxAmount' + supplierId);
-        
-        const selectedCurrency = currencySelect.value;
-        let maxAmount = 0;
-        
-        // Get supplier data from the table
-        const supplierData = {
-            @foreach($suppliers as $supplier)
-                {{ $supplier->id }}: {
-                    try: {{ $supplier->remaining_balance_try }},
-                    usd: {{ $supplier->remaining_balance_usd }},
-                    eur: {{ $supplier->remaining_balance_eur }}
-                },
-            @endforeach
-        };
-        
-        if (selectedCurrency === 'TRY') {
-            maxAmount = supplierData[supplierId].try;
-        } else if (selectedCurrency === 'USD') {
-            maxAmount = supplierData[supplierId].usd;
-        } else if (selectedCurrency === 'EUR') {
-            maxAmount = supplierData[supplierId].eur;
-        }
-        
-        maxAmountSpan.textContent = maxAmount.toFixed(2) + ' ' + selectedCurrency;
-        amountInput.max = maxAmount;
-        amountInput.value = '';
-    }
 </script>
 @endpush
 @endsection

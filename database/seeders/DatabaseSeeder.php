@@ -33,6 +33,7 @@ class DatabaseSeeder extends Seeder
             SampleDataSeeder::class,
             CollectionSeeder::class,
             CheckBillSeeder::class,
+            TestProductSeeder::class,
         ]);
     }
 }

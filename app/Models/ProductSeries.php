@@ -10,8 +10,10 @@ class ProductSeries extends Model
     use HasFactory;
 
     protected $fillable = [
+        'account_id',
         'name',
         'sku',
+        'barcode',
         'description',
         'category',
         'brand',
@@ -37,6 +39,14 @@ class ProductSeries extends Model
     public function seriesItems()
     {
         return $this->hasMany(ProductSeriesItem::class);
+    }
+
+    /**
+     * Seri renk varyantları
+     */
+    public function colorVariants()
+    {
+        return $this->hasMany(ProductSeriesColorVariant::class);
     }
 
     /**
@@ -101,5 +111,13 @@ class ProductSeries extends Model
         ];
 
         return $defaultSizes[$seriesSize] ?? [];
+    }
+
+    /**
+     * Get the account that owns this product series
+     */
+    public function account()
+    {
+        return $this->belongsTo(Account::class);
     }
 }

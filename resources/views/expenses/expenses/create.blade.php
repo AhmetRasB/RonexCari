@@ -86,6 +86,17 @@
                             @enderror
                         </div>
                         <div class="col-12">
+                            <div class="form-check">
+                                <input type="hidden" name="is_active" value="0">
+                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1" 
+                                       {{ old('is_active', true) ? 'checked' : '' }}>
+                                <label class="form-check-label" for="is_active">
+                                    <iconify-icon icon="solar:check-circle-outline" class="me-2"></iconify-icon>
+                                    Ödendi
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12">
                             <button type="submit" class="btn btn-primary-600">
                                 <iconify-icon icon="solar:check-circle-outline" class="me-2"></iconify-icon>
                                 Kaydet

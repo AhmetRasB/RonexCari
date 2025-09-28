@@ -59,7 +59,18 @@ class InvoiceController extends Controller
     public function create()
     {
         $customers = Customer::where('is_active', true)->get();
-        $products = Product::where('is_active', true)->get();
+        $currentAccountId = session('current_account_id');
+        $products = Product::where('is_active', true)
+            ->with('colorVariants') // Load color variants
+            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                $q->where('account_id', $currentAccountId);
+            })
+            ->when($currentAccountId === null, function($q) {
+                // Eğer hesap seçili değilse, tüm ürünleri getir
+                $q->whereNotNull('account_id');
+            })
+            ->orderBy('id', 'asc') // ID'ye göre sırala
+            ->get();
         
         return view('sales.invoices.create', compact('customers', 'products'));
     }
@@ -190,10 +201,19 @@ class InvoiceController extends Controller
                 $discountAmount = $lineTotal * ($discountRate / 100);
                 $lineTotalAfterDiscount = $lineTotal - $discountAmount;
                 
+                // Clean product_id for database storage
+                $cleanProductId = $item['product_id'] ?? null;
+                if ($cleanProductId) {
+                    $cleanProductId = str_replace(['product_', 'series_'], '', $cleanProductId);
+                }
+                
                 InvoiceItem::create([
                     'invoice_id' => $invoice->id,
                     'product_service_name' => $item['product_service_name'],
                     'description' => $item['description'] ?? null,
+                    'selected_color' => $item['selected_color'] ?? null,
+                    'product_id' => $cleanProductId,
+                    'product_type' => $item['type'] ?? 'product',
                     'quantity' => $quantity,
                     'unit' => 'Ad', // Default unit
                     'unit_price' => $unitPrice, // Already converted by JavaScript
@@ -209,25 +229,100 @@ class InvoiceController extends Controller
                 $quantity = (float) ($item['quantity'] ?? 0);
                 $productId = $item['product_id'] ?? null;
                 $type = $item['type'] ?? 'product';
+                $colorVariantId = $item['color_variant_id'] ?? null;
+                $selectedColor = $item['selected_color'] ?? null;
+                
+                // Remove prefix from product_id if exists
+                if ($productId && $type === 'series' && strpos($productId, 'series_') === 0) {
+                    $productId = str_replace('series_', '', $productId);
+                } elseif ($productId && $type === 'product' && strpos($productId, 'product_') === 0) {
+                    $productId = str_replace('product_', '', $productId);
+                }
+                
+                \Log::info('Processing stock deduction for item', [
+                    'product_id' => $productId,
+                    'quantity' => $quantity,
+                    'type' => $type,
+                    'color_variant_id' => $colorVariantId,
+                    'selected_color' => $selectedColor
+                ]);
                 
                 if ($productId && $quantity > 0) {
                     if ($type === 'product') {
                         // Normal ürün stok düşümü
-                        $product = \App\Models\Product::find($productId);
+                        $product = \App\Models\Product::with('colorVariants')->find($productId);
                         if ($product) {
-                            if ($product->stock_quantity < $quantity) {
-                                throw new \Exception("Yetersiz stok! {$product->name} için stok: {$product->stock_quantity}, istenen: {$quantity}");
+                            // Color variant seçilmişse (öncelik ID), o rengin stokunu düşür
+                            if ($colorVariantId) {
+                                $colorVariant = $product->colorVariants()->where('id', $colorVariantId)->first();
+                                if ($colorVariant) {
+                                    \Log::info('Deducting stock from color variant', [
+                                        'product_name' => $product->name,
+                                        'color' => $colorVariant->color,
+                                        'current_stock' => $colorVariant->stock_quantity,
+                                        'quantity_to_deduct' => $quantity
+                                    ]);
+                                    
+                                    if ($colorVariant->stock_quantity < $quantity) {
+                                        throw new \Exception("Yetersiz renk stoku! {$product->name} ({$colorVariant->color}) için stok: {$colorVariant->stock_quantity}, istenen: {$quantity}");
+                                    }
+                                    $colorVariant->decrement('stock_quantity', $quantity);
+                                    
+                                    \Log::info('Stock deducted successfully', [
+                                        'new_stock' => $colorVariant->fresh()->stock_quantity
+                                    ]);
+                                }
+                            } else if (!empty($item['selected_color']) && $product->colorVariants->count() > 0) {
+                                $colorVariant = $product->colorVariants()->where('color', $item['selected_color'])->first();
+                                if ($colorVariant) {
+                                    if ($colorVariant->stock_quantity < $quantity) {
+                                        throw new \Exception("Yetersiz renk stoku! {$product->name} ({$colorVariant->color}) için stok: {$colorVariant->stock_quantity}, istenen: {$quantity}");
+                                    }
+                                    $colorVariant->decrement('stock_quantity', $quantity);
+                                }
+                            } else {
+                                // Color variant yoksa ana ürünün stokunu düşür
+                                if ($product->stock_quantity < $quantity) {
+                                    throw new \Exception("Yetersiz stok! {$product->name} için stok: {$product->stock_quantity}, istenen: {$quantity}");
+                                }
+                                $product->decrement('stock_quantity', $quantity);
                             }
-                            $product->decrement('stock_quantity', $quantity);
+                            
+                            // Ana ürünün initial_stock'unu da güncelle
+                            $product->decrement('initial_stock', $quantity);
                         }
                     } elseif ($type === 'series') {
                         // Seri ürün stok düşümü (1 seri = 1 adet)
-                        $series = \App\Models\ProductSeries::find($productId);
+                        $series = \App\Models\ProductSeries::with('colorVariants')->find($productId);
                         if ($series) {
-                            if ($series->stock_quantity < $quantity) {
-                                throw new \Exception("Yetersiz seri stoku! {$series->name} için stok: {$series->stock_quantity} seri, istenen: {$quantity} seri");
+                            // Color variant seçilmişse (öncelik ID), o rengin stokunu düşür
+                            if ($colorVariantId) {
+                                $colorVariant = $series->colorVariants()->where('id', $colorVariantId)->first();
+                                if ($colorVariant) {
+                                    \Log::info('Deducting stock from series color variant', [
+                                        'series_name' => $series->name,
+                                        'color' => $colorVariant->color,
+                                        'current_stock' => $colorVariant->stock_quantity,
+                                        'deducting' => $quantity
+                                    ]);
+                                    
+                                    if ($colorVariant->stock_quantity < $quantity) {
+                                        throw new \Exception("Yetersiz {$colorVariant->color} renk stoku! {$series->name} için {$colorVariant->color} stoku: {$colorVariant->stock_quantity} seri, istenen: {$quantity} seri");
+                                    }
+                                    
+                                    $colorVariant->decrement('stock_quantity', $quantity);
+                                    
+                                    // Ana seri stokunu da güncelle
+                                    $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                    $series->save();
+                                }
+                            } else {
+                                // Renk seçilmemişse ana seri stokunu düşür
+                                if ($series->stock_quantity < $quantity) {
+                                    throw new \Exception("Yetersiz seri stoku! {$series->name} için stok: {$series->stock_quantity} seri, istenen: {$quantity} seri");
+                                }
+                                $series->decrement('stock_quantity', $quantity);
                             }
-                            $series->decrement('stock_quantity', $quantity);
                         }
                     }
                     // Service'ler için stok düşümü yok
@@ -293,6 +388,15 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice)
     {
         $invoice->load(['customer', 'items']);
+        
+        // Customer null ise uyarı ver
+        if (!$invoice->customer) {
+            \Log::warning('Invoice customer is null', [
+                'invoice_id' => $invoice->id,
+                'customer_id' => $invoice->customer_id
+            ]);
+        }
+        
         return view('sales.invoices.show', compact('invoice'));
     }
 
@@ -302,6 +406,15 @@ class InvoiceController extends Controller
     public function preview(Invoice $invoice)
     {
         $invoice->load(['customer', 'items']);
+        
+        // Customer null ise uyarı ver
+        if (!$invoice->customer) {
+            \Log::warning('Invoice customer is null in preview', [
+                'invoice_id' => $invoice->id,
+                'customer_id' => $invoice->customer_id
+            ]);
+        }
+        
         return view('sales.invoices.preview', compact('invoice'));
     }
 
@@ -311,7 +424,16 @@ class InvoiceController extends Controller
     public function edit(Invoice $invoice)
     {
         $customers = Customer::where('is_active', true)->get();
-        $products = Product::where('is_active', true)->get();
+        $currentAccountId = session('current_account_id');
+        $products = Product::where('is_active', true)
+            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                $q->where('account_id', $currentAccountId);
+            })
+            ->when($currentAccountId === null, function($q) {
+                // Eğer hesap seçili değilse, tüm ürünleri getir
+                $q->whereNotNull('account_id');
+            })
+            ->get();
         $invoice->load('items');
         
         return view('sales.invoices.edit', compact('invoice', 'customers', 'products'));
@@ -371,9 +493,18 @@ class InvoiceController extends Controller
             if (strlen($query) < 2) {
                 return response()->json([]);
             }
+            $currentAccountId = session('current_account_id');
         
         // Search in products - search in all relevant fields
-        $products = \App\Models\Product::where('is_active', true)
+        $products = \App\Models\Product::with('colorVariants')
+            ->where('is_active', true)
+            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                $q->where('account_id', $currentAccountId);
+            })
+            ->when($currentAccountId === null, function($q) {
+                // Eğer hesap seçili değilse, tüm ürünleri getir
+                $q->whereNotNull('account_id');
+            })
             ->where(function($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
                   ->orWhere('sku', 'like', "%{$query}%")
@@ -388,8 +519,11 @@ class InvoiceController extends Controller
             ->limit(10)
             ->get()
             ->map(function ($product) {
+                $hasColorVariants = $product->colorVariants->count() > 0;
+                
                 return [
                     'id' => 'product_' . $product->id,
+                    'product_id' => $product->id, // Add product_id for backend processing
                     'name' => $product->name,
                     'product_code' => $product->sku,
                     'category' => $product->category,
@@ -401,13 +535,29 @@ class InvoiceController extends Controller
                     'vat_rate' => 20, // Default VAT rate
                     'currency' => 'TRY',
                     'type' => 'product',
-                    'stock_quantity' => $product->stock_quantity
+                    'stock_quantity' => $hasColorVariants ? $product->total_stock : $product->stock_quantity,
+                    'has_color_variants' => $hasColorVariants,
+                    'color_variants' => $hasColorVariants ? $product->colorVariants->map(function($variant) {
+                        return [
+                            'id' => $variant->id,
+                            'color' => $variant->color,
+                            'stock_quantity' => $variant->stock_quantity,
+                            'critical_stock' => $variant->critical_stock
+                        ];
+                    })->toArray() : []
                 ];
             });
         
         // Search in product series - search in all relevant fields
-        $productSeries = \App\Models\ProductSeries::with('seriesItems')
+        $productSeries = \App\Models\ProductSeries::with(['seriesItems', 'colorVariants'])
             ->where('is_active', true)
+            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                $q->where('account_id', $currentAccountId);
+            })
+            ->when($currentAccountId === null, function($q) {
+                // Eğer hesap seçili değilse, tüm ürünleri getir
+                $q->whereNotNull('account_id');
+            })
             ->where(function($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
                   ->orWhere('sku', 'like', "%{$query}%")
@@ -419,6 +569,14 @@ class InvoiceController extends Controller
             ->limit(10)
             ->get()
             ->map(function ($series) {
+                $colorVariants = $series->colorVariants->map(function($variant) {
+                    return [
+                        'id' => $variant->id,
+                        'color' => $variant->color,
+                        'stock_quantity' => $variant->stock_quantity
+                    ];
+                });
+                
                 return [
                     'id' => 'series_' . $series->id,
                     'name' => $series->name . ' (' . $series->series_size . 'li Seri)',
@@ -434,7 +592,9 @@ class InvoiceController extends Controller
                     'type' => 'series',
                     'stock_quantity' => $series->stock_quantity,
                     'series_size' => $series->series_size,
-                    'sizes' => $series->seriesItems->pluck('size')->toArray()
+                    'sizes' => $series->seriesItems->pluck('size')->toArray(),
+                    'has_color_variants' => $colorVariants->count() > 0,
+                    'color_variants' => $colorVariants
                 ];
             });
         
@@ -486,6 +646,33 @@ class InvoiceController extends Controller
     // Actions removed - invoices are now directly approved
 
     /**
+     * Mark invoice as paid (tahsilat yapıldı)
+     */
+    public function markPaid(Invoice $invoice)
+    {
+        try {
+            $invoice->payment_completed = true;
+            // If status column exists on model/table, set to paid as well
+            if (\Schema::hasColumn('invoices', 'status')) {
+                $invoice->status = 'paid';
+            }
+            $invoice->save();
+
+            return redirect()
+                ->back()
+                ->with('success', 'Fatura tahsilatı tamamlandı olarak işaretlendi.');
+        } catch (\Throwable $e) {
+            \Log::error('markPaid failed', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+            ]);
+            return redirect()
+                ->back()
+                ->with('error', 'Tahsilat işaretlenemedi: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Get current currency exchange rates
      */
     public function getCurrencyRates()
@@ -504,4 +691,5 @@ class InvoiceController extends Controller
             ], 500);
         }
     }
+
 }

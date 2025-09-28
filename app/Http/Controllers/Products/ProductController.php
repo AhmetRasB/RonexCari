@@ -12,10 +12,22 @@ class ProductController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::orderBy('created_at', 'desc')->paginate(15);
-        return view('products.index', compact('products'));
+        $currentAccountId = session('current_account_id');
+        $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
+        $products = Product::with('colorVariants')
+            ->when(!empty($allowedCategories), function($q) use ($allowedCategories){
+                $q->whereIn('category', $allowedCategories);
+            })
+            ->when($request->filled('category'), function($q) use ($request) {
+                $q->where('category', $request->get('category'));
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(15)
+            ->withQueryString();
+        $selectedCategory = $request->get('category');
+        return view('products.index', compact('products', 'allowedCategories', 'selectedCategory'));
     }
 
     /**
@@ -23,7 +35,9 @@ class ProductController extends Controller
      */
     public function create()
     {
-        return view('products.create');
+        $currentAccountId = session('current_account_id');
+        $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
+        return view('products.create', compact('allowedCategories'));
     }
 
     /**
@@ -39,21 +53,29 @@ class ProductController extends Controller
         ]);
         
         try {
+            $currentAccountId = session('current_account_id');
+            $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'sku' => 'nullable|string|max:255',
                 'unit' => 'nullable|string',
                 'price' => 'nullable|numeric',
                 'cost' => 'nullable|numeric',
-                'category' => 'nullable|string',
+                'category' => ['required','string', function($attr,$val,$fail) use ($allowedCategories){
+                    if (!empty($allowedCategories) && !in_array($val, $allowedCategories, true)) {
+                        $fail('Bu kategori mevcut hesap için izinli değil.');
+                    }
+                }],
                 'brand' => 'nullable|string',
                 'size' => 'nullable|string',
                 'color' => 'nullable|string',
+                'colors' => 'array',
+                'colors.*' => 'string',
                 'barcode' => 'nullable|string',
                 'description' => 'nullable|string',
                 'image' => 'nullable|image',
                 'stock_quantity' => 'nullable|integer|min:0',
-                'initial_stock' => 'nullable|integer',
+                'initial_stock' => 'nullable|integer|min:0',
                 'critical_stock' => 'nullable|integer',
                 'is_active' => 'boolean',
             ]);
@@ -77,38 +99,96 @@ class ProductController extends Controller
                 $validated['image'] = 'uploads/products/' . $imageName;
             }
 
-            $product = Product::create($validated);
+            // Helper to create a single product and assign codes
+            $createOne = function(array $data) {
+                // Sync stock_quantity and initial_stock to keep them consistent
+                if (isset($data['initial_stock'])) {
+                    $data['stock_quantity'] = $data['initial_stock'];
+                } elseif (isset($data['stock_quantity'])) {
+                    $data['initial_stock'] = $data['stock_quantity'];
+                }
+                
+                // account_id default değeri
+                if (!isset($data['account_id'])) {
+                    $data['account_id'] = session('current_account_id', 1); // Default to account 1
+                }
+                
+                // is_active default değeri
+                if (!isset($data['is_active'])) {
+                    $data['is_active'] = true;
+                }
+                
+                // Özel ID atama mantığı
+                $customId = $this->getCustomProductId($data['account_id'], $data['category']);
+                if ($customId) {
+                    // Manuel ID atama için DB transaction kullan
+                    $product = new Product($data);
+                    $product->id = $customId;
+                    $product->save();
+                } else {
+                    $product = Product::create($data);
+                }
+                $service = app(QrBarcodeService::class);
+                $barcodeValue = $product->sku ?: ('PRD-' . str_pad((string)$product->id, 8, '0', STR_PAD_LEFT));
+                $qrValue = 'https://ronex.com.tr/products/' . $product->id;
+                $barcodeSvg = $service->generateBarcodeSvg($barcodeValue);
+                $qrSvg = $service->generateQrSvg($qrValue, 220);
+                $barcodePath = 'uploads/barcodes/barcode_' . $product->id . '.svg';
+                $qrPath = 'uploads/qrcodes/qr_' . $product->id . '.svg';
+                $service->storeSvg($barcodeSvg, $barcodePath);
+                $service->storeSvg($qrSvg, $qrPath);
+                $product->permanent_barcode = $barcodeValue;
+                $product->qr_code_value = $qrValue;
+                $product->barcode_svg_path = $barcodePath;
+                $product->qr_svg_path = $qrPath;
+                $product->save();
+                return $product;
+            };
 
-            // Generate permanent barcode and QR only at creation
-            $service = app(QrBarcodeService::class);
-            $barcodeValue = $product->sku ?: ('PRD-' . str_pad((string)$product->id, 8, '0', STR_PAD_LEFT));
-            $qrValue = 'https://ronex.com.tr/products/' . $product->id;
+            $createdProducts = [];
 
-            $barcodeSvg = $service->generateBarcodeSvg($barcodeValue);
-            $qrSvg = $service->generateQrSvg($qrValue, 220);
+            // If multiple colors selected, create one product with color variants
+            $colors = array_filter(array_map('trim', (array)($validated['colors'] ?? [])));
+            if (!empty($colors)) {
+                // Create single product without color
+                $productData = $validated;
+                unset($productData['colors']); // Remove colors from main product
+                $product = $createOne($productData);
+                
+                // Create color variants
+                $stockPerColor = $validated['stock_quantity'] ?? 0;
+                $criticalStockPerColor = $validated['critical_stock'] ?? 0;
+                
+                foreach ($colors as $color) {
+                    \App\Models\ProductColorVariant::create([
+                        'product_id' => $product->id,
+                        'color' => $color,
+                        'stock_quantity' => $stockPerColor,
+                        'critical_stock' => $criticalStockPerColor,
+                        'is_active' => true
+                    ]);
+                }
+                
+                $createdProducts[] = $product;
+            } else {
+                $createdProducts[] = $createOne($validated);
+            }
 
-            $barcodePath = 'uploads/barcodes/barcode_' . $product->id . '.svg';
-            $qrPath = 'uploads/qrcodes/qr_' . $product->id . '.svg';
-
-            $service->storeSvg($barcodeSvg, $barcodePath);
-            $service->storeSvg($qrSvg, $qrPath);
-
-            $product->permanent_barcode = $barcodeValue;
-            $product->qr_code_value = $qrValue;
-            $product->barcode_svg_path = $barcodePath;
-            $product->qr_svg_path = $qrPath;
-            $product->save();
-            
             \Log::info('Product created successfully', [
-                'product_id' => $product->id,
-                'sku' => $product->sku,
-                'name' => $product->name,
-                'category' => $product->category,
-                'brand' => $product->brand
+                'product_ids' => collect($createdProducts)->pluck('id'),
+                'skus' => collect($createdProducts)->pluck('sku'),
+                'name' => $createdProducts[0]->name,
+                'category' => $createdProducts[0]->category,
+                'brand' => $createdProducts[0]->brand,
+                'variant_count' => count($createdProducts)
             ]);
 
-            return redirect()->route('products.index')
-                ->with('success', 'Ürün başarıyla oluşturuldu.');
+            $successMessage = 'Ürün başarıyla oluşturuldu.';
+            if (!empty($colors)) {
+                $successMessage = 'Ürün ' . count($colors) . ' renk varyasyonu ile oluşturuldu.';
+            }
+            
+            return redirect()->route('products.index')->with('success', $successMessage);
                 
         } catch (\Exception $e) {
             \Log::error('Product creation failed', [
@@ -128,6 +208,9 @@ class ProductController extends Controller
      */
     public function show(Product $product)
     {
+        // Load color variants
+        $product->load('colorVariants');
+        
         // Ensure QR/Barcode files exist for this product
         try {
             app(QrBarcodeService::class)->ensureProductCodes($product);
@@ -142,7 +225,13 @@ class ProductController extends Controller
      */
     public function edit(Product $product)
     {
-        return view('products.edit', compact('product'));
+        $currentAccountId = session('current_account_id');
+        $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
+        
+        // Load color variants for the product
+        $product->load('colorVariants');
+        
+        return view('products.edit', compact('product', 'allowedCategories'));
     }
 
     /**
@@ -150,22 +239,35 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product)
     {
+        $currentAccountId = session('current_account_id');
+        $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
+        
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'sku' => 'nullable|string|max:255',
             'unit' => 'nullable|string',
             'price' => 'nullable|numeric',
             'cost' => 'nullable|numeric',
-            'category' => 'nullable|string',
+            'category' => ['nullable','string', function($attr,$val,$fail) use ($allowedCategories){
+                if (!empty($allowedCategories) && !in_array($val, $allowedCategories, true)) {
+                    $fail('Bu kategori mevcut hesap için izinli değil.');
+                }
+            }],
             'brand' => 'nullable|string',
             'size' => 'nullable|string',
             'color' => 'nullable|string',
             'barcode' => 'nullable|string',
             'description' => 'nullable|string',
             'image' => 'nullable|image',
-            'initial_stock' => 'nullable|integer',
+            'stock_quantity' => 'nullable|integer|min:0',
+            'initial_stock' => 'nullable|integer|min:0',
             'critical_stock' => 'nullable|integer',
             'is_active' => 'boolean',
+            'color_variants' => 'nullable|array',
+            'color_variants.*' => 'nullable|array',
+            'color_variants.*.stock_quantity' => 'nullable|numeric|min:0',
+            'color_variants.*.critical_stock' => 'nullable|numeric|min:0',
+            'color_variants.*.is_active' => 'nullable',
         ]);
 
         // Handle image upload
@@ -183,7 +285,58 @@ class ProductController extends Controller
 
         // Never change permanent codes on edit
         unset($validated['permanent_barcode'], $validated['qr_code_value'], $validated['barcode_svg_path'], $validated['qr_svg_path']);
+        
+        // Handle color variants update if provided
+        $colorVariantsData = $validated['color_variants'] ?? null;
+        unset($validated['color_variants']);
+        
+        // Log color variants data for debugging
+        if ($colorVariantsData) {
+            \Log::info('Color variants update data received', [
+                'product_id' => $product->id,
+                'color_variants_data' => $colorVariantsData
+            ]);
+        }
+        
+        // Sync stock_quantity and initial_stock to keep them consistent
+        if (isset($validated['initial_stock'])) {
+            $validated['stock_quantity'] = $validated['initial_stock'];
+        } elseif (isset($validated['stock_quantity'])) {
+            $validated['initial_stock'] = $validated['stock_quantity'];
+        }
+        
         $product->update($validated);
+
+        // Update color variants if provided
+        if ($colorVariantsData) {
+            foreach ($colorVariantsData as $variantId => $variantData) {
+                $variant = \App\Models\ProductColorVariant::find($variantId);
+                if ($variant && $variant->product_id === $product->id) {
+                    $updateData = [];
+                    
+                    // Only update fields that are actually provided
+                    if (array_key_exists('stock_quantity', $variantData)) {
+                        $updateData['stock_quantity'] = (int) $variantData['stock_quantity'];
+                    }
+                    
+                    if (array_key_exists('critical_stock', $variantData)) {
+                        $updateData['critical_stock'] = (int) $variantData['critical_stock'];
+                    }
+                    
+                    if (array_key_exists('is_active', $variantData)) {
+                        $updateData['is_active'] = (bool) $variantData['is_active'];
+                    }
+                    
+                    if (!empty($updateData)) {
+                        \Log::info('Updating color variant', [
+                            'variant_id' => $variantId,
+                            'update_data' => $updateData
+                        ]);
+                        $variant->update($updateData);
+                    }
+                }
+            }
+        }
 
         return redirect()->route('products.index')
             ->with('success', 'Ürün başarıyla güncellendi.');
@@ -208,31 +361,207 @@ class ProductController extends Controller
         $data = $request->validate([
             'critical_stock' => 'nullable|integer|min:0',
             'add_stock' => 'nullable|integer|min:0',
+            'stock_quantity' => 'nullable|integer|min:0',
+            'initial_stock' => 'nullable|integer|min:0',
         ]);
 
-        $originalInitialStock = (int) ($product->initial_stock ?? 0);
         $originalCriticalStock = (int) ($product->critical_stock ?? 0);
+        $originalStockQuantity = (int) ($product->stock_quantity ?? 0);
+        $originalInitialStock = (int) ($product->initial_stock ?? 0);
 
         if (array_key_exists('critical_stock', $data) && $data['critical_stock'] !== null) {
             $product->critical_stock = (int) $data['critical_stock'];
         }
 
+        if (array_key_exists('stock_quantity', $data) && $data['stock_quantity'] !== null) {
+            $product->stock_quantity = (int) $data['stock_quantity'];
+            $product->initial_stock = (int) $data['stock_quantity']; // Keep them in sync
+        }
+
+        if (array_key_exists('initial_stock', $data) && $data['initial_stock'] !== null) {
+            $product->initial_stock = (int) $data['initial_stock'];
+            $product->stock_quantity = (int) $data['initial_stock']; // Keep them in sync
+        }
+
         if (!empty($data['add_stock'])) {
-            $product->initial_stock = $originalInitialStock + (int) $data['add_stock'];
+            $addStockAmount = (int) $data['add_stock'];
+            
+            // Color variants'ları da güncelle
+            $colorVariants = $product->colorVariants;
+            if ($colorVariants->count() > 0) {
+                // Her renk varyantına direkt aynı miktarı ekle
+                foreach ($colorVariants as $variant) {
+                    $currentStock = (int) $variant->stock_quantity;
+                    $newVariantStock = $currentStock + $addStockAmount;
+                    $variant->update(['stock_quantity' => $newVariantStock]);
+                }
+                // Ana ürünün stok miktarını varyantların toplamına eşitle
+                $product->stock_quantity = $colorVariants->sum('stock_quantity');
+                $product->initial_stock = $colorVariants->sum('stock_quantity');
+            } else {
+                // Tek renkli ürün ise direkt ana ürüne ekle
+                $newStock = $originalInitialStock + $addStockAmount;
+                $product->stock_quantity = $newStock;
+                $product->initial_stock = $newStock;
+            }
         }
 
         $product->save();
+
+        // Renk varyantlarının güncel stok bilgilerini al
+        $colorVariants = $product->colorVariants->map(function($variant) {
+            return [
+                'id' => $variant->id,
+                'color' => $variant->color,
+                'stock_quantity' => (int) $variant->stock_quantity,
+                'critical_stock' => (int) $variant->critical_stock,
+                'is_active' => (bool) $variant->is_active
+            ];
+        });
 
         return response()->json([
             'success' => true,
             'message' => 'Stok bilgileri güncellendi.',
             'data' => [
+                'stock_quantity' => (int) ($product->stock_quantity ?? 0),
                 'initial_stock' => (int) ($product->initial_stock ?? 0),
                 'critical_stock' => (int) ($product->critical_stock ?? 0),
                 'added' => (int) ($data['add_stock'] ?? 0),
+                'original_stock_quantity' => $originalStockQuantity,
                 'original_initial_stock' => $originalInitialStock,
                 'original_critical_stock' => $originalCriticalStock,
+                'color_variants' => $colorVariants,
+                'has_color_variants' => $colorVariants->count() > 0
             ],
         ]);
+    }
+    /**
+     * Test method to check RONEX1 products and create critical stock warning
+     */
+    public function testCriticalStock()
+    {
+        $ronex1 = \App\Models\Account::where('code', 'RONEX1')->first();
+        if (!$ronex1) {
+            return response()->json(['error' => 'RONEX1 account not found']);
+        }
+        
+        // RONEX1'deki tüm ürünleri listele
+        $allProducts = \App\Models\Product::where('account_id', $ronex1->id)->get(['id', 'name', 'initial_stock', 'critical_stock', 'category']);
+        
+        // Kritik stok uyarısı olan ürünleri bul
+        $criticalProducts = \App\Models\Product::where('account_id', $ronex1->id)
+            ->whereNotNull('critical_stock')
+            ->where('critical_stock', '>', 0)
+            ->whereColumn('initial_stock', '<=', 'critical_stock')
+            ->get(['id', 'name', 'initial_stock', 'critical_stock', 'category']);
+        
+        // İlk 3 ürünü kritik stok uyarısı yap
+        $products = \App\Models\Product::where('account_id', $ronex1->id)->limit(3)->get();
+        $updatedProducts = [];
+        $updatedColorVariants = [];
+        
+        foreach ($products as $index => $product) {
+            $product->update([
+                'initial_stock' => 0, // Kritik stok uyarısı için 0
+                'critical_stock' => 1
+            ]);
+            $updatedProducts[] = [
+                'id' => $product->id,
+                'name' => $product->name,
+                'initial_stock' => $product->initial_stock,
+                'critical_stock' => $product->critical_stock
+            ];
+            
+            // Color variants'ları da kritik stok yap
+            $colorVariants = $product->colorVariants;
+            foreach ($colorVariants as $cv) {
+                $cv->update([
+                    'stock_quantity' => 0, // Kritik stok uyarısı için 0
+                    'critical_stock' => 1
+                ]);
+                $updatedColorVariants[] = [
+                    'id' => $cv->id,
+                    'product_name' => $product->name,
+                    'color' => $cv->color,
+                    'stock_quantity' => $cv->stock_quantity,
+                    'critical_stock' => $cv->critical_stock
+                ];
+            }
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'RONEX1 products checked',
+            'ronex1_account' => [
+                'id' => $ronex1->id,
+                'name' => $ronex1->name,
+                'code' => $ronex1->code
+            ],
+            'all_products_count' => $allProducts->count(),
+            'all_products' => $allProducts->toArray(),
+            'critical_products_count' => $criticalProducts->count(),
+            'critical_products' => $criticalProducts->toArray(),
+            'test_products_updated' => $updatedProducts,
+            'test_color_variants_updated' => $updatedColorVariants
+        ]);
+    }
+
+    /**
+     * Get custom product ID based on account and category
+     */
+    private function getCustomProductId($accountId, $category): ?int
+    {
+        try {
+            $account = \App\Models\Account::find($accountId);
+            if (!$account) {
+                return null;
+            }
+            
+            // Ronex1'de Gömlek kategorisi için ID 1
+            if ($account->code === 'RONEX1' && $category === 'Gömlek') {
+                // ID 1 zaten kullanılıyor mu kontrol et
+                $existingProduct = Product::where('id', 1)->first();
+                if (!$existingProduct) {
+                    return 1;
+                }
+            }
+            
+            // Ronex2'de herhangi bir kategori için ID 2
+            if ($account->code === 'RONEX2') {
+                // ID 2 zaten kullanılıyor mu kontrol et
+                $existingProduct = Product::where('id', 2)->first();
+                if (!$existingProduct) {
+                    return 2;
+                }
+            }
+            
+            return null; // Özel ID atanmadı, auto-increment kullan
+        } catch (\Throwable $e) {
+            \Log::error('Custom product ID assignment failed', [
+                'account_id' => $accountId,
+                'category' => $category,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Get allowed categories per account.
+     */
+    private function getAllowedCategoriesForAccount($accountId): array
+    {
+        try {
+            $code = \App\Models\Account::find($accountId)?->code;
+        } catch (\Throwable $e) {
+            $code = null;
+        }
+        if ($code === 'RONEX1') {
+            return ['Gömlek'];
+        }
+        if ($code === 'RONEX2') {
+            return ['Ceket', 'Takım Elbise', 'Pantalon'];
+        }
+        return [];
     }
 }

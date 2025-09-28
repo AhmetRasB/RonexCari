@@ -13,6 +13,9 @@
                     <p class="text-muted mb-0">Seri Ürün Detayları</p>
                 </div>
                 <div>
+                    <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#barcodeModal">
+                        <i class="ri-barcode-line me-1"></i>Barkod Oluştur
+                    </button>
                     <a href="{{ route('products.series.edit', $series) }}" class="btn btn-outline-primary me-2">
                         <i class="ri-edit-line me-1"></i>Düzenle
                     </a>
@@ -163,6 +166,56 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Renk Bazlı Stok Bilgileri -->
+                            @if($series->colorVariants->count() > 0)
+                            <div class="col-12">
+                                <h6 class="fw-semibold text-primary mb-3">Renk Bazlı Stok Bilgileri</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>Renk</th>
+                                                <th>Stok (Seri)</th>
+                                                <th>Kritik Stok</th>
+                                                <th>Durum</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($series->colorVariants as $variant)
+                                            <tr>
+                                                <td>
+                                                    <span class="badge bg-{{ $variant->color === 'Kırmızı' ? 'danger' : ($variant->color === 'Mavi' ? 'primary' : ($variant->color === 'Yeşil' ? 'success' : ($variant->color === 'Sarı' ? 'warning' : ($variant->color === 'Siyah' ? 'dark' : 'secondary')))) }} me-2">●</span>
+                                                    {{ $variant->color }}
+                                                </td>
+                                                <td>{{ number_format($variant->stock_quantity) }} Seri</td>
+                                                <td>{{ number_format($variant->critical_stock) }} Seri</td>
+                                                <td>
+                                                    @if($variant->stock_quantity <= $variant->critical_stock && $variant->critical_stock > 0)
+                                                        <span class="badge bg-danger">Kritik</span>
+                                                    @else
+                                                        <span class="badge bg-success">Normal</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                            <tr class="table-info">
+                                                <td><strong>Toplam</strong></td>
+                                                <td><strong>{{ number_format($series->colorVariants->sum('stock_quantity')) }} Seri</strong></td>
+                                                <td><strong>{{ number_format($series->colorVariants->sum('critical_stock')) }} Seri</strong></td>
+                                                <td>
+                                                    @if($series->colorVariants->where('stock_quantity', '<=', 'critical_stock')->where('critical_stock', '>', 0)->count() > 0)
+                                                        <span class="badge bg-warning">Dikkat</span>
+                                                    @else
+                                                        <span class="badge bg-success">İyi</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            @endif
                         </div>
                     </div>
 
@@ -233,10 +286,383 @@
                                 @endif
                             </div>
                         </div>
+
+                        <!-- Kod Bilgileri -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="ri-barcode-line me-1"></i>Kod Bilgileri
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small">Seri Barkod</label>
+                                    <div class="fw-semibold font-monospace">
+                                        @php
+                                            $seriesBarcode = $series->barcode ?: ('SER-' . str_pad((string)$series->id, 8, '0', STR_PAD_LEFT));
+                                        @endphp
+                                        {{ $seriesBarcode }}
+                                    </div>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-6 text-center">
+                                        <small class="text-muted d-block">Barkod</small>
+                                        <div id="seriesBarcode" style="height: 40px; display: flex; align-items: center; justify-content: center;">
+                                            <svg id="barcodeSvg" style="width: 100%; height: 40px;"></svg>
+                                        </div>
+                                        <div class="small mt-1 font-monospace">{{ $seriesBarcode }}</div>
+                                    </div>
+                                    <div class="col-6 text-center">
+                                        <small class="text-muted d-block">QR Kod</small>
+                                        <div id="seriesQR" style="width: 80px; height: 80px; margin: 0 auto;">
+                                            <img id="qrImg" src="" alt="QR" class="img-fluid" style="max-width: 80px; max-height: 80px;" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hızlı Stok Güncelleme -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">Hızlı Stok Güncelleme</h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="quick-stock-form">
+                                    @csrf
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Kritik Stok</label>
+                                            <input type="number" class="form-control" id="critical_stock" 
+                                                   value="{{ $series->critical_stock }}" min="0">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Stok Ekle</label>
+                                            <input type="number" class="form-control" id="add_stock" 
+                                                   placeholder="Eklenecek seri sayısı" min="0">
+                                        </div>
+                                        <div class="col-12">
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="ri-save-line me-1"></i>Güncelle
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Barcode Generation Modal -->
+<div class="modal fade" id="barcodeModal" tabindex="-1" aria-labelledby="barcodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="barcodeModalLabel">Barkod/QR Etiketleri Oluştur</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="barcodeForm" action="{{ route('products.series.barcodes.generate', $series) }}" method="POST" target="_blank">
+                @csrf
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Barkod Tipi</label>
+                            <select name="type" class="form-select" required>
+                                <option value="barcode">Sadece Barkod</option>
+                                <option value="qr">Sadece QR</option>
+                                <option value="both" selected>Barkod + QR</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Kağıt Boyutu</label>
+                            <select name="paper" class="form-select">
+                                <option value="A4" selected>A4 (10x3, 30 etiket)</option>
+                                <option value="A4-40">A4 (8x5, 40 etiket)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th width="40%">Etiket Tipi</th>
+                                    <th width="30%">Açıklama</th>
+                                    <th width="30%">Adet</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if($series->colorVariants->count() > 0)
+                                    <!-- Color-based Labels -->
+                                    @foreach($series->colorVariants as $color)
+                                        <!-- Color Main Label -->
+                                        <tr>
+                                            <td>
+                                                <label class="d-flex align-items-center gap-2 mb-0">
+                                                    <input type="checkbox" class="form-check-input select-item" checked>
+                                                    <span class="fw-semibold">{{ $color->color }} Ana</span>
+                                                </label>
+                                                <input type="hidden" name="items[][type]" value="color_main" disabled>
+                                                <input type="hidden" name="items[][identifier]" value="{{ $color->color }}" disabled>
+                                            </td>
+                                            <td class="text-muted">{{ $color->color }} rengi için ana etiket (paket sayısı)</td>
+                                            <td>
+                                                <input type="number" class="form-control form-control-sm qty-input" name="items[][count]" value="1" min="1" max="200" disabled>
+                                            </td>
+                                        </tr>
+                                        
+                                        <!-- Size Labels for this Color -->
+                                        @foreach($series->seriesItems as $item)
+                                        <tr>
+                                            <td>
+                                                <label class="d-flex align-items-center gap-2 mb-0">
+                                                    <input type="checkbox" class="form-check-input select-item">
+                                                    <span class="fw-semibold">{{ $item->size }}-{{ $color->color }}</span>
+                                                </label>
+                                                <input type="hidden" name="items[][type]" value="size_color" disabled>
+                                                <input type="hidden" name="items[][identifier]" value="{{ $item->size }}-{{ $color->color }}" disabled>
+                                            </td>
+                                            <td class="text-muted">{{ $item->size }} bedeni {{ $color->color }} rengi için etiket</td>
+                                            <td>
+                                                <input type="number" class="form-control form-control-sm qty-input" name="items[][count]" value="1" min="1" max="200" disabled style="opacity: 0.5;">
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    @endforeach
+                                @else
+                                    <!-- No Colors - Generic Series Labels -->
+                                    <!-- Main Series Label -->
+                                    <tr>
+                                        <td>
+                                            <label class="d-flex align-items-center gap-2 mb-0">
+                                                <input type="checkbox" class="form-check-input select-item" checked>
+                                                <span class="fw-semibold">Ana Seri Etiketi</span>
+                                            </label>
+                                            <input type="hidden" name="items[][type]" value="main" disabled>
+                                            <input type="hidden" name="items[][identifier]" value="main" disabled>
+                                        </td>
+                                        <td class="text-muted">Seri paketi için ana etiket</td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm qty-input" name="items[][count]" value="1" min="1" max="200" disabled>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Size Labels -->
+                                    @foreach($series->seriesItems as $item)
+                                    <tr>
+                                        <td>
+                                            <label class="d-flex align-items-center gap-2 mb-0">
+                                                <input type="checkbox" class="form-check-input select-item">
+                                                <span class="fw-semibold">Beden: {{ $item->size }}</span>
+                                            </label>
+                                            <input type="hidden" name="items[][type]" value="size" disabled>
+                                            <input type="hidden" name="items[][identifier]" value="{{ $item->size }}" disabled>
+                                        </td>
+                                        <td class="text-muted">{{ $item->size }} bedeni için etiket</td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm qty-input" name="items[][count]" value="1" min="1" max="200" disabled style="opacity: 0.5;">
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ri-printer-line me-1"></i>Yazdır
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Generate barcode and QR code for series
+    const seriesBarcode = '{{ $seriesBarcode }}';
+    const seriesQRUrl = '{{ route("products.series.show", $series) }}';
+    
+    // Generate barcode
+    try {
+        JsBarcode("#barcodeSvg", seriesBarcode, {
+            format: "CODE128",
+            displayValue: false,
+            margin: 0,
+            height: 40
+        });
+    } catch (e) {
+        console.log('Barcode generation error:', e);
+    }
+    
+    // Generate QR code
+    const qrImg = document.getElementById('qrImg');
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(seriesQRUrl)}`;
+    
+    // Auto-open barcode modal if redirected from create page
+    @if(session('generate_barcodes'))
+        const barcodeModal = new bootstrap.Modal(document.getElementById('barcodeModal'));
+        barcodeModal.show();
+        
+        // Set the barcode type and paper size from session
+        @if(session('barcode_type'))
+            document.querySelector('select[name="type"]').value = '{{ session("barcode_type") }}';
+        @endif
+        @if(session('paper_size'))
+            document.querySelector('select[name="paper"]').value = '{{ session("paper_size") }}';
+        @endif
+    @endif
+    
+    // Quick stock form
+    const form = document.getElementById('quick-stock-form');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const criticalStock = document.getElementById('critical_stock').value;
+        const addStock = document.getElementById('add_stock').value;
+        
+        if (!addStock && !criticalStock) {
+            alert('En az bir alan doldurulmalıdır.');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+        if (criticalStock) formData.append('critical_stock', criticalStock);
+        if (addStock) formData.append('add_stock', addStock);
+        
+        fetch('{{ route("products.series.quick-stock", $series) }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Stok bilgileri güncellendi.');
+                location.reload();
+            } else {
+                alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Bir hata oluştu.');
+        });
+    });
+
+    // Barcode modal functionality
+    document.querySelectorAll('.select-item').forEach(function(cb) {
+        // Initialize checked items on page load
+        if (cb.checked) {
+            const row = cb.closest('tr');
+            const qtyInput = row.querySelector('input[name="items[][count]"]');
+            const typeInput = row.querySelector('input[name="items[][type]"]');
+            const identifierInput = row.querySelector('input[name="items[][identifier]"]');
+            
+            typeInput.disabled = false;
+            identifierInput.disabled = false;
+            qtyInput.disabled = false;
+            qtyInput.style.opacity = '1';
+        }
+        
+        cb.addEventListener('change', function() {
+            const row = this.closest('tr');
+            const qtyInput = row.querySelector('input[name="items[][count]"]');
+            const typeInput = row.querySelector('input[name="items[][type]"]');
+            const identifierInput = row.querySelector('input[name="items[][identifier]"]');
+            
+            if (this.checked) {
+                typeInput.disabled = false;
+                identifierInput.disabled = false;
+                qtyInput.disabled = false;
+                qtyInput.style.opacity = '1';
+            } else {
+                typeInput.disabled = true;
+                identifierInput.disabled = true;
+                qtyInput.disabled = true;
+                qtyInput.style.opacity = '0.5';
+            }
+        });
+    });
+
+    // Barcode form submission
+    const barcodeForm = document.getElementById('barcodeForm');
+    barcodeForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const selectedRows = Array.from(document.querySelectorAll('.select-item')).filter(cb => cb.checked).map(cb => cb.closest('tr'));
+        if (selectedRows.length === 0) {
+            alert('Lütfen en az bir etiket tipi seçin.');
+            return false;
+        }
+
+        // Create temp form
+        const tmp = document.createElement('form');
+        tmp.method = 'POST';
+        tmp.action = this.action;
+        tmp.target = '_blank';
+
+        // CSRF
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = '_token';
+        csrf.value = '{{ csrf_token() }}';
+        tmp.appendChild(csrf);
+
+        // Type and paper selects
+        ['type','paper'].forEach(name => {
+            const sel = this.querySelector(`[name="${name}"]`);
+            if (sel) {
+                const inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = name;
+                inp.value = sel.value;
+                tmp.appendChild(inp);
+            }
+        });
+
+        // Items
+        selectedRows.forEach((row, idx) => {
+            const type = row.querySelector('input[name="items[][type]"]').value;
+            const identifier = row.querySelector('input[name="items[][identifier]"]').value;
+            const count = row.querySelector('input[name="items[][count]"]').value || '1';
+
+            const typeInput = document.createElement('input');
+            typeInput.type = 'hidden';
+            typeInput.name = `items[${idx}][type]`;
+            typeInput.value = type;
+            tmp.appendChild(typeInput);
+
+            const identifierInput = document.createElement('input');
+            identifierInput.type = 'hidden';
+            identifierInput.name = `items[${idx}][identifier]`;
+            identifierInput.value = identifier;
+            tmp.appendChild(identifierInput);
+
+            const countInput = document.createElement('input');
+            countInput.type = 'hidden';
+            countInput.name = `items[${idx}][count]`;
+            countInput.value = count;
+            tmp.appendChild(countInput);
+        });
+
+        document.body.appendChild(tmp);
+        tmp.submit();
+        setTimeout(() => tmp.remove(), 1000);
+    });
+});
+</script>
+@endpush
 @endsection
+
+

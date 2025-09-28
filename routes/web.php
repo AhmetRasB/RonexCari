@@ -40,16 +40,22 @@ Route::get('api/products/series-default-sizes', [\App\Http\Controllers\Products\
 
 
 // Account selection routes
-Route::get('/account/select', [AccountController::class, 'select'])->middleware(['auth', 'verified'])->name('account.select');
-Route::post('/account/select', [AccountController::class, 'store'])->middleware(['auth', 'verified'])->name('account.store');
-Route::post('/account/switch', [AccountController::class, 'switch'])->middleware(['auth', 'verified'])->name('account.switch');
-Route::get('/account/manage', [AccountController::class, 'manage'])->middleware(['auth', 'verified'])->name('account.manage');
-Route::put('/account/{account}', [AccountController::class, 'update'])->middleware(['auth', 'verified'])->name('account.update');
+Route::get('/account/select', [AccountController::class, 'select'])->middleware(['auth'])->name('account.select');
+Route::post('/account/select', [AccountController::class, 'store'])->middleware(['auth'])->name('account.store');
+Route::post('/account/switch', [AccountController::class, 'switch'])->middleware(['auth'])->name('account.switch');
+Route::get('/account/manage', [AccountController::class, 'manage'])->middleware(['auth'])->name('account.manage');
+Route::put('/account/{account}', [AccountController::class, 'update'])->middleware(['auth'])->name('account.update');
 
 // Product Series Routes (with auth middleware only)
 Route::middleware(['auth'])->group(function () {
     Route::prefix('products')->name('products.')->group(function () {
         Route::resource('series', \App\Http\Controllers\Products\ProductSeriesController::class);
+        
+        // Series quick stock update
+        Route::post('series/{series}/quick-stock', [\App\Http\Controllers\Products\ProductSeriesController::class, 'quickStockUpdate'])->name('series.quick-stock');
+        
+        // Series barcode generation
+        Route::post('series/{series}/barcodes/generate', [\App\Http\Controllers\Products\ProductSeriesController::class, 'generateBarcodes'])->name('series.barcodes.generate');
         
         // Fixed Series Settings Routes
         Route::get('fixed-series-settings', [\App\Http\Controllers\Products\FixedSeriesSettingController::class, 'index'])->name('fixed-series-settings.index');
@@ -81,6 +87,7 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
         Route::get('invoices/{invoice}/preview', [InvoiceController::class, 'preview'])->name('invoices.preview');
         Route::get('invoices/currency/rates', [InvoiceController::class, 'getCurrencyRates'])->name('invoices.currency.rates');
         Route::get('invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
+        Route::post('invoices/{invoice}/mark-paid', [InvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
         // Invoice actions removed - invoices are now directly approved
     });
 
@@ -91,8 +98,6 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
         Route::resource('delivery-notes', \App\Http\Controllers\Purchases\DeliveryNoteController::class);
         Route::resource('orders', \App\Http\Controllers\Purchases\OrderController::class);
         
-        // Supplier payment
-        Route::post('suppliers/{supplier}/make-payment', [SupplierController::class, 'makePayment'])->name('suppliers.makePayment');
         
         // Additional purchase invoice routes
         Route::get('invoices/search/suppliers', [\App\Http\Controllers\Purchases\InvoiceController::class, 'searchSuppliers'])->name('invoices.search.suppliers');
@@ -100,12 +105,15 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
         Route::get('invoices/{invoice}/preview', [\App\Http\Controllers\Purchases\InvoiceController::class, 'preview'])->name('invoices.preview');
         Route::get('invoices/currency/rates', [\App\Http\Controllers\Purchases\InvoiceController::class, 'getCurrencyRates'])->name('invoices.currency.rates');
         Route::get('invoices/{invoice}/print', [\App\Http\Controllers\Purchases\InvoiceController::class, 'print'])->name('invoices.print');
+        Route::post('invoices/{invoice}/mark-paid', [\App\Http\Controllers\Purchases\InvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
         // Purchase invoice actions removed - invoices are now directly approved
     });
 
     // Products Routes
     Route::resource('products', ProductController::class);
     Route::post('products/{product}/quick-stock', [ProductController::class, 'quickStockUpdate'])->name('products.quick-stock');
+    Route::post('products/series/{series}/quick-stock', [\App\Http\Controllers\Products\ProductSeriesController::class, 'quickStockUpdate'])->name('products.series.quick-stock');
+    Route::get('products/test-critical-stock', [ProductController::class, 'testCriticalStock'])->name('products.test-critical-stock');
     
     // Barcode Section
     Route::get('/barcodes', [BarcodeController::class, 'index'])->name('barcode.index');
@@ -128,12 +136,15 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     // Finance Routes
     Route::prefix('finance')->name('finance.')->group(function () {
         Route::resource('collections', \App\Http\Controllers\Finance\CollectionController::class);
+        Route::resource('supplier-payments', \App\Http\Controllers\Finance\SupplierPaymentController::class);
         
         // Search routes
         Route::get('collections/search/customers', [\App\Http\Controllers\Finance\CollectionController::class, 'searchCustomers'])->name('collections.search.customers');
+        Route::get('supplier-payments/search/suppliers', [\App\Http\Controllers\Finance\SupplierPaymentController::class, 'searchSuppliers'])->name('supplier-payments.search.suppliers');
         
-        // Print route
+        // Print routes
         Route::get('collections/{collection}/print', [\App\Http\Controllers\Finance\CollectionController::class, 'print'])->name('collections.print');
+        Route::get('supplier-payments/{supplierPayment}/print', [\App\Http\Controllers\Finance\SupplierPaymentController::class, 'print'])->name('supplier-payments.print');
     });
 
     // Reports Routes

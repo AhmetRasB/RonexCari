@@ -161,15 +161,6 @@
                         </div>
                     </div>
 
-                    <!-- Past Salary Check -->
-                    <div id="pastSalaryCheck" class="alert alert-warning" style="display: none;">
-                        <h6 class="alert-heading">Geçmiş Maaş Kontrolü</h6>
-                        <p class="mb-2">Bu çalışan <span id="hireDateText"></span> tarihinde işe başlamış. Geçmiş maaşlar ödenmiş miydi?</p>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-success btn-sm" onclick="confirmPastSalary(true)">Evet, Ödendi</button>
-                            <button type="button" class="btn btn-warning btn-sm" onclick="confirmPastSalary(false)">Hayır, Ödenmedi</button>
-                        </div>
-                    </div>
 
                     <div class="row gy-3">
                         <div class="col-12 col-md-6">
@@ -242,38 +233,21 @@
         
         // Set current period
         const currentMonth = new Date().toISOString().slice(0, 7);
-        document.getElementById('currentPeriod').textContent = new Date(currentMonth + '-01').toLocaleDateString('tr-TR', {month: 'long', year: 'numeric'});
+        const turkishMonths = {
+            '01': 'Ocak', '02': 'Şubat', '03': 'Mart', '04': 'Nisan',
+            '05': 'Mayıs', '06': 'Haziran', '07': 'Temmuz', '08': 'Ağustos',
+            '09': 'Eylül', '10': 'Ekim', '11': 'Kasım', '12': 'Aralık'
+        };
+        const [year, month] = currentMonth.split('-');
+        const turkishMonth = turkishMonths[month];
+        document.getElementById('currentPeriod').textContent = `${turkishMonth} ${year}`;
         document.getElementById('paymentMonth').value = currentMonth;
         
         // Set form action
         document.getElementById('salaryPaymentForm').action = `/management/employees/${employeeId}/salary-payments`;
         
-        // Check if employee was hired before current month
-        if (hireDate) {
-            const hireDateObj = new Date(hireDate);
-            const currentDate = new Date();
-            const hireMonth = hireDateObj.toISOString().slice(0, 7);
-            const currentMonth = currentDate.toISOString().slice(0, 7);
-            
-            if (hireMonth < currentMonth) {
-                // Show past salary check
-                document.getElementById('hireDateText').textContent = new Date(hireDate).toLocaleDateString('tr-TR');
-                document.getElementById('pastSalaryCheck').style.display = 'block';
-                
-                // Calculate remaining salary for current month
-                fetchRemainingSalary(employeeId, currentMonth);
-            } else {
-                // Hide past salary check
-                document.getElementById('pastSalaryCheck').style.display = 'none';
-                
-                // Calculate remaining salary for current month
-                fetchRemainingSalary(employeeId, currentMonth);
-            }
-        } else {
-            // No hire date, hide past salary check
-            document.getElementById('pastSalaryCheck').style.display = 'none';
-            fetchRemainingSalary(employeeId, currentMonth);
-        }
+        // Calculate remaining salary for current month
+        fetchRemainingSalary(employeeId, currentMonth);
         
         // Show modal
         new bootstrap.Modal(document.getElementById('salaryPaymentModal')).show();
@@ -299,46 +273,5 @@
             });
     }
 
-    // Confirm past salary
-    function confirmPastSalary(wasPaid) {
-        if (wasPaid) {
-            // Past salaries were paid, calculate remaining for current month
-            const currentMonth = new Date().toISOString().slice(0, 7);
-            fetchRemainingSalary(currentEmployeeId, currentMonth);
-        } else {
-            // Past salaries were not paid, calculate from hire date
-            fetchTotalRemainingSalary(currentEmployeeId);
-        }
-        
-        // Hide the past salary check
-        document.getElementById('pastSalaryCheck').style.display = 'none';
-    }
-
-    // Fetch total remaining salary from hire date
-    function fetchTotalRemainingSalary(employeeId) {
-        fetch(`/management/employees/${employeeId}/total-remaining-salary`)
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('remainingSalary').textContent = data.remaining.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
-                document.getElementById('maxPayment').textContent = data.remaining.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
-                document.getElementById('maxAmountText').textContent = `Maksimum: ${data.remaining.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ₺`;
-                document.getElementById('paymentAmount').max = data.remaining;
-            })
-            .catch(error => {
-                console.error('Error fetching total remaining salary:', error);
-                // Fallback calculation
-                const hireDate = new Date(currentHireDate);
-                const hireMonth = hireDate.toISOString().slice(0, 7);
-                const currentMonth = new Date().toISOString().slice(0, 7);
-                
-                const monthsDiff = (new Date(currentMonth + '-01') - new Date(hireMonth + '-01')) / (1000 * 60 * 60 * 24 * 30.44);
-                const totalSalary = Math.ceil(monthsDiff) * currentEmployeeSalary;
-                
-                document.getElementById('remainingSalary').textContent = totalSalary.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
-                document.getElementById('maxPayment').textContent = totalSalary.toLocaleString('tr-TR', {minimumFractionDigits: 2}) + ' ₺';
-                document.getElementById('maxAmountText').textContent = `Maksimum: ${totalSalary.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ₺`;
-                document.getElementById('paymentAmount').max = totalSalary;
-            });
-    }
 </script>
 @endpush

@@ -33,7 +33,7 @@
                         <div class="shadow-4 border radius-8">
                             <div class="p-20 d-flex flex-wrap justify-content-between gap-3 border-bottom">
                                 <div>
-                                    <h3 class="text-xl">Fatura #{{ $invoice->invoice_number }}</h3>
+                                    <h3 class="text-xl">Alış Faturası #{{ $invoice->invoice_number }}</h3>
                                     <p class="mb-1 text-sm">Fatura Tarihi: {{ $invoice->invoice_date->format('d/m/Y') }}</p>
                                     <p class="mb-0 text-sm">Vade Tarihi: {{ $invoice->due_date->format('d/m/Y') }}</p>
                                 </div>
@@ -49,235 +49,110 @@
                             <div class="py-28 px-20">
                                 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
                                     <div>
-                                        <h6 class="text-md">Fatura Edilen (Alıcı):</h6>
-                                        <table class="text-sm text-secondary-light">
-                                            <tbody>
-                                                <tr>
-                                                    <td>Unvan</td>
-                                                    <td class="ps-8">: Ronex Tekstil San. Tic. Ltd. Şti.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Adres</td>
-                                                    <td class="ps-8">: Örnek Mahallesi, Tekstil Caddesi No:123, İstanbul / Türkiye</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Telefon</td>
-                                                    <td class="ps-8">: +90 212 123 45 67</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
+                                        <h6 class="text-sm fw-semibold mb-2">Tedarikçi Bilgileri</h6>
+                                        <p class="mb-1 text-sm fw-medium">{{ $invoice->supplier->name ?? 'Tedarikçi Silinmiş' }}</p>
+                                        @if($invoice->supplier && $invoice->supplier->company_name)
+                                            <p class="mb-1 text-sm">{{ $invoice->supplier->company_name }}</p>
+                                        @endif
+                                        @if($invoice->supplier && $invoice->supplier->address)
+                                            <p class="mb-1 text-sm">{{ $invoice->supplier->address }}</p>
+                                        @endif
+                                        @if($invoice->supplier && $invoice->supplier->phone)
+                                            <p class="mb-1 text-sm">Tel: {{ $invoice->supplier->phone }}</p>
+                                        @endif
+                                        @if($invoice->supplier && $invoice->supplier->email)
+                                            <p class="mb-0 text-sm">E-posta: {{ $invoice->supplier->email }}</p>
+                                        @endif
                                     </div>
-                                    <div>
-                                        <table class="text-sm text-secondary-light">
-                                            <tbody>
-                                                <tr>
-                                                    <td>Fatura Tarihi</td>
-                                                    <td class="ps-8">: {{ $invoice->invoice_date->format('d.m.Y') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Fatura Saati</td>
-                                                    <td class="ps-8">: {{ $invoice->invoice_time }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Vade Tarihi</td>
-                                                    <td class="ps-8">: {{ $invoice->due_date->format('d.m.Y') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Para Birimi</td>
-                                                    <td class="ps-8">: 
-                                                        @if($invoice->currency === 'USD')
-                                                            $ USD
-                                                        @elseif($invoice->currency === 'EUR')
-                                                            € EUR
-                                                        @else
-                                                            ₺ TRY
-                                                        @endif
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Durum</td>
-                                                    <td class="ps-8">: 
-                                                        @switch($invoice->status)
-                                                            @case('draft') Taslak @break
-                                                            @case('sent') Gönderildi @break
-                                                            @case('paid') Ödendi @break
-                                                            @case('overdue') Vadesi Geçti @break
-                                                            @case('cancelled') İptal @break
-                                                        @endswitch
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                        <div class="mt-16">
-                                            <h6 class="text-md">Tedarikçi (Satıcı):</h6>
-                                            <table class="text-sm text-secondary-light">
-                                                <tbody>
-                                                    <tr>
-                                                        <td>Ad / Ünvan</td>
-                                                        <td class="ps-8">: {{ optional($invoice->supplier)->name ?? '-' }}</td>
-                                                    </tr>
-                                                    @if(optional($invoice->supplier)->company_name)
-                                                    <tr>
-                                                        <td>Şirket</td>
-                                                        <td class="ps-8">: {{ $invoice->supplier->company_name }}</td>
-                                                    </tr>
-                                                    @endif
-                                                    @if(optional($invoice->supplier)->address)
-                                                    <tr>
-                                                        <td>Adres</td>
-                                                        <td class="ps-8">: {{ $invoice->supplier->address }}</td>
-                                                    </tr>
-                                                    @endif
-                                                    @if(optional($invoice->supplier)->phone)
-                                                    <tr>
-                                                        <td>Telefon</td>
-                                                        <td class="ps-8">: {{ $invoice->supplier->phone }}</td>
-                                                    </tr>
-                                                    @endif
-                                                    @if(optional($invoice->supplier)->email)
-                                                    <tr>
-                                                        <td>E-posta</td>
-                                                        <td class="ps-8">: {{ $invoice->supplier->email }}</td>
-                                                    </tr>
-                                                    @endif
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                    <div class="text-end">
+                                        <h6 class="text-sm fw-semibold mb-2">Fatura Bilgileri</h6>
+                                        <p class="mb-1 text-sm">Para Birimi: {{ $invoice->currency }}</p>
+                                        <p class="mb-1 text-sm">KDV Durumu: {{ $invoice->vat_status === 'included' ? 'KDV Dahil' : 'KDV Hariç' }}</p>
+                                        <p class="mb-0 text-sm">Ödeme Durumu: 
+                                            @if($invoice->payment_completed)
+                                                <span class="badge bg-success-100 text-success-600 px-2 py-1 rounded-pill text-xs fw-medium">
+                                                    Ödendi
+                                                </span>
+                                            @else
+                                                <span class="badge bg-warning-100 text-warning-600 px-2 py-1 rounded-pill text-xs fw-medium">
+                                                    Beklemede
+                                                </span>
+                                            @endif
+                                        </p>
                                     </div>
                                 </div>
+                                
+                                @if($invoice->description)
+                                <div class="mt-20">
+                                    <h6 class="text-sm fw-semibold mb-2">Açıklama</h6>
+                                    <p class="text-sm">{{ $invoice->description }}</p>
+                                </div>
+                                @endif
 
-                                <div class="mt-24">
-                                    <div class="table-responsive scroll-sm">
-                                        <table class="table bordered-table text-sm">
-                                            <thead>
+                                <div class="mt-20">
+                                    <h6 class="text-sm fw-semibold mb-2">Fatura Kalemleri</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered mb-0">
+                                            <thead class="bg-light">
                                                 <tr>
-                                                    <th scope="col" class="text-sm">Sıra</th>
-                                                    <th scope="col" class="text-sm">Ürün/Hizmet</th>
-                                                    <th scope="col" class="text-sm">Açıklama</th>
-                                                    <th scope="col" class="text-sm">Miktar</th>
-                                                    <th scope="col" class="text-sm">Birim Fiyat</th>
-                                                    <th scope="col" class="text-sm">KDV %</th>
-                                                    <th scope="col" class="text-sm">İndirim %</th>
-                                                    <th scope="col" class="text-end text-sm">Toplam</th>
+                                                    <th class="text-sm fw-semibold">Ürün/Hizmet</th>
+                                                    <th class="text-sm fw-semibold">Açıklama</th>
+                                                    <th class="text-sm fw-semibold">Miktar</th>
+                                                    <th class="text-sm fw-semibold">Birim Fiyat</th>
+                                                    <th class="text-sm fw-semibold">KDV %</th>
+                                                    <th class="text-sm fw-semibold">İndirim %</th>
+                                                    <th class="text-sm fw-semibold">Toplam</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach($invoice->items as $index => $item)
+                                                @foreach($invoice->items as $item)
                                                 <tr>
-                                                    <td>{{ $index + 1 }}</td>
-                                                    <td>{{ $item->product_service_name }}</td>
-                                                    <td>{{ $item->description ?? '-' }}</td>
-                                                    <td>{{ $item->quantity }}</td>
-                                                    <td>
-                                                        {{ number_format($item->unit_price, 2) }}
-                                                        @if($invoice->currency === 'USD')
-                                                            $
-                                                        @elseif($invoice->currency === 'EUR')
-                                                            €
-                                                        @else
-                                                            ₺
-                                                        @endif
-                                                        @if($invoice->currency !== 'TRY')
-                                                            <br><small class="text-muted" id="unitPriceTRY_{{ $index }}">-</small>
-                                                        @endif
-                                                    </td>
-                                                    <td>%{{ $item->tax_rate }}</td>
-                                                    <td>%{{ $item->discount_rate }}</td>
-                                                    <td class="text-end">
-                                                        {{ number_format($item->line_total, 2) }}
-                                                        @if($invoice->currency === 'USD')
-                                                            $
-                                                        @elseif($invoice->currency === 'EUR')
-                                                            €
-                                                        @else
-                                                            ₺
-                                                        @endif
-                                                    </td>
+                                                    <td class="text-sm">{{ $item->product_service_name }}</td>
+                                                    <td class="text-sm">{{ $item->description ?? '-' }}</td>
+                                                    <td class="text-sm">{{ number_format($item->quantity, 2) }}</td>
+                                                    <td class="text-sm">{{ number_format($item->unit_price, 2) }} {{ $item->unit_currency }}</td>
+                                                    <td class="text-sm">{{ number_format($item->tax_rate, 1) }}%</td>
+                                                    <td class="text-sm">{{ number_format($item->discount_rate, 1) }}%</td>
+                                                    <td class="text-sm fw-semibold">{{ number_format($item->line_total, 2) }} {{ $item->unit_currency }}</td>
                                                 </tr>
                                                 @endforeach
                                             </tbody>
                                         </table>
                                     </div>
-                                    <div class="d-flex flex-wrap justify-content-between gap-3">
-                                        <div>
-                                            @if($invoice->description)
-                                            <p class="text-sm mb-0"><span class="text-primary-light fw-semibold">Açıklama:</span> {{ $invoice->description }}</p>
+                                </div>
+
+                                <div class="mt-20">
+                                    <div class="row">
+                                        <div class="col-md-6"></div>
+                                        <div class="col-md-6">
+                                            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                                <span class="text-sm fw-medium">Ara Toplam:</span>
+                                                <span class="text-sm fw-semibold">{{ number_format($invoice->subtotal, 2) }} {{ $invoice->currency }}</span>
+                                            </div>
+                                            @if($invoice->discount_amount > 0)
+                                            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                                <span class="text-sm fw-medium">İndirim:</span>
+                                                <span class="text-sm fw-semibold text-danger">-{{ number_format($invoice->discount_amount, 2) }} {{ $invoice->currency }}</span>
+                                            </div>
                                             @endif
-                                            <p class="text-sm mb-0">İşlem tarihi: {{ $invoice->created_at->format('d.m.Y H:i') }}</p>
-                                        </div>
-                                        <div>
-                                            <table class="text-sm">
-                                                <tbody>
-                                                    <tr>
-                                                        <td class="pe-64">Ara Toplam:</td>
-                                                        <td class="pe-16">
-                                                            <span class="text-primary-light fw-semibold">
-                                                                {{ number_format($invoice->subtotal, 2) }}
-                                                                @if($invoice->currency === 'USD')
-                                                                    $
-                                                                @elseif($invoice->currency === 'EUR')
-                                                                    €
-                                                                @else
-                                                                    ₺
-                                                                @endif
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="pe-64">KDV:</td>
-                                                        <td class="pe-16">
-                                                            <span class="text-primary-light fw-semibold">
-                                                                {{ number_format($invoice->vat_amount, 2) }}
-                                                                @if($invoice->currency === 'USD')
-                                                                    $
-                                                                @elseif($invoice->currency === 'EUR')
-                                                                    €
-                                                                @else
-                                                                    ₺
-                                                                @endif
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="pe-64 border-bottom pb-4">
-                                                            <span class="text-primary-light fw-semibold">Genel Toplam:</span>
-                                                        </td>
-                                                        <td class="pe-16 border-bottom pb-4">
-                                                            <span class="text-primary-light fw-semibold">
-                                                                {{ number_format($invoice->total_amount, 2) }}
-                                                                @if($invoice->currency === 'USD')
-                                                                    $
-                                                                @elseif($invoice->currency === 'EUR')
-                                                                    €
-                                                                @else
-                                                                    ₺
-                                                                @endif
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                    @if($invoice->currency !== 'TRY')
-                                                    <tr>
-                                                        <td class="pe-64">
-                                                            <span class="text-secondary-light">Toplam (TL):</span>
-                                                        </td>
-                                                        <td class="pe-16">
-                                                            <span class="text-secondary-light" id="totalAmountTRY">-</span>
-                                                        </td>
-                                                    </tr>
-                                                    @endif
-                                                </tbody>
-                                            </table>
+                                            @if($invoice->additional_discount > 0)
+                                            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                                <span class="text-sm fw-medium">Ek İndirim:</span>
+                                                <span class="text-sm fw-semibold text-danger">-{{ number_format($invoice->additional_discount, 2) }} {{ $invoice->currency }}</span>
+                                            </div>
+                                            @endif
+                                            @if($invoice->vat_amount > 0)
+                                            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                                <span class="text-sm fw-medium">KDV:</span>
+                                                <span class="text-sm fw-semibold">{{ number_format($invoice->vat_amount, 2) }} {{ $invoice->currency }}</span>
+                                            </div>
+                                            @endif
+                                            <div class="d-flex justify-content-between align-items-center py-2">
+                                                <span class="text-lg fw-bold">Genel Toplam:</span>
+                                                <span class="text-lg fw-bold text-primary">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->currency }}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div class="mt-64">
-                                    <p class="text-center text-secondary-light text-sm fw-semibold">İşleminiz için teşekkür ederiz!</p>
-                                </div>
-
-                                <div class="d-flex flex-wrap justify-content-between align-items-end mt-64">
-                                    <div class="text-sm border-top d-inline-block px-12">Müşteri İmzası</div>
-                                    <div class="text-sm border-top d-inline-block px-12">Yetkili İmzası</div>
                                 </div>
                             </div>
                         </div>
@@ -291,66 +166,58 @@
 @push('scripts')
 <script>
 function downloadInvoice() {
-    // PDF indirme işlemi için gelecekte implement edilebilir
-    alert('PDF indirme özelliği yakında eklenecek!');
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    const invoiceContent = document.getElementById('invoice').innerHTML;
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Alış Faturası - {{ $invoice->invoice_number }}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .table { width: 100%; border-collapse: collapse; }
+                .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                .table th { background-color: #f5f5f5; }
+                .text-end { text-align: right; }
+                .fw-semibold { font-weight: 600; }
+                .fw-bold { font-weight: bold; }
+                .text-sm { font-size: 0.875rem; }
+                .text-lg { font-size: 1.125rem; }
+                .text-primary { color: #007bff; }
+                .text-danger { color: #dc3545; }
+                .border-bottom { border-bottom: 1px solid #ddd; }
+                .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+                .mb-0 { margin-bottom: 0; }
+                .mb-1 { margin-bottom: 0.25rem; }
+                .mb-2 { margin-bottom: 0.5rem; }
+                .mb-8 { margin-bottom: 2rem; }
+                .mt-20 { margin-top: 1.25rem; }
+                .p-20 { padding: 1.25rem; }
+                .py-28 { padding-top: 1.75rem; padding-bottom: 1.75rem; }
+                .px-20 { padding-left: 1.25rem; padding-right: 1.25rem; }
+                .shadow-4 { box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); }
+                .border { border: 1px solid #dee2e6; }
+                .radius-8 { border-radius: 0.5rem; }
+                .d-flex { display: flex; }
+                .justify-content-between { justify-content: space-between; }
+                .align-items-center { align-items: center; }
+                .flex-wrap { flex-wrap: wrap; }
+                .gap-3 { gap: 1rem; }
+                .bg-light { background-color: #f8f9fa; }
+                .table-responsive { overflow-x: auto; }
+            </style>
+        </head>
+        <body>
+            ${invoiceContent}
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.print();
 }
-
-// Calculate TL equivalent for foreign currency invoices
-@if($invoice->currency !== 'TRY')
-$(document).ready(function() {
-    const invoiceCurrency = '{{ $invoice->currency }}';
-    const totalAmount = {{ $invoice->total_amount }};
-    
-    // Get unit prices for TL conversion
-    const unitPrices = [
-        @foreach($invoice->items as $index => $item)
-            {{ $item->unit_price }}{{ $index < count($invoice->items) - 1 ? ',' : '' }}
-        @endforeach
-    ];
-    
-    // Get exchange rates
-    $.get('{{ route("purchases.invoices.currency.rates") }}')
-        .done(function(response) {
-            let exchangeRate;
-            if (response.success && response.rates[invoiceCurrency]) {
-                exchangeRate = response.rates[invoiceCurrency];
-            } else {
-                // Fallback rates
-                const fallbackRates = {
-                    'USD': 41.29,
-                    'EUR': 48.55
-                };
-                exchangeRate = fallbackRates[invoiceCurrency] || 1;
-            }
-            
-            // Calculate total amount in TL
-            const totalAmountTRY = totalAmount * exchangeRate;
-            $('#totalAmountTRY').text(totalAmountTRY.toFixed(2).replace('.', ',') + ' ₺');
-            
-            // Calculate unit prices in TL
-            unitPrices.forEach((unitPrice, index) => {
-                const unitPriceTRY = unitPrice * exchangeRate;
-                $('#unitPriceTRY_' + index).text('(' + unitPriceTRY.toFixed(2).replace('.', ',') + ' ₺)');
-            });
-        })
-        .fail(function() {
-            // Fallback rates if API fails
-            const fallbackRates = {
-                'USD': 41.29,
-                'EUR': 48.55
-            };
-            const exchangeRate = fallbackRates[invoiceCurrency] || 1;
-            const totalAmountTRY = totalAmount * exchangeRate;
-            $('#totalAmountTRY').text(totalAmountTRY.toFixed(2).replace('.', ',') + ' ₺');
-            
-            // Calculate unit prices in TL with fallback rates
-            unitPrices.forEach((unitPrice, index) => {
-                const unitPriceTRY = unitPrice * exchangeRate;
-                $('#unitPriceTRY_' + index).text('(' + unitPriceTRY.toFixed(2).replace('.', ',') + ' ₺)');
-            });
-        });
-});
-@endif
 </script>
 @endpush
 @endsection

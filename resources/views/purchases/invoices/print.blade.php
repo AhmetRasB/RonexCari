@@ -54,12 +54,17 @@
             max-height: 60px;
             max-width: 168px;
             margin-bottom: 10px;
-            display: block;
+        }
+        
+        .company-info h2 {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 5px;
         }
         
         .company-info p {
             margin-bottom: 3px;
-            font-size: 12px;
+            font-size: 11px;
         }
         
         .invoice-details {
@@ -68,40 +73,26 @@
             margin-bottom: 30px;
         }
         
-        .billed-to h3 {
+        .supplier-info, .invoice-meta {
+            flex: 1;
+        }
+        
+        .supplier-info h3, .invoice-meta h3 {
             font-size: 14px;
             font-weight: bold;
             margin-bottom: 10px;
+            text-transform: uppercase;
         }
         
-        .billed-to table {
+        .supplier-info p, .invoice-meta p {
+            margin-bottom: 3px;
             font-size: 11px;
-        }
-        
-        .billed-to td {
-            padding: 2px 0;
-        }
-        
-        .billed-to td:first-child {
-            padding-right: 10px;
-        }
-        
-        .invoice-summary table {
-            font-size: 11px;
-        }
-        
-        .invoice-summary td {
-            padding: 2px 0;
-        }
-        
-        .invoice-summary td:first-child {
-            padding-right: 10px;
         }
         
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
         }
         
         .items-table th,
@@ -115,9 +106,6 @@
         .items-table th {
             background-color: #f5f5f5;
             font-weight: bold;
-        }
-        
-        .items-table .text-center {
             text-align: center;
         }
         
@@ -125,215 +113,162 @@
             text-align: right;
         }
         
-        .invoice-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-top: 30px;
-        }
-        
-        .notes {
-            flex: 1;
-        }
-        
-        .notes p {
-            margin-bottom: 5px;
-            font-size: 11px;
+        .items-table .text-center {
+            text-align: center;
         }
         
         .totals {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 30px;
+        }
+        
+        .totals-table {
+            width: 300px;
+            border-collapse: collapse;
+        }
+        
+        .totals-table td {
+            border: 1px solid #333;
+            padding: 8px;
+            font-size: 11px;
+        }
+        
+        .totals-table .label {
+            background-color: #f5f5f5;
+            font-weight: bold;
             text-align: right;
         }
         
-        .totals table {
-            font-size: 12px;
-        }
-        
-        .totals td {
-            padding: 3px 0;
-        }
-        
-        .totals td:first-child {
-            padding-right: 20px;
-        }
-        
-        .totals .total-row {
-            border-top: 2px solid #333;
+        .totals-table .amount {
+            text-align: right;
             font-weight: bold;
-            padding-top: 5px;
         }
         
-        .totals .tl-row {
-            color: #666;
-            font-size: 11px;
-        }
-        
-        .thank-you {
-            text-align: center;
-            margin: 30px 0;
+        .totals-table .total-row {
+            background-color: #e9ecef;
             font-weight: bold;
-            font-size: 12px;
+            font-size: 13px;
         }
         
-        .signatures {
-            display: flex;
-            justify-content: space-between;
+        .footer {
             margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ccc;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
         }
         
-        .signature-box {
-            border-top: 1px solid #333;
-            padding-top: 5px;
-            font-size: 11px;
-            text-align: center;
-            width: 150px;
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-paid {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
         }
         
         @media print {
             body {
-                margin: 0;
-                padding: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
             
             .invoice-container {
-                max-width: none;
                 margin: 0;
                 padding: 10mm;
+                max-width: none;
             }
             
-            @page {
-                size: A4;
-                margin: 10mm;
+            .no-print {
+                display: none !important;
             }
         }
     </style>
 </head>
 <body>
     <div class="invoice-container">
-        <!-- Invoice Header -->
+        <!-- Header -->
         <div class="invoice-header">
             <div class="invoice-info">
-                <h1>Fatura #{{ $invoice->invoice_number }}</h1>
-                <p>Fatura Tarihi: {{ $invoice->invoice_date->format('d/m/Y') }}</p>
-                <p>Vade Tarihi: {{ $invoice->due_date->format('d/m/Y') }}</p>
+                <h1>ALIŞ FATURASI</h1>
+                <p><strong>Fatura No:</strong> {{ $invoice->invoice_number }}</p>
+                <p><strong>Fatura Tarihi:</strong> {{ $invoice->invoice_date->format('d/m/Y') }}</p>
+                <p><strong>Vade Tarihi:</strong> {{ $invoice->due_date->format('d/m/Y') }}</p>
             </div>
             <div class="company-info">
                 <img src="{{ asset('assets/images/logo.png') }}" alt="Ronex Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <div style="display:none; font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px;">{{ config('company.name') }}</div>
-                <p><strong>{{ config('company.full_name') }}</strong></p>
-                <p>{{ config('company.address.street') }}</p>
-                <p>{{ config('company.address.street2') }}</p>
-                <p>{{ config('company.address.district') }}, {{ config('company.address.postal_code') }} {{ config('company.address.city') }}/{{ config('company.address.province') }}</p>
-                <p>Tel: {{ config('company.contact.phone') }}</p>
-                <p>E-mail: {{ config('company.contact.email') }}</p>
+                <div style="display:none; font-size: 20px; font-weight: bold; margin-bottom: 10px;">RONEX</div>
+                <h2>Ronex Tekstil San. Tic. Ltd. Şti.</h2>
+                <p>Örnek Mahallesi, Tekstil Caddesi No:123</p>
+                <p>İstanbul, Türkiye</p>
+                <p>Tel: +90 212 123 45 67</p>
+                <p>E-posta: info@ronex.com</p>
             </div>
         </div>
 
-        <!-- Invoice Details -->
+        <!-- Details -->
         <div class="invoice-details">
-            <div class="billed-to">
-                <h3>Fatura Edilen (Alıcı):</h3>
-                <table>
-                    <tr>
-                        <td>Unvan</td>
-                        <td>: {{ config('company.full_name') }}</td>
-                    </tr>
-                    <tr>
-                        <td>Adres</td>
-                        <td>: {{ config('company.address.street') }}, {{ config('company.address.street2') }}, {{ config('company.address.district') }}, {{ config('company.address.postal_code') }} {{ config('company.address.city') }}/{{ config('company.address.province') }}</td>
-                    </tr>
-                    <tr>
-                        <td>Telefon</td>
-                        <td>: {{ config('company.contact.phone') }}</td>
-                    </tr>
-                </table>
+            <div class="supplier-info">
+                <h3>Tedarikçi Bilgileri</h3>
+                <p><strong>{{ $invoice->supplier->name ?? 'Tedarikçi Silinmiş' }}</strong></p>
+                @if($invoice->supplier && $invoice->supplier->company_name)
+                    <p>{{ $invoice->supplier->company_name }}</p>
+                @endif
+                @if($invoice->supplier && $invoice->supplier->address)
+                    <p>{{ $invoice->supplier->address }}</p>
+                @endif
+                @if($invoice->supplier && $invoice->supplier->phone)
+                    <p>Tel: {{ $invoice->supplier->phone }}</p>
+                @endif
+                @if($invoice->supplier && $invoice->supplier->email)
+                    <p>E-posta: {{ $invoice->supplier->email }}</p>
+                @endif
             </div>
-            <div class="invoice-summary">
-                <table>
-                    <tr>
-                        <td>Fatura Tarihi</td>
-                        <td>: {{ $invoice->invoice_date->format('d.m.Y') }}</td>
-                    </tr>
-                    <tr>
-                        <td>Fatura Saati</td>
-                        <td>: {{ $invoice->invoice_time }}</td>
-                    </tr>
-                    <tr>
-                        <td>Vade Tarihi</td>
-                        <td>: {{ $invoice->due_date->format('d.m.Y') }}</td>
-                    </tr>
-                    <tr>
-                        <td>Para Birimi</td>
-                        <td>: 
-                            @if($invoice->currency === 'USD')
-                                $ USD
-                            @elseif($invoice->currency === 'EUR')
-                                € EUR
+            <div class="invoice-meta">
+                <h3>Fatura Bilgileri</h3>
+                <p><strong>Para Birimi:</strong> {{ $invoice->currency }}</p>
+                <p><strong>KDV Durumu:</strong> {{ $invoice->vat_status === 'included' ? 'KDV Dahil' : 'KDV Hariç' }}</p>
+                <p><strong>Ödeme Durumu:</strong> 
+                    @if($invoice->payment_completed)
+                        <span class="status-badge status-paid">Ödendi</span>
                             @else
-                                ₺ TRY
-                            @endif
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Durum</td>
-                        <td>: 
-                            @switch($invoice->status)
-                                @case('draft') Taslak @break
-                                @case('sent') Gönderildi @break
-                                @case('paid') Ödendi @break
-                                @case('overdue') Vadesi Geçti @break
-                                @case('cancelled') İptal @break
-                            @endswitch
-                        </td>
-                    </tr>
-                </table>
-                <br>
-                <h3>Tedarikçi (Satıcı):</h3>
-                <table>
-                    <tr>
-                        <td>Ad / Ünvan</td>
-                        <td>: {{ optional($invoice->supplier)->name ?? '-' }}</td>
-                    </tr>
-                    @if(optional($invoice->supplier)->company_name)
-                    <tr>
-                        <td>Şirket</td>
-                        <td>: {{ $invoice->supplier->company_name }}</td>
-                    </tr>
+                        <span class="status-badge status-pending">Beklemede</span>
                     @endif
-                    @if(optional($invoice->supplier)->address)
-                    <tr>
-                        <td>Adres</td>
-                        <td>: {{ $invoice->supplier->address }}</td>
-                    </tr>
-                    @endif
-                    @if(optional($invoice->supplier)->phone)
-                    <tr>
-                        <td>Telefon</td>
-                        <td>: {{ $invoice->supplier->phone }}</td>
-                    </tr>
-                    @endif
-                    @if(optional($invoice->supplier)->email)
-                    <tr>
-                        <td>E-posta</td>
-                        <td>: {{ $invoice->supplier->email }}</td>
-                    </tr>
-                    @endif
-                </table>
+                </p>
             </div>
         </div>
+        
+        @if($invoice->description)
+        <div style="margin-bottom: 20px;">
+            <h3 style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">Açıklama</h3>
+            <p style="font-size: 11px;">{{ $invoice->description }}</p>
+        </div>
+        @endif
 
         <!-- Items Table -->
         <table class="items-table">
             <thead>
                 <tr>
-                    <th class="text-center">Sıra</th>
-                    <th>Ürün/Hizmet</th>
-                    <th>Açıklama</th>
-                    <th class="text-center">Miktar</th>
-                    <th class="text-right">Birim Fiyat</th>
-                    <th class="text-center">KDV %</th>
-                    <th class="text-center">İndirim %</th>
-                    <th class="text-right">Toplam</th>
+                    <th style="width: 5%;">Sıra</th>
+                    <th style="width: 30%;">Ürün/Hizmet</th>
+                    <th style="width: 20%;">Açıklama</th>
+                    <th style="width: 8%;">Miktar</th>
+                    <th style="width: 10%;">Birim Fiyat</th>
+                    <th style="width: 8%;">KDV %</th>
+                    <th style="width: 8%;">İndirim %</th>
+                    <th style="width: 11%;">Toplam</th>
                 </tr>
             </thead>
             <tbody>
@@ -342,171 +277,54 @@
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $item->product_service_name }}</td>
                     <td>{{ $item->description ?? '-' }}</td>
-                    <td class="text-center">{{ $item->quantity }}</td>
-                    <td class="text-right">
-                        {{ number_format($item->unit_price, 2) }}
-                        @if($invoice->currency === 'USD')
-                            $
-                        @elseif($invoice->currency === 'EUR')
-                            €
-                        @else
-                            ₺
-                        @endif
-                        @if($invoice->currency !== 'TRY')
-                            <br><small class="text-muted" id="unitPriceTRY_{{ $index }}">-</small>
-                        @endif
-                    </td>
-                    <td class="text-center">%{{ $item->tax_rate }}</td>
-                    <td class="text-center">%{{ $item->discount_rate }}</td>
-                    <td class="text-right">
-                        {{ number_format($item->line_total, 2) }}
-                        @if($invoice->currency === 'USD')
-                            $
-                        @elseif($invoice->currency === 'EUR')
-                            €
-                        @else
-                            ₺
-                        @endif
-                    </td>
+                    <td class="text-right">{{ number_format($item->quantity, 2) }}</td>
+                    <td class="text-right">{{ number_format($item->unit_price, 2) }} {{ $item->unit_currency }}</td>
+                    <td class="text-center">{{ number_format($item->tax_rate, 1) }}%</td>
+                    <td class="text-center">{{ number_format($item->discount_rate, 1) }}%</td>
+                    <td class="text-right">{{ number_format($item->line_total, 2) }} {{ $item->unit_currency }}</td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
 
-        <!-- Invoice Footer -->
-        <div class="invoice-footer">
-            <div class="notes">
-                @if($invoice->description)
-                <p><strong>Açıklama:</strong> {{ $invoice->description }}</p>
+        <!-- Totals -->
+        <div class="totals">
+            <table class="totals-table">
+                <tr>
+                    <td class="label">Ara Toplam:</td>
+                    <td class="amount">{{ number_format($invoice->subtotal, 2) }} {{ $invoice->currency }}</td>
+                </tr>
+                @if($invoice->discount_amount > 0)
+                <tr>
+                    <td class="label">İndirim:</td>
+                    <td class="amount">-{{ number_format($invoice->discount_amount, 2) }} {{ $invoice->currency }}</td>
+                </tr>
                 @endif
-                <p>İşlem tarihi: {{ $invoice->created_at->format('d.m.Y H:i') }}</p>
-            </div>
-            <div class="totals">
-                <table>
-                    <tr>
-                        <td>Ara Toplam:</td>
-                        <td>
-                            {{ number_format($invoice->subtotal, 2) }}
-                            @if($invoice->currency === 'USD')
-                                $
-                            @elseif($invoice->currency === 'EUR')
-                                €
-                            @else
-                                ₺
+                @if($invoice->additional_discount > 0)
+                <tr>
+                    <td class="label">Ek İndirim:</td>
+                    <td class="amount">-{{ number_format($invoice->additional_discount, 2) }} {{ $invoice->currency }}</td>
+                </tr>
                             @endif
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>KDV:</td>
-                        <td>
-                            {{ number_format($invoice->vat_amount, 2) }}
-                            @if($invoice->currency === 'USD')
-                                $
-                            @elseif($invoice->currency === 'EUR')
-                                €
-                            @else
-                                ₺
-                            @endif
-                        </td>
-                    </tr>
-                    <tr class="total-row">
-                        <td>Genel Toplam:</td>
-                        <td>
-                            {{ number_format($invoice->total_amount, 2) }}
-                            @if($invoice->currency === 'USD')
-                                $
-                            @elseif($invoice->currency === 'EUR')
-                                €
-                            @else
-                                ₺
-                            @endif
-                        </td>
-                    </tr>
-                    @if($invoice->currency !== 'TRY')
-                    <tr class="tl-row">
-                        <td>Toplam (TL):</td>
-                        <td id="totalAmountTRY">-</td>
+                @if($invoice->vat_amount > 0)
+                <tr>
+                    <td class="label">KDV:</td>
+                    <td class="amount">{{ number_format($invoice->vat_amount, 2) }} {{ $invoice->currency }}</td>
                     </tr>
                     @endif
+                <tr class="total-row">
+                    <td class="label">GENEL TOPLAM:</td>
+                    <td class="amount">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->currency }}</td>
+                </tr>
                 </table>
-            </div>
         </div>
 
-        <!-- Thank You Message -->
-        <div class="thank-you">
-            İşleminiz için teşekkür ederiz!
-        </div>
-
-        <!-- Signatures -->
-        <div class="signatures">
-            <div class="signature-box">Müşteri İmzası</div>
-            <div class="signature-box">Yetkili İmzası</div>
+        <!-- Footer -->
+        <div class="footer">
+            <p>Bu alış faturası elektronik ortamda oluşturulmuştur.</p>
+            <p>Ronex Tekstil San. Tic. Ltd. Şti. - {{ date('Y') }}</p>
         </div>
     </div>
-
-    @if($invoice->currency !== 'TRY')
-    <script>
-        // Calculate TL equivalent for foreign currency invoices
-        const invoiceCurrency = '{{ $invoice->currency }}';
-        const totalAmount = {{ $invoice->total_amount }};
-        
-        // Get unit prices for TL conversion
-        const unitPrices = [
-            @foreach($invoice->items as $index => $item)
-                {{ $item->unit_price }}{{ $index < count($invoice->items) - 1 ? ',' : '' }}
-            @endforeach
-        ];
-        
-        // Get exchange rates
-        fetch('{{ route("purchases.invoices.currency.rates") }}')
-            .then(response => response.json())
-            .then(data => {
-                let exchangeRate;
-                if (data.success && data.rates[invoiceCurrency]) {
-                    exchangeRate = data.rates[invoiceCurrency];
-                } else {
-                    // Fallback rates
-                    const fallbackRates = {
-                        'USD': 41.29,
-                        'EUR': 48.55
-                    };
-                    exchangeRate = fallbackRates[invoiceCurrency] || 1;
-                }
-                
-                // Calculate total amount in TL
-                const totalAmountTRY = totalAmount * exchangeRate;
-                document.getElementById('totalAmountTRY').textContent = totalAmountTRY.toFixed(2).replace('.', ',') + ' ₺';
-                
-                // Calculate unit prices in TL
-                unitPrices.forEach((unitPrice, index) => {
-                    const unitPriceTRY = unitPrice * exchangeRate;
-                    const element = document.getElementById('unitPriceTRY_' + index);
-                    if (element) {
-                        element.textContent = '(' + unitPriceTRY.toFixed(2).replace('.', ',') + ' ₺)';
-                    }
-                });
-            })
-            .catch(error => {
-                // Fallback rates if API fails
-                const fallbackRates = {
-                    'USD': 41.29,
-                    'EUR': 48.55
-                };
-                const exchangeRate = fallbackRates[invoiceCurrency] || 1;
-                const totalAmountTRY = totalAmount * exchangeRate;
-                document.getElementById('totalAmountTRY').textContent = totalAmountTRY.toFixed(2).replace('.', ',') + ' ₺';
-                
-                // Calculate unit prices in TL with fallback rates
-                unitPrices.forEach((unitPrice, index) => {
-                    const unitPriceTRY = unitPrice * exchangeRate;
-                    const element = document.getElementById('unitPriceTRY_' + index);
-                    if (element) {
-                        element.textContent = '(' + unitPriceTRY.toFixed(2).replace('.', ',') + ' ₺)';
-                    }
-                });
-            });
-    </script>
-    @endif
 
     <script>
         // Auto print when page loads

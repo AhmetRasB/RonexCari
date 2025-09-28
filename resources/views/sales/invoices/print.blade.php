@@ -293,13 +293,17 @@
                     <tr>
                         <td>Durum</td>
                         <td>: 
-                            @switch($invoice->status)
-                                @case('draft') Taslak @break
-                                @case('sent') Gönderildi @break
-                                @case('paid') Ödendi @break
-                                @case('overdue') Vadesi Geçti @break
-                                @case('cancelled') İptal @break
-                            @endswitch
+                            @if($invoice->payment_completed)
+                                Tahsilat Yapıldı
+                            @else
+                                @switch($invoice->status)
+                                    @case('draft') Taslak @break
+                                    @case('sent') Gönderildi @break
+                                    @case('paid') Ödendi @break
+                                    @case('overdue') Vadesi Geçti @break
+                                    @case('cancelled') İptal @break
+                                @endswitch
+                            @endif
                         </td>
                     </tr>
                 </table>

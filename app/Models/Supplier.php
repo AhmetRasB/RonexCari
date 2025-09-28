@@ -56,6 +56,11 @@ class Supplier extends Model
         return $this->hasMany(DeliveryNote::class);
     }
 
+    public function payments()
+    {
+        return $this->hasMany(SupplierPayment::class);
+    }
+
     // Accessors for payment tracking
     public function getRemainingBalanceTryAttribute()
     {
