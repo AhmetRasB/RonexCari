@@ -114,10 +114,9 @@
             setBorder('#28a745');
             lastPayload = payload;
 
-            // 5 saniye bekleme ekle - farklı barkodları hemen alıp bozulmasın
-            setTimeout(() => {
-                // If invoice page provided global functions, use them
-                if (invoiceContext) {
+            if (invoiceContext) {
+                // Invoice context - add product to invoice with 5 second cooldown
+                setTimeout(() => {
                     if (currentMode === 'qr') {
                         const match = (payload||'').match(/\/products\/(\d+)/);
                         if (match && window.addScannedProductById) {
@@ -130,18 +129,52 @@
                             window.addScannedProductByCode(payload);
                         }
                     }
-                    // Close scanner immediately after adding to invoice to avoid lingering camera/backdrop
-                    window.dispatchEvent(new Event('close-scanner'));
-                } else {
-                    // Default behavior: navigate to product if QR url pattern matches
-                    const match = (payload||'').match(/\/products\/(\d+)/);
-                    if (match) {
-                        window.location.href = '/products/' + match[1];
-                    } else if (onSingleResult) {
-                        onSingleResult(payload);
+                }, 5000); // 5 second cooldown for invoice scanning
+            } else if (onSingleResult) {
+                // Single scan mode - call callback immediately
+                onSingleResult(payload);
+            } else {
+                // Default behavior - lookup barcode and redirect
+                lookupAndRedirect(payload);
+            }
+        }
+
+        function lookupAndRedirect(barcode) {
+            fetch('{{ route('barcode.lookup') }}?barcode=' + encodeURIComponent(barcode), { 
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else if (data.error) {
+                    console.error('Barcode lookup error:', data.error);
+                    // Fallback to old behavior
+                    const m = (barcode||'').match(/\/products\/(\d+)/);
+                    if (m) { 
+                        window.location.href = '/products/' + m[1]; 
+                        return; 
                     }
+                    // Try search by code via sales invoice search endpoint then navigate
+                    fetch('{{ route('sales.invoices.search.products') }}?q=' + encodeURIComponent(barcode), { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+                      .then(r=>r.json())
+                      .then(list=>{ 
+                          if (list && list.length>0) { 
+                              const id = (list[0].id||'').toString().replace(/^(product_|series_|service_)/,''); 
+                              window.location.href = '/products/' + id; 
+                          } 
+                      });
                 }
-            }, 5000); // 5 saniye bekleme
+            })
+            .catch(error => {
+                console.error('Barcode lookup failed:', error);
+                // Fallback to old behavior
+                const m = (barcode||'').match(/\/products\/(\d+)/);
+                if (m) { 
+                    window.location.href = '/products/' + m[1]; 
+                    return; 
+                }
+            });
         }
 
         function startQr(){
@@ -540,15 +573,13 @@
         // Convenience hooks for buttons if present
         document.addEventListener('click', function(e){
             if (e.target.closest('#openNavbarScanner')){
-                window.openGlobalScanner({ mode: 'barcode', onResult: function(payload){
-                    // Try to route to /products/{id} if QR contains it
-                    const m = (payload||'').match(/\/products\/(\d+)/);
-                    if (m) { window.location.href = '/products/' + m[1]; return; }
-                    // Otherwise try search by code via sales invoice search endpoint then navigate
-                    fetch('{{ route('sales.invoices.search.products') }}?q=' + encodeURIComponent(payload), { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
-                      .then(r=>r.json())
-                      .then(list=>{ if (list && list.length>0) { const id = (list[0].id||'').toString().replace(/^(product_|series_|service_)/,''); window.location.href = '/products/' + id; } });
-                }});
+                window.openGlobalScanner({ 
+                    mode: 'barcode', 
+                    onResult: function(payload){
+                        // Use the new lookup function for proper routing
+                        lookupAndRedirect(payload);
+                    }
+                });
             }
             if (e.target.closest('#openInvoiceScanner')){
                 window.openGlobalScanner({ invoiceContext: true, multi: true });

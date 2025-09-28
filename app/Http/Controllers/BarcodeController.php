@@ -138,6 +138,103 @@ class BarcodeController extends Controller
             'qrValue' => $qrValue,
         ]);
     }
+
+    /**
+     * Lookup product or series by barcode and return redirect URL
+     */
+    public function lookupByBarcode(Request $request)
+    {
+        try {
+            $barcode = $request->get('barcode', '');
+            
+            if (empty($barcode)) {
+                return response()->json(['error' => 'Barcode is required'], 400);
+            }
+
+            $currentAccountId = session('current_account_id');
+
+            // First, try to find by exact barcode match in products
+            $product = Product::where('barcode', $barcode)
+                ->where('is_active', true)
+                ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                    $q->where('account_id', $currentAccountId);
+                })
+                ->first();
+
+            if ($product) {
+                return response()->json([
+                    'type' => 'product',
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'redirect_url' => route('products.show', $product->id)
+                ]);
+            }
+
+            // If not found in products, try product series
+            $series = ProductSeries::where('barcode', $barcode)
+                ->where('is_active', true)
+                ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                    $q->where('account_id', $currentAccountId);
+                })
+                ->first();
+
+            if ($series) {
+                return response()->json([
+                    'type' => 'series',
+                    'id' => $series->id,
+                    'name' => $series->name,
+                    'redirect_url' => route('products.series.show', $series->id)
+                ]);
+            }
+
+            // If still not found, try partial matches or other fields
+            $product = Product::where(function($q) use ($barcode) {
+                    $q->where('barcode', 'like', "%{$barcode}%")
+                      ->orWhere('sku', $barcode)
+                      ->orWhere('sku', 'like', "%{$barcode}%");
+                })
+                ->where('is_active', true)
+                ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                    $q->where('account_id', $currentAccountId);
+                })
+                ->first();
+
+            if ($product) {
+                return response()->json([
+                    'type' => 'product',
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'redirect_url' => route('products.show', $product->id)
+                ]);
+            }
+
+            $series = ProductSeries::where(function($q) use ($barcode) {
+                    $q->where('barcode', 'like', "%{$barcode}%")
+                      ->orWhere('sku', $barcode)
+                      ->orWhere('sku', 'like', "%{$barcode}%");
+                })
+                ->where('is_active', true)
+                ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                    $q->where('account_id', $currentAccountId);
+                })
+                ->first();
+
+            if ($series) {
+                return response()->json([
+                    'type' => 'series',
+                    'id' => $series->id,
+                    'name' => $series->name,
+                    'redirect_url' => route('products.series.show', $series->id)
+                ]);
+            }
+
+            return response()->json(['error' => 'Product or series not found'], 404);
+
+        } catch (\Exception $e) {
+            \Log::error('Barcode lookup failed', ['error' => $e->getMessage(), 'barcode' => $request->get('barcode')]);
+            return response()->json(['error' => 'Server error'], 500);
+        }
+    }
 }
 
 

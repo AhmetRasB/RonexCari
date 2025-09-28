@@ -119,6 +119,7 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     Route::get('/barcodes', [BarcodeController::class, 'index'])->name('barcode.index');
     Route::post('/barcodes/preview', [BarcodeController::class, 'preview'])->name('barcode.preview');
     Route::get('/barcodes/test', [BarcodeController::class, 'test'])->name('barcode.test');
+    Route::get('/barcodes/lookup', [BarcodeController::class, 'lookupByBarcode'])->name('barcode.lookup');
     
     
     // Services Routes (separate)

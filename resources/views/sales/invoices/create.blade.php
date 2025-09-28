@@ -688,6 +688,9 @@ window.addScannedProductById = function(id){
             } else {
                 toastr.error('Ürün bulunamadı: #' + id);
             }
+        })
+        .fail(function(){
+            toastr.error('Ürün arama hatası');
         });
 }
 
@@ -700,6 +703,9 @@ window.addScannedProductByCode = function(code){
             } else {
                 toastr.error('Kod ile ürün bulunamadı: ' + code);
             }
+        })
+        .fail(function(){
+            toastr.error('Ürün arama hatası');
         });
 }
 
