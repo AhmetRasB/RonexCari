@@ -97,6 +97,9 @@
         let invoiceContext = false;
         let onSingleResult = null;
         let lastPayload = null;
+        let isScannerPaused = false;
+        let cooldownTimeout = null;
+        let lastScannedBarcode = null;
 
         const modalEl = document.getElementById('globalScannerModal');
         const scanBorder = document.getElementById('scanBorder');
@@ -110,26 +113,44 @@
         }
 
         function handlePayload(payload){
+            // Prevent duplicate processing during cooldown
+            if (isScannerPaused) {
+                return;
+            }
+
+            // Prevent duplicate scans of the same barcode
+            if (invoiceContext && lastScannedBarcode === payload) {
+                console.log('Duplicate barcode detected, ignoring:', payload);
+                return;
+            }
+
             try { beepEl && beepEl.play().catch(()=>{}); } catch(e){}
             setBorder('#28a745');
             lastPayload = payload;
 
             if (invoiceContext) {
-                // Invoice context - add product to invoice with 5 second cooldown
-                setTimeout(() => {
-                    if (currentMode === 'qr') {
-                        const match = (payload||'').match(/\/products\/(\d+)/);
-                        if (match && window.addScannedProductById) {
-                            window.addScannedProductById(match[1]);
-                        } else if (window.addScannedProductByCode) {
-                            window.addScannedProductByCode(payload);
-                        }
-                    } else {
-                        if (window.addScannedProductByCode) {
-                            window.addScannedProductByCode(payload);
-                        }
+                // Store the scanned barcode to prevent duplicates
+                lastScannedBarcode = payload;
+                
+                // Immediately pause scanner to prevent duplicate scans
+                pauseScanner();
+                
+                // Process the scan immediately
+                if (currentMode === 'qr') {
+                    const match = (payload||'').match(/\/products\/(\d+)/);
+                    if (match && window.addScannedProductById) {
+                        window.addScannedProductById(match[1]);
+                    } else if (window.addScannedProductByCode) {
+                        window.addScannedProductByCode(payload);
                     }
-                }, 5000); // 5 second cooldown for invoice scanning
+                } else {
+                    if (window.addScannedProductByCode) {
+                        window.addScannedProductByCode(payload);
+                    }
+                }
+                
+                // Start 5-second cooldown
+                startCooldown();
             } else if (onSingleResult) {
                 // Single scan mode - call callback immediately
                 onSingleResult(payload);
@@ -175,6 +196,52 @@
                     return; 
                 }
             });
+        }
+
+        function pauseScanner() {
+            isScannerPaused = true;
+            console.log('Scanner paused to prevent duplicate scans');
+        }
+
+        function resumeScanner() {
+            isScannerPaused = false;
+            lastScannedBarcode = null; // Clear the last scanned barcode to allow scanning the same barcode again
+            console.log('Scanner resumed and ready for next scan');
+        }
+
+        function startCooldown() {
+            // Clear any existing cooldown
+            if (cooldownTimeout) {
+                clearTimeout(cooldownTimeout);
+            }
+            
+            // Show cooldown message
+            const cooldownMessage = document.createElement('div');
+            cooldownMessage.id = 'cooldownMessage';
+            cooldownMessage.className = 'position-absolute top-50 start-50 translate-middle bg-dark text-white px-3 py-2 rounded';
+            cooldownMessage.style.zIndex = '1000';
+            cooldownMessage.innerHTML = '5 saniye bekleyin...';
+            
+            const scannerViewport = document.getElementById('scannerViewport');
+            scannerViewport.appendChild(cooldownMessage);
+            
+            // Start countdown
+            let countdown = 5;
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                if (countdown > 0) {
+                    cooldownMessage.innerHTML = countdown + ' saniye bekleyin...';
+                } else {
+                    clearInterval(countdownInterval);
+                    cooldownMessage.remove();
+                    resumeScanner();
+                }
+            }, 1000);
+            
+            // Resume scanner after 5 seconds
+            cooldownTimeout = setTimeout(() => {
+                resumeScanner();
+            }, 5000);
         }
 
         function startQr(){
@@ -355,6 +422,20 @@
                 }
             } catch(e){
                 console.log('❌ Error clearing barcode reader:', e);
+            }
+            
+            // Reset scanner state
+            isScannerPaused = false;
+            lastScannedBarcode = null;
+            if (cooldownTimeout) {
+                clearTimeout(cooldownTimeout);
+                cooldownTimeout = null;
+            }
+            
+            // Remove any cooldown message
+            const cooldownMessage = document.getElementById('cooldownMessage');
+            if (cooldownMessage) {
+                cooldownMessage.remove();
             }
             
             console.log('🛑 All scanners stopped');
@@ -554,6 +635,20 @@
             invoiceContext = !!options.invoiceContext;
             onSingleResult = options.onResult || null;
             multiScan = !!options.multi;
+            
+            // Reset scanner state
+            isScannerPaused = false;
+            lastScannedBarcode = null;
+            if (cooldownTimeout) {
+                clearTimeout(cooldownTimeout);
+                cooldownTimeout = null;
+            }
+            
+            // Remove any existing cooldown message
+            const cooldownMessage = document.getElementById('cooldownMessage');
+            if (cooldownMessage) {
+                cooldownMessage.remove();
+            }
             
             // Çoklu tarama seçeneğini sadece invoice context'te göster
             const multiScanToggle = document.getElementById('multiScanToggleWrapper');
