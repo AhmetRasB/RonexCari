@@ -723,6 +723,10 @@ window.addScannedProductByCode = function(code){
                             item.size = detailedItem.size;
                             item.color = detailedItem.color;
                             
+                            // Pass color variants data for products with multiple colors
+                            item.has_color_variants = detailedItem.has_color_variants;
+                            item.color_variants = detailedItem.color_variants;
+                            
                             appendInvoiceItemFromResult(item);
                             toastr.success(item.name + ' eklendi');
                         } else {
@@ -766,6 +770,23 @@ function appendInvoiceItemFromResult(item){
     row.find('select[name*="[tax_rate]"]').val(item.vat_rate);
     row.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
     row.find('input[name*="[type]"]').val(item.type);
+    
+    // Handle color variants - same logic as manual selection
+    if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {
+        // Add color column to table header if not exists
+        addColorColumnToTable();
+        
+        // Add color cell to current row
+        addColorCellToRow(row, item.color_variants);
+        
+        // Store color variants data
+        row.data('color-variants', item.color_variants);
+    }
+    
+    // Store stock information for validation
+    row.data('stock-quantity', item.stock_quantity || 0);
+    row.data('product-type', item.type);
+    
     calculateLineTotal.call(row.find('.unit-price')[0]);
 }
 
