@@ -217,44 +217,6 @@
     </div>
 </div>
 
-<!-- QR Scan Confirmation Modal -->
-<div class="modal fade" id="qrScanConfirmationModal" tabindex="-1" aria-labelledby="qrScanConfirmationModalLabel" aria-hidden="true" style="z-index: 1060;">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="qrScanConfirmationModalLabel">
-                    <iconify-icon icon="solar:qr-code-outline" class="me-2"></iconify-icon>
-                    QR Tarama Onayı
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center p-4">
-                <div class="mb-3">
-                    <iconify-icon icon="solar:check-circle-outline" class="text-success" style="font-size: 3rem;"></iconify-icon>
-                </div>
-                <h6 class="mb-3">Ürün başarıyla taranıldı!</h6>
-                <p class="mb-3">
-                    <strong id="scannedProductName">Ürün Adı</strong> ürününü faturaya eklemek istediğinizden emin misiniz?
-                </p>
-                <div class="alert alert-info">
-                    <iconify-icon icon="solar:info-circle-outline" class="me-2"></iconify-icon>
-                    <small>Ürün detayları yükleniyor ve tam özelliklerle eklenecektir.</small>
-                </div>
-            </div>
-            <div class="modal-footer justify-content-center">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <iconify-icon icon="solar:close-circle-outline" class="me-1"></iconify-icon>
-                    İptal
-                </button>
-                <button type="button" class="btn btn-success" id="confirmAddProduct">
-                    <iconify-icon icon="solar:check-circle-outline" class="me-1"></iconify-icon>
-                    Evet, Ekle
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Customer Modal -->
 <div class="modal fade" id="customerModal" tabindex="-1" aria-labelledby="customerModalLabel" aria-hidden="true" style="z-index: 1055;">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -721,7 +683,8 @@ window.addScannedProductById = function(id){
         .done(function(list){
             const item = list.find(i => (i.id+'').endsWith(id+''));
             if (item) {
-                showScanConfirmationModal(item);
+                appendInvoiceItemFromResult(item);
+                toastr.success(item.name + ' eklendi');
             } else {
                 toastr.error('Ürün bulunamadı: #' + id);
             }
@@ -764,15 +727,20 @@ window.addScannedProductByCode = function(code){
                             item.has_color_variants = detailedItem.has_color_variants;
                             item.color_variants = detailedItem.color_variants;
                             
-                            showScanConfirmationModal(item);
+                            
+                            
+                            appendInvoiceItemFromResult(item);
+                            toastr.success(item.name + ' eklendi');
                         } else {
-                            // Fallback: show modal with basic info
-                            showScanConfirmationModal(item);
+                            // Fallback: add with basic info
+                            appendInvoiceItemFromResult(item);
+                            toastr.success(item.name + ' eklendi');
                         }
                     })
                     .fail(function(){
-                        // Fallback: show modal with basic info
-                        showScanConfirmationModal(item);
+                        // Fallback: add with basic info
+                        appendInvoiceItemFromResult(item);
+                        toastr.success(item.name + ' eklendi');
                     });
             } else if (data.error) {
                 toastr.error('Barkod bulunamadı: ' + code);
@@ -783,7 +751,8 @@ window.addScannedProductByCode = function(code){
             $.get('{{ route("sales.invoices.search.products") }}', { q: code })
                 .done(function(list){
                     if (list.length > 0) {
-                        showScanConfirmationModal(list[0]);
+                        appendInvoiceItemFromResult(list[0]);
+                        toastr.success(list[0].name + ' eklendi');
                     } else {
                         toastr.error('Kod ile ürün bulunamadı: ' + code);
                     }
@@ -792,71 +761,6 @@ window.addScannedProductByCode = function(code){
                     toastr.error('Ürün arama hatası');
                 });
         });
-}
-
-// Global variable to store the pending product data
-let pendingScannedProduct = null;
-
-function showScanConfirmationModal(item) {
-    // Store the product data for later use
-    pendingScannedProduct = item;
-    
-    // Update modal content
-    $('#scannedProductName').text(item.name);
-    
-    // Show the modal
-    $('#qrScanConfirmationModal').modal('show');
-}
-
-// Handle confirmation button click
-$(document).on('click', '#confirmAddProduct', function() {
-    if (pendingScannedProduct) {
-        // Add the product to invoice with complete data
-        appendInvoiceItemFromResult(pendingScannedProduct);
-        
-        // Play success sound
-        playSuccessSound();
-        
-        // Show success message
-        toastr.success(pendingScannedProduct.name + ' başarıyla eklendi');
-        
-        // Clear pending product
-        pendingScannedProduct = null;
-        
-        // Close modal
-        $('#qrScanConfirmationModal').modal('hide');
-    }
-});
-
-// Handle modal close/cancel
-$('#qrScanConfirmationModal').on('hidden.bs.modal', function() {
-    // Clear pending product if modal is closed without confirmation
-    if (pendingScannedProduct) {
-        pendingScannedProduct = null;
-    }
-});
-
-function playSuccessSound() {
-    // Create and play a success sound
-    try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-        
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.3);
-    } catch (e) {
-        console.log('Could not play success sound:', e);
-    }
 }
 
 function appendInvoiceItemFromResult(item){
@@ -874,8 +778,10 @@ function appendInvoiceItemFromResult(item){
         // Add color column to table header if not exists
         addColorColumnToTable();
         
-        // Add color cell to current row
-        addColorCellToRow(row, item.color_variants);
+        // Add color cell to current row - wait for DOM to be ready
+        setTimeout(() => {
+            addColorCellToRow(row, item.color_variants);
+        }, 100);
         
         // Store color variants data
         row.data('color-variants', item.color_variants);
@@ -887,8 +793,10 @@ function appendInvoiceItemFromResult(item){
     
     calculateLineTotal.call(row.find('.unit-price')[0]);
     
-    // Trigger stock validation for scanned products
-    setTimeout(() => validateStock(row), 100);
+    // Trigger stock validation for scanned products - wait for DOM to be ready
+    setTimeout(() => {
+        validateStock(row);
+    }, 300);
 }
 
 function searchCustomers(query) {

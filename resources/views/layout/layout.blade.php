@@ -132,8 +132,8 @@
                 // Store the scanned barcode to prevent duplicates
                 lastScannedBarcode = payload;
                 
-                // Immediately close camera to prevent re-scans
-                closeScanner();
+                // Immediately pause scanner to prevent duplicate scans
+                pauseScanner();
                 
                 // Process the scan immediately
                 if (currentMode === 'qr') {
@@ -335,16 +335,6 @@
                 handlePayload(code);
                 if (!multiScan) { showPostScanControls(); }
             });
-        }
-
-        function closeScanner(){
-            console.log('📷 Closing scanner...');
-            stopAll();
-            // Close the modal
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) {
-                modal.hide();
-            }
         }
 
         function stopAll(){
