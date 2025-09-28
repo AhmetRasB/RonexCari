@@ -727,6 +727,7 @@ window.addScannedProductByCode = function(code){
                             item.has_color_variants = detailedItem.has_color_variants;
                             item.color_variants = detailedItem.color_variants;
                             
+                            
                             appendInvoiceItemFromResult(item);
                             toastr.success(item.name + ' eklendi');
                         } else {
@@ -788,6 +789,9 @@ function appendInvoiceItemFromResult(item){
     row.data('product-type', item.type);
     
     calculateLineTotal.call(row.find('.unit-price')[0]);
+    
+    // Trigger stock validation for scanned products
+    setTimeout(() => validateStock(row), 100);
 }
 
 function searchCustomers(query) {

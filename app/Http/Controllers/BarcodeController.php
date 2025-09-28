@@ -159,6 +159,10 @@ class BarcodeController extends Controller
                 ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
                     $q->where('account_id', $currentAccountId);
                 })
+                ->when($currentAccountId === null, function($q) {
+                    // Eğer hesap seçili değilse, tüm ürünleri getir
+                    $q->whereNotNull('account_id');
+                })
                 ->first();
 
             if ($product) {
@@ -175,6 +179,10 @@ class BarcodeController extends Controller
                 ->where('is_active', true)
                 ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
                     $q->where('account_id', $currentAccountId);
+                })
+                ->when($currentAccountId === null, function($q) {
+                    // Eğer hesap seçili değilse, tüm ürünleri getir
+                    $q->whereNotNull('account_id');
                 })
                 ->first();
 
@@ -197,6 +205,10 @@ class BarcodeController extends Controller
                 ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
                     $q->where('account_id', $currentAccountId);
                 })
+                ->when($currentAccountId === null, function($q) {
+                    // Eğer hesap seçili değilse, tüm ürünleri getir
+                    $q->whereNotNull('account_id');
+                })
                 ->first();
 
             if ($product) {
@@ -216,6 +228,10 @@ class BarcodeController extends Controller
                 ->where('is_active', true)
                 ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
                     $q->where('account_id', $currentAccountId);
+                })
+                ->when($currentAccountId === null, function($q) {
+                    // Eğer hesap seçili değilse, tüm ürünleri getir
+                    $q->whereNotNull('account_id');
                 })
                 ->first();
 
