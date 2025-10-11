@@ -32,9 +32,9 @@ return [
     |
     */
 
-    'lifetime' => env('SESSION_LIFETIME', 30),
+    'lifetime' => env('SESSION_LIFETIME', 525600), // 1 yıl (365 gün * 24 saat * 60 dakika)
 
-    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
+    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false), // Tarayıcı kapandığında oturum kapanmasın
 
     /*
     |--------------------------------------------------------------------------
@@ -114,7 +114,7 @@ return [
     |
     */
 
-    'lottery' => [2, 100],
+    'lottery' => [1, 1000], // Eski session'ları daha az sıklıkta temizle
 
     /*
     |--------------------------------------------------------------------------

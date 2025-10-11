@@ -79,7 +79,7 @@
         @endforeach
     </div>
 @endforeach
-
+                
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('svg[data-barcode]').forEach(function(svg) {

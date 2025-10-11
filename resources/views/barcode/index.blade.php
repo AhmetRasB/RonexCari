@@ -44,7 +44,7 @@
             </div>
         </div>
         <div class="mt-2 d-flex flex-wrap gap-2">
-            <a class="btn btn-outline-primary" id="btnDownloadZpl" href="#" onclick="downloadZpl(event)">ZPL indir</a>
+            <a class="btn btn-outline-primary" id="btnDownloadZpl" href="#" onclick="downloadZpl(event)">ZPL Dosyası İndir</a>
             <a class="btn btn-outline-secondary" id="btnDownloadCsv" href="#" onclick="downloadCsv(event)">CSV indir</a>
             <a class="btn btn-outline-secondary" id="btnDownloadBtxml" href="#" onclick="downloadBtxml(event)">BTXML indir</a>
             <a href="{{ route('barcode.test') }}" class="btn btn-outline-info" target="_blank">Test QR / Barkod</a>
@@ -226,7 +226,16 @@ async function printViaQz(){
     }
 }
 
-function downloadZpl(e){ e.preventDefault(); window.open(buildUrl('{{ route('print.labels.zpl') }}'), '_blank'); }
+function downloadZpl(e){ 
+    e.preventDefault(); 
+    const url = buildUrl('{{ route('print.labels.zpl') }}');
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'etiket.zpl';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 function downloadCsv(e){ e.preventDefault(); window.open(buildUrl('{{ route('print.labels.csv') }}'), '_blank'); }
 function downloadBtxml(e){ e.preventDefault(); window.open(buildUrl('{{ route('print.labels.btxml') }}'), '_blank'); }
 

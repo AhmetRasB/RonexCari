@@ -54,6 +54,14 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Get the number of minutes the remember token should be valid.
+     */
+    public function getRememberTokenLifetime(): int
+    {
+        return 525600; // 1 yıl (365 gün * 24 saat * 60 dakika)
+    }
+
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);

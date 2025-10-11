@@ -42,6 +42,7 @@ class PrintLabelController extends Controller
 
         return response($label, 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="etiket.zpl"',
         ]);
     }
 
@@ -567,15 +568,15 @@ class PrintLabelController extends Controller
                ($colorsCsv !== '' ? "^FO20,118^A0N,22,22^FDRenkler: {$colorsCsv}^FS\n" : '') .
                // Bedenler
                ($sizesCsv !== '' ? "^FO20," . ($colorsCsv !== '' ? '142' : '118') . "^A0N,22,22^FDBedenler: {$sizesCsv}^FS\n" : '') .
-               // Barkod
+               // Barkod (yukarı kaydırıldı)
                "^BY2,2,55\n" .
-               "^FO20,170^BCN,55,N,N,N^FD{$barcode}^FS\n" .
+               "^FO20,140^BCN,55,N,N,N^FD{$barcode}^FS\n" .
                // QR kod (daha içeride)
                "^FO340,20^BQN,2,4^FDLA,{$qrSeries}^FS\n" .
                // Barkod numarası
-               "^FO20,235^A0N,22,22^FD{$barcode}^FS\n" .
+               "^FO20,205^A0N,22,22^FD{$barcode}^FS\n" .
                // Alt bilgi - RONEX TEKSTIL
-               "^FO150,260^A0N,20,20^FDRONEX TEKSTIL^FS\n" .
+               "^FO150,230^A0N,20,20^FDRONEX TEKSTIL^FS\n" .
                "^XZ\n";
         return str_repeat($one, max(1, $count));
     }
