@@ -729,6 +729,10 @@ $(document).on('click', '.supplier-option', function() {
 
 function addInvoiceItemRow() {
     console.log('Adding invoice item row, current counter:', itemCounter);
+    
+    // Check if color column exists in table header
+    const hasColorColumn = $('#invoiceTableHeader th:contains("RENK")').length > 0;
+    
     const rowHtml = `
         <tr data-item-index="${itemCounter}">
             <td>
@@ -742,6 +746,14 @@ function addInvoiceItemRow() {
             <td>
                 <textarea name="items[${itemCounter}][description]" class="form-control" rows="3" placeholder="Açıklama" style="min-height: 60px; font-size: 14px;"></textarea>
             </td>
+            ${hasColorColumn ? `
+            <td class="color-cell">
+                <select name="items[${itemCounter}][color_variant_id]" class="form-select color-variant-select" style="min-height: 50px; font-size: 14px;">
+                    <option value="">Renk Seçin</option>
+                </select>
+                <input type="hidden" name="items[${itemCounter}][selected_color]" value="">
+            </td>
+            ` : ''}
             <td>
                 <div class="input-group">
                     <input type="number" name="items[${itemCounter}][quantity]" class="form-control" value="1" min="0.01" step="0.01" required style="min-height: 50px; font-size: 16px;">
@@ -783,6 +795,8 @@ function addInvoiceItemRow() {
                     <iconify-icon icon="solar:trash-bin-minimalistic-outline"></iconify-icon>
                 </button>
             </td>
+            <input type="hidden" name="items[${itemCounter}][product_id]" value="">
+            <input type="hidden" name="items[${itemCounter}][type]" value="">
         </tr>
     `;
     
@@ -1299,6 +1313,9 @@ function searchProductsServices(query, rowIndex) {
                              data-price="${item.price}" 
                              data-vat-rate="${item.vat_rate}"
                              data-type="${item.type}"
+                             data-product-id="${item.product_id || ''}"
+                             data-has-color-variants="${item.has_color_variants || false}"
+                             data-color-variants='${JSON.stringify(item.color_variants || [])}'
                              style="cursor: pointer;">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div class="flex-grow-1">
@@ -1412,6 +1429,10 @@ $(document).on('click', '.product-service-item', function() {
     const name = $(this).data('name');
     const price = $(this).data('price');
     const vatRate = $(this).data('vat-rate');
+    const productId = $(this).data('product-id');
+    const type = $(this).data('type');
+    const hasColorVariants = $(this).data('has-color-variants');
+    const colorVariants = $(this).data('color-variants');
     
     // Set the product/service name
     row.find('input[name*="[product_service_name]"]').val(name);
@@ -1421,6 +1442,24 @@ $(document).on('click', '.product-service-item', function() {
     
     // Set the tax rate
     row.find('select[name*="[tax_rate]"]').val(vatRate);
+    
+    // Set hidden fields for product_id and type
+    row.find('input[name*="[product_id]"]').val(productId);
+    row.find('input[name*="[type]"]').val(type);
+    
+    // Handle color variants if exists
+    if (hasColorVariants && colorVariants && colorVariants.length > 0) {
+        // Add color column to table header if not exists
+        addColorColumnToTable();
+        
+        // Add color cell to current row - wait for DOM to be ready
+        setTimeout(() => {
+            addColorCellToRow(row, colorVariants);
+        }, 100);
+        
+        // Store color variants data
+        row.data('color-variants', colorVariants);
+    }
     
     // Hide dropdown
     $(`#productServiceDropdown${rowIndex}`).hide();
@@ -1437,6 +1476,84 @@ $(document).on('input', '.product-service-search', function() {
     
     searchProductsServices(query, rowIndex);
 });
+
+// Function to add color column to table header
+function addColorColumnToTable() {
+    const header = $('#invoiceTableHeader');
+    if (header.find('th:contains("RENK")').length === 0) {
+        // Insert color column after description column (2nd column)
+        header.find('th:nth-child(2)').after('<th style="min-width: 150px; width: 8%;">RENK</th>');
+        
+        // Adjust other column widths and update table min-width
+        header.find('th:nth-child(1)').attr('style', 'min-width: 200px; width: 18%;'); // ÜRÜN/HİZMET
+        header.find('th:nth-child(2)').attr('style', 'min-width: 150px; width: 12%;'); // AÇIKLAMA
+        header.find('th:nth-child(4)').attr('style', 'min-width: 160px; width: 10%;');  // MİKTAR
+        header.find('th:nth-child(5)').attr('style', 'min-width: 180px; width: 12%;'); // B. FİYAT
+        header.find('th:nth-child(6)').attr('style', 'min-width: 130px; width: 8%;');  // KDV
+        header.find('th:nth-child(7)').attr('style', 'min-width: 130px; width: 8%;');  // İNDİRİM
+        header.find('th:nth-child(8)').attr('style', 'min-width: 160px; width: 10%;'); // TOPLAM
+        header.find('th:nth-child(9)').attr('style', 'min-width: 90px; width: 5%;');   // İŞLEM
+        
+        // Update table min-width when color column is added
+        $('#invoiceItemsTable').css('min-width', '1700px');
+        
+        // Add color cells to all existing rows that don't have them
+        $('#invoiceItemsBody tr').each(function() {
+            const row = $(this);
+            if (row.find('.color-cell').length === 0) {
+                const rowIndex = row.data('item-index');
+                row.find('td:nth-child(2)').after(`
+                    <td class="color-cell">
+                        <select name="items[${rowIndex}][color_variant_id]" class="form-select color-variant-select" style="min-height: 50px; font-size: 14px;">
+                            <option value="">Renk Seçin</option>
+                        </select>
+                        <input type="hidden" name="items[${rowIndex}][selected_color]" value="">
+                    </td>
+                `);
+            }
+        });
+    }
+}
+
+// Function to add color cell to row
+function addColorCellToRow(row, colorVariants) {
+    const rowIndex = row.data('item-index');
+    
+    // Add color column to table header if not exists
+    addColorColumnToTable();
+    
+    // Check if color cell already exists, if not add it
+    if (row.find('.color-cell').length === 0) {
+        // Insert color cell after description column (2nd column)
+        row.find('td:nth-child(2)').after(`
+            <td class="color-cell">
+                <select name="items[${rowIndex}][color_variant_id]" class="form-select color-variant-select" style="min-height: 50px; font-size: 14px;">
+                    <option value="">Renk Seçin</option>
+                </select>
+                <input type="hidden" name="items[${rowIndex}][selected_color]" value="">
+            </td>
+        `);
+    }
+    
+    // Show color cell
+    row.find('.color-cell').show();
+    
+    // Populate color options
+    const colorSelect = row.find('.color-variant-select');
+    colorSelect.empty().append('<option value="">Renk Seçin</option>');
+    
+    colorVariants.forEach(function(variant) {
+        const stockText = variant.stock_quantity ? ` (${variant.stock_quantity} adet)` : '';
+        colorSelect.append(`<option value="${variant.id}" data-stock="${variant.stock_quantity}">${variant.color}${stockText}</option>`);
+    });
+
+    // Persist selected color name into hidden input for backend display
+    colorSelect.off('change').on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        const colorName = selectedOption.length ? (selectedOption.text().split(' (')[0]) : '';
+        row.find(`input[name="items[${rowIndex}][selected_color]"]`).val(colorName);
+    });
+}
 
 // Hide dropdowns when clicking outside
 $(document).on('click', function(e) {

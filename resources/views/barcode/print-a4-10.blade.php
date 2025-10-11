@@ -7,12 +7,14 @@
         @page { size: A4; margin: 10mm; }
         body { font-family: Arial, sans-serif; }
         .grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-gap: 12mm; }
-        .card { border: 1px solid #ddd; padding: 8mm; height: 90mm; display: flex; flex-direction: column; justify-content: space-between; }
-        .title { font-weight: 700; text-align: left; }
-        .row { display: flex; justify-content: space-between; align-items: center; }
+        .card { border: 2px solid #333; padding: 8mm; height: 90mm; display: flex; flex-direction: column; justify-content: space-between; }
+        .title { font-weight: 700; text-align: left; font-size: 14pt; line-height: 1.3; }
+        .subtitle { font-weight: 600; font-size: 11pt; color: #555; margin-top: 2mm; }
+        .info { font-size: 10pt; color: #666; margin-top: 1mm; }
+        .row { display: flex; justify-content: space-between; align-items: center; margin-top: 3mm; }
         .qr { width: 35mm; }
         .barcode { width: 70mm; height: 40px; }
-        .footer { text-align: center; font-size: 12pt; letter-spacing: 2px; }
+        .footer { text-align: center; font-size: 11pt; letter-spacing: 1px; font-weight: 600; }
         @media print { .no-print { display:none } }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
@@ -58,17 +60,19 @@
                 }
             @endphp
             <div class="card">
-                <div class="title">
-                    {{ $label }}<br>
-                    <span style="font-weight:600">{{ $type }} Code: {{ $code }}</span>
+                <div>
+                    <div class="title">{{ $label }}</div>
+                    <div class="subtitle">{{ $type === 'product' ? 'ÜRÜN' : ($type === 'series_main' ? 'DIŞ PAKET' : 'BEDEN') }} - {{ $code }}</div>
+                    <div class="info">Seri: 5'li</div>
                 </div>
                 <div class="row">
-                    <div class="qr">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data={{ urlencode($qrText) }}" style="width:100%" />
+                    <div style="flex: 1;">
+                        <svg class="barcode" data-barcode="{{ $barcode }}" style="width:100%; height:45px;"></svg>
+                        <div class="footer" style="margin-top: 5mm;">{{ $barcode }}</div>
+                        <div style="text-align: center; font-size: 12pt; font-weight: 700; margin-top: 2mm;">RONEX TEKSTIL</div>
                     </div>
-                    <div class="barcode">
-                        <svg class="barcode" data-barcode="{{ $barcode }}" style="width:100%; height:40px;"></svg>
-                        <div class="footer">{{ $barcode }}</div>
+                    <div class="qr" style="margin-left: 5mm;">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ urlencode($qrText) }}" style="width:100%" />
                     </div>
                 </div>
             </div>

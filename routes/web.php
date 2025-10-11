@@ -115,6 +115,12 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     Route::post('products/series/{series}/quick-stock', [\App\Http\Controllers\Products\ProductSeriesController::class, 'quickStockUpdate'])->name('products.series.quick-stock');
     Route::get('products/test-critical-stock', [ProductController::class, 'testCriticalStock'])->name('products.test-critical-stock');
     
+    // Labels & Printing
+    Route::get('/print/labels/zpl', [\App\Http\Controllers\PrintLabelController::class, 'zpl'])->name('print.labels.zpl');
+    Route::get('/print/labels/csv', [\App\Http\Controllers\PrintLabelController::class, 'csv'])->name('print.labels.csv');
+    Route::get('/print/labels/btxml', [\App\Http\Controllers\PrintLabelController::class, 'btxml'])->name('print.labels.btxml');
+    Route::get('/print/labels/preview', [\App\Http\Controllers\PrintLabelController::class, 'previewPng'])->name('print.labels.preview');
+    
     // Barcode Section
     Route::get('/barcodes', [BarcodeController::class, 'index'])->name('barcode.index');
     Route::post('/barcodes/preview', [BarcodeController::class, 'preview'])->name('barcode.preview');

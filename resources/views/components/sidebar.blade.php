@@ -24,7 +24,6 @@
                     <iconify-icon icon="solar:chart-square-outline" class="menu-icon"></iconify-icon>
                     <span class="d-none d-lg-inline">SATIŞLAR</span>
                     <span class="d-lg-none">SATIŞ</span>
-                    <iconify-icon icon="solar:add-circle-outline" class="ms-auto"></iconify-icon>
                 </a>
                 <ul class="sidebar-submenu">
                     <li>
@@ -39,10 +38,9 @@
             <!-- ALIŞLAR (PURCHASES) -->
             <li class="dropdown">
                 <a href="javascript:void(0)">
-                    <iconify-icon icon="solar:shopping-cart-outline" class="menu-icon"></iconify-icon>
+                    <iconify-icon icon="solar:cart-large-2-outline" class="menu-icon"></iconify-icon>
                     <span class="d-none d-lg-inline">ALIŞLAR</span>
                     <span class="d-lg-none">ALIŞ</span>
-                    <iconify-icon icon="solar:minus-circle-outline" class="ms-auto"></iconify-icon>
                 </a>
                 <ul class="sidebar-submenu">
                     <li>
@@ -63,7 +61,6 @@
                 <a href="javascript:void(0)">
                     <iconify-icon icon="solar:wallet-money-outline" class="menu-icon"></iconify-icon>
                     <span>GİDERLER</span>
-                    <iconify-icon icon="solar:add-circle-outline" class="ms-auto"></iconify-icon>
                 </a>
                 <ul class="sidebar-submenu">
                     <li>
@@ -78,7 +75,6 @@
                 <a href="javascript:void(0)">
                     <iconify-icon icon="solar:box-outline" class="menu-icon"></iconify-icon>
                     <span>ÜRÜN VE HİZMETLER</span>
-                    <iconify-icon icon="solar:add-circle-outline" class="ms-auto"></iconify-icon>
                 </a>
                 <ul class="sidebar-submenu">
                     <li>
@@ -96,9 +92,8 @@
             <!-- SERİ ÜRÜNLER (SERIES PRODUCTS) -->
             <li class="dropdown">
                 <a href="javascript:void(0)">
-                    <iconify-icon icon="solar:stack-outline" class="menu-icon"></iconify-icon>
+                    <iconify-icon icon="solar:layers-outline" class="menu-icon"></iconify-icon>
                     <span>SERİ ÜRÜNLER</span>
-                    <iconify-icon icon="solar:add-circle-outline" class="ms-auto"></iconify-icon>
                 </a>
                 <ul class="sidebar-submenu">
                     <li>
@@ -126,7 +121,6 @@
                 <a href="javascript:void(0)">
                     <iconify-icon icon="solar:settings-outline" class="menu-icon"></iconify-icon>
                     <span>YÖNETİM</span>
-                    <iconify-icon icon="solar:add-circle-outline" class="ms-auto"></iconify-icon>
                 </a>
                 <ul class="sidebar-submenu">
                     <li>
@@ -150,7 +144,6 @@
                 <a href="javascript:void(0)">
                     <iconify-icon icon="solar:calculator-outline" class="menu-icon"></iconify-icon>
                     <span>FİNANS</span>
-                    <iconify-icon icon="solar:add-circle-outline" class="ms-auto"></iconify-icon>
                 </a>
                 <ul class="sidebar-submenu">
                     <li>

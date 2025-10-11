@@ -61,6 +61,8 @@ class ProductController extends Controller
                 'unit' => 'nullable|string',
                 'price' => 'nullable|numeric',
                 'cost' => 'nullable|numeric',
+                'cost_currency' => 'nullable|string|in:TRY,USD,EUR',
+                'price_currency' => 'nullable|string|in:TRY,USD,EUR',
                 'category' => ['required','string', function($attr,$val,$fail) use ($allowedCategories){
                     if (!empty($allowedCategories) && !in_array($val, $allowedCategories, true)) {
                         $fail('Bu kategori mevcut hesap için izinli değil.');
@@ -71,6 +73,7 @@ class ProductController extends Controller
                 'color' => 'nullable|string',
                 'colors' => 'array',
                 'colors.*' => 'string',
+                'colors_input' => 'nullable|string',
                 'barcode' => 'nullable|string',
                 'description' => 'nullable|string',
                 'image' => 'nullable|image',
@@ -79,6 +82,15 @@ class ProductController extends Controller
                 'critical_stock' => 'nullable|integer',
                 'is_active' => 'boolean',
             ]);
+            
+            // Parse colors_input (comma-separated text) into colors array
+            if (!empty($validated['colors_input'])) {
+                $colorsFromInput = array_filter(array_map('trim', explode(',', $validated['colors_input'])));
+                if (!empty($colorsFromInput)) {
+                    $validated['colors'] = $colorsFromInput;
+                }
+                unset($validated['colors_input']);
+            }
             
             \Log::info('Product validation passed', ['validated_data' => $validated]);
             
@@ -248,6 +260,8 @@ class ProductController extends Controller
             'unit' => 'nullable|string',
             'price' => 'nullable|numeric',
             'cost' => 'nullable|numeric',
+            'cost_currency' => 'nullable|string|in:TRY,USD,EUR',
+            'price_currency' => 'nullable|string|in:TRY,USD,EUR',
             'category' => ['nullable','string', function($attr,$val,$fail) use ($allowedCategories){
                 if (!empty($allowedCategories) && !in_array($val, $allowedCategories, true)) {
                     $fail('Bu kategori mevcut hesap için izinli değil.');

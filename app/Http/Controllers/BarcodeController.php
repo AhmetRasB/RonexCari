@@ -29,62 +29,84 @@ class BarcodeController extends Controller
         $expanded = [];
         foreach ($validated['items'] as $row) {
             if ($row['type'] === 'product') {
-                // Normal ürün - sadece belirtilen adet kadar
-                $item = Product::find($row['id']);
+                // Normal ürün - renk varyantları varsa her renk için ayrı etiket
+                $item = Product::with('colorVariants')->find($row['id']);
                 if ($item) {
                     // Kısa barkod oluştur (5 karakter)
                     $shortBarcode = $this->generateShortBarcode('P', $item->id);
                     
-                    for ($i = 0; $i < $row['quantity']; $i++) {
-                        $expanded[] = [
-                            'type' => 'product',
-                            'item' => $item,
-                            'label' => $item->name . ($item->size ? ' - ' . $item->size : ''),
-                            'code' => $item->sku ?: $shortBarcode,
-                            'barcode' => $shortBarcode
-                        ];
+                    if ($item->colorVariants && $item->colorVariants->count() > 0) {
+                        // Renk varyantı varsa her renk için
+                        foreach ($item->colorVariants as $colorVariant) {
+                            for ($i = 0; $i < $row['quantity']; $i++) {
+                                $expanded[] = [
+                                    'type' => 'product',
+                                    'item' => $item,
+                                    'label' => $item->name . ($item->size ? ' - ' . $item->size : '') . ' - RENK: ' . $colorVariant->color,
+                                    'code' => $item->sku ?: $shortBarcode,
+                                    'barcode' => $shortBarcode
+                                ];
+                            }
+                        }
+                    } else {
+                        // Renk yoksa normal
+                        for ($i = 0; $i < $row['quantity']; $i++) {
+                            $expanded[] = [
+                                'type' => 'product',
+                                'item' => $item,
+                                'label' => $item->name . ($item->size ? ' - ' . $item->size : ''),
+                                'code' => $item->sku ?: $shortBarcode,
+                                'barcode' => $shortBarcode
+                            ];
+                        }
                     }
                 }
             } elseif ($row['type'] === 'series') {
-                // Seri - her paket için 1 dış paket + tüm beden etiketleri
-                $series = ProductSeries::find($row['id']);
+                // Seri - her paket için 1 dış paket + tüm renk x beden kombinasyonları
+                $series = ProductSeries::with(['seriesItems', 'colorVariants'])->find($row['id']);
                 if ($series) {
                     // Kısa barkod oluştur (5 karakter)
                     $shortBarcode = $this->generateShortBarcode('S', $series->id);
                     
-                    // Seri bedenlerini al
+                    // Seri bedenlerini ve renklerini al
                     $sizes = $series->seriesItems->pluck('size')->toArray();
+                    $colors = $series->colorVariants->pluck('color')->toArray();
+                    $seriesSize = $series->series_size ?? 0;
                     
                     // Her paket için
                     for ($packageIndex = 0; $packageIndex < $row['quantity']; $packageIndex++) {
-                        // 1. Dış paket etiketi (renk varsa renk, yoksa ana)
-                        if ($series->colorVariants->count() > 0) {
-                            foreach ($series->colorVariants as $color) {
-                                $expanded[] = [
-                                    'type' => 'series_main',
-                                    'item' => $series,
-                                    'label' => $color->color . ' SERİ ' . date('Y'),
-                                    'code' => $series->sku ?: $shortBarcode,
-                                    'barcode' => $shortBarcode
-                                ];
-                                
-                                // Her renk için beden etiketleri
+                        // 1. Dış paket etiketi
+                        if (count($colors) > 0) {
+                            // Renk varsa renk bilgisiyle
+                            $colorList = implode(', ', $colors);
+                            $sizeList = implode(' ', $sizes);
+                            $expanded[] = [
+                                'type' => 'series_main',
+                                'item' => $series,
+                                'label' => $series->name . ' - ' . ($seriesSize > 0 ? $seriesSize . "'li " : '') . 'SERİ ' . date('Y') . ' - Renkler: ' . $colorList . ' - Bedenler: ' . $sizeList,
+                                'code' => $series->sku ?: $shortBarcode,
+                                'barcode' => $shortBarcode
+                            ];
+                            
+                            // Her renk x Her beden kombinasyonu
+                            foreach ($colors as $color) {
                                 foreach ($sizes as $size) {
                                     $expanded[] = [
                                         'type' => 'series_size',
                                         'item' => $series,
-                                        'label' => $color->color . ' ' . $size . ' ' . $series->name,
+                                        'label' => $series->name . ' - RENK: ' . $color . ' - BEDEN: ' . $size,
                                         'code' => $series->sku ?: $shortBarcode,
                                         'barcode' => $shortBarcode
                                     ];
                                 }
                             }
                         } else {
-                            // Renk yoksa sadece ana seri
+                            // Renk yoksa sadece bedenler
+                            $sizeList = implode(' ', $sizes);
                             $expanded[] = [
                                 'type' => 'series_main',
                                 'item' => $series,
-                                'label' => 'ANA SERİ ' . date('Y'),
+                                'label' => $series->name . ' - ' . ($seriesSize > 0 ? $seriesSize . "'li " : '') . 'SERİ ' . date('Y') . ' - Bedenler: ' . $sizeList,
                                 'code' => $series->sku ?: $shortBarcode,
                                 'barcode' => $shortBarcode
                             ];
@@ -94,7 +116,7 @@ class BarcodeController extends Controller
                                 $expanded[] = [
                                     'type' => 'series_size',
                                     'item' => $series,
-                                    'label' => $size . ' ' . $series->name,
+                                    'label' => $series->name . ' - BEDEN: ' . $size,
                                     'code' => $series->sku ?: $shortBarcode,
                                     'barcode' => $shortBarcode
                                 ];

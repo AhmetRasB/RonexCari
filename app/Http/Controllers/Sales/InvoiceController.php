@@ -426,6 +426,7 @@ class InvoiceController extends Controller
         $customers = Customer::where('is_active', true)->get();
         $currentAccountId = session('current_account_id');
         $products = Product::where('is_active', true)
+            ->with('colorVariants') // Load color variants like in create method
             ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
                 $q->where('account_id', $currentAccountId);
             })
@@ -433,6 +434,7 @@ class InvoiceController extends Controller
                 // Eğer hesap seçili değilse, tüm ürünleri getir
                 $q->whereNotNull('account_id');
             })
+            ->orderBy('id', 'asc') // ID'ye göre sırala
             ->get();
         $invoice->load('items');
         
@@ -444,8 +446,172 @@ class InvoiceController extends Controller
      */
     public function update(Request $request, Invoice $invoice)
     {
-        // Similar to store method but for updating
-        // Implementation would be similar to store with update logic
+        \Log::info('Invoice update method called', [
+            'invoice_id' => $invoice->id,
+            'request_data' => $request->all()
+        ]);
+        
+        // Debug: Log all form fields
+        \Log::info('Form fields received:', [
+            'customer_id' => $request->input('customer_id'),
+            'invoice_date' => $request->input('invoice_date'),
+            'invoice_time' => $request->input('invoice_time'),
+            'due_date' => $request->input('due_date'),
+            'currency' => $request->input('currency'),
+            'vat_status' => $request->input('vat_status'),
+            'description' => $request->input('description'),
+            'payment_completed' => $request->input('payment_completed'),
+            'items_count' => count($request->input('items', [])),
+            'items' => $request->input('items', [])
+        ]);
+        
+        // Get account_id with fallback
+        $accountId = session('current_account_id');
+        if (!$accountId) {
+            $account = \App\Models\Account::active()->first();
+            $accountId = $account ? $account->id : 1;
+        }
+
+        // Get user_id with fallback
+        $userId = auth()->id();
+        if (!$userId) {
+            $user = \App\Models\User::first();
+            $userId = $user ? $user->id : 1;
+        }
+
+        $validated = [
+            'customer_id' => $request->input('customer_id'),
+            'invoice_date' => $request->input('invoice_date', date('Y-m-d')),
+            'invoice_time' => $request->input('invoice_time', date('H:i')),
+            'due_date' => $request->input('due_date', date('Y-m-d')),
+            'currency' => $request->input('currency', 'TRY'),
+            'vat_status' => $request->input('vat_status', 'included'),
+            'description' => $request->input('description'),
+            'payment_completed' => (bool) $request->input('payment_completed', false),
+            'items' => $request->input('items', []),
+        ];
+
+        DB::beginTransaction();
+        try {
+            // Calculate totals
+            $subtotal = 0;
+            $vatAmount = 0;
+            
+            foreach ($validated['items'] as $item) {
+                $quantityVal = (float) ($item['quantity'] ?? 0);
+                $unitPriceVal = (float) ($item['unit_price'] ?? 0);
+                $discountRateVal = (float) ($item['discount_rate'] ?? 0);
+                $taxRateVal = (float) ($item['tax_rate'] ?? 0);
+
+                $lineTotal = $quantityVal * $unitPriceVal;
+                $discountAmount = $lineTotal * ($discountRateVal / 100);
+                $lineTotalAfterDiscount = $lineTotal - $discountAmount;
+                
+                if ($validated['vat_status'] === 'included') {
+                    $vatAmount += $lineTotalAfterDiscount * ($taxRateVal / 100);
+                }
+                
+                $subtotal += $lineTotalAfterDiscount;
+            }
+            
+            $totalAmount = $subtotal + $vatAmount;
+            
+            // Update invoice
+            $invoice->update([
+                'customer_id' => $validated['customer_id'],
+                'invoice_date' => $validated['invoice_date'],
+                'invoice_time' => $validated['invoice_time'],
+                'due_date' => $validated['due_date'],
+                'currency' => $validated['currency'],
+                'vat_status' => $validated['vat_status'],
+                'description' => $validated['description'],
+                'subtotal' => $subtotal,
+                'vat_amount' => $vatAmount,
+                'total_amount' => $totalAmount,
+                'payment_completed' => $validated['payment_completed'] ?? false
+            ]);
+            
+            // Delete existing items
+            $invoice->items()->delete();
+            
+            // Create new invoice items
+            foreach ($validated['items'] as $index => $item) {
+                $quantity = (float) ($item['quantity'] ?? 0);
+                $unitPrice = (float) ($item['unit_price'] ?? 0);
+                $taxRate = (float) ($item['tax_rate'] ?? 0);
+                $discountRate = (float) ($item['discount_rate'] ?? 0);
+                
+                $lineTotal = $quantity * $unitPrice;
+                $discountAmount = $lineTotal * ($discountRate / 100);
+                $lineTotalAfterDiscount = $lineTotal - $discountAmount;
+                
+                // Clean product_id
+                $cleanProductId = $item['product_id'] ?? null;
+                if ($cleanProductId) {
+                    $cleanProductId = str_replace(['product_', 'series_'], '', $cleanProductId);
+                }
+                
+                // Debug: Log item data
+                \Log::info("Creating invoice item {$index}:", [
+                    'product_service_name' => $item['product_service_name'],
+                    'description' => $item['description'] ?? null,
+                    'selected_color' => $item['selected_color'] ?? null,
+                    'product_id' => $cleanProductId,
+                    'color_variant_id' => $item['color_variant_id'] ?? null,
+                    'product_type' => $item['type'] ?? 'product',
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'unit_currency' => $item['unit_currency'] ?? 'TRY',
+                    'tax_rate' => $taxRate,
+                    'discount_rate' => $discountRate,
+                    'line_total' => $lineTotalAfterDiscount
+                ]);
+                
+                InvoiceItem::create([
+                    'invoice_id' => $invoice->id,
+                    'product_service_name' => $item['product_service_name'],
+                    'description' => $item['description'] ?? null,
+                    'selected_color' => $item['selected_color'] ?? null,
+                    'product_id' => $cleanProductId,
+                    'color_variant_id' => $item['color_variant_id'] ?? null,
+                    'product_type' => $item['type'] ?? 'product',
+                    'quantity' => $quantity,
+                    'unit' => 'Ad',
+                    'unit_price' => $unitPrice,
+                    'unit_currency' => $item['unit_currency'] ?? 'TRY',
+                    'tax_rate' => $taxRate,
+                    'discount_rate' => $discountRate,
+                    'line_total' => $lineTotalAfterDiscount,
+                    'sort_order' => $index
+                ]);
+            }
+            
+            DB::commit();
+            
+            // Refresh invoice with relationships
+            $invoice->refresh();
+            $invoice->load(['customer', 'items']);
+            
+            \Log::info('Invoice updated successfully', [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number
+            ]);
+            
+            return redirect()->route('sales.invoices.show', $invoice->id)
+                ->with('success', 'Fatura başarıyla güncellendi.');
+                
+        } catch (\Exception $e) {
+            DB::rollback();
+            
+            \Log::error('Invoice update failed', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->withInput()
+                ->with('error', 'Fatura güncellenirken bir hata oluştu: ' . $e->getMessage());
+        }
     }
 
     /**

@@ -7,8 +7,12 @@
 <div class="row">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Seri Ürün Düzenle</h5>
+                <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#quickStockModal">
+                    <iconify-icon icon="solar:database-outline" class="me-1"></iconify-icon>
+                    Hızlı Stok
+                </button>
             </div>
             <div class="card-body">
                 <form action="{{ route('products.series.update', $series) }}" method="POST" enctype="multipart/form-data">
@@ -83,22 +87,38 @@
                             <h6 class="fw-semibold text-primary mb-3">Fiyat Bilgileri</h6>
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Maliyet (₺)</label>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Maliyet</label>
                             <input type="number" class="form-control radius-8 @error('cost') is-invalid @enderror" 
                                    name="cost" value="{{ old('cost', $series->cost) }}" step="0.01" min="0" max="999999.99">
                             @error('cost')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Döviz</label>
+                            <select name="cost_currency" class="form-control radius-8">
+                                <option value="TRY" {{ (old('cost_currency', $series->cost_currency ?? 'TRY')) == 'TRY' ? 'selected' : '' }}>TRY</option>
+                                <option value="USD" {{ (old('cost_currency', $series->cost_currency ?? 'TRY')) == 'USD' ? 'selected' : '' }}>USD</option>
+                                <option value="EUR" {{ (old('cost_currency', $series->cost_currency ?? 'TRY')) == 'EUR' ? 'selected' : '' }}>EUR</option>
+                            </select>
+                        </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Satış Fiyatı (₺)</label>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Satış Fiyatı</label>
                             <input type="number" class="form-control radius-8 @error('price') is-invalid @enderror" 
                                    name="price" value="{{ old('price', $series->price) }}" step="0.01" min="0" max="999999.99">
                             @error('price')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Döviz</label>
+                            <select name="price_currency" class="form-control radius-8">
+                                <option value="TRY" {{ (old('price_currency', $series->price_currency ?? 'TRY')) == 'TRY' ? 'selected' : '' }}>TRY</option>
+                                <option value="USD" {{ (old('price_currency', $series->price_currency ?? 'TRY')) == 'USD' ? 'selected' : '' }}>USD</option>
+                                <option value="EUR" {{ (old('price_currency', $series->price_currency ?? 'TRY')) == 'EUR' ? 'selected' : '' }}>EUR</option>
+                            </select>
                         </div>
 
                         <!-- Stok Bilgileri -->
@@ -146,7 +166,7 @@
                                                 </thead>
                                                 <tbody>
                                                     @foreach($series->colorVariants as $index => $variant)
-                                                        <tr class="{{ $variant->stock_quantity <= $variant->critical_stock ? 'table-warning' : '' }}">
+                                                        <tr class="{{ ($variant->critical_stock > 0 && $variant->stock_quantity <= $variant->critical_stock) ? 'table-warning' : '' }}">
                                                             <td>
                                                                 <span class="badge" style="background:#e9f7ef; color:#198754; border:1px solid #c3e6cb;">
                                                                     {{ $variant->color }}
@@ -169,7 +189,7 @@
                                                                        style="width: 80px;">
                                                             </td>
                                                             <td>
-                                                                @if($variant->stock_quantity <= $variant->critical_stock)
+                                                                @if($variant->critical_stock > 0 && $variant->stock_quantity <= $variant->critical_stock)
                                                                     <span class="badge bg-danger">Kritik</span>
                                                                 @else
                                                                     <span class="badge bg-success">Normal</span>
@@ -194,7 +214,10 @@
                                                         <th class="fw-bold">{{ $series->colorVariants->sum('stock_quantity') }} Seri</th>
                                                         <th class="fw-bold">{{ $series->colorVariants->sum('critical_stock') }} Seri</th>
                                                         <th>
-                                                            @if($series->colorVariants->where('stock_quantity', '<=', 'critical_stock')->count() > 0)
+                                                            @php
+                                                                $hasSeriesCritical = $series->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0;
+                                                            @endphp
+                                                            @if($hasSeriesCritical)
                                                                 <span class="badge bg-warning">Dikkat</span>
                                                             @else
                                                                 <span class="badge bg-success">İyi</span>
@@ -305,4 +328,56 @@
         </div>
     </div>
 </div>
+<!-- Quick Stock Modal -->
+<div class="modal fade" id="quickStockModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Hızlı Stok Güncelle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Mevcut Stok (Seri)</label>
+                    <input type="text" class="form-control" value="{{ $series->stock_quantity ?? 0 }}" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Ekle (Seri Adedi)</label>
+                    <input type="number" class="form-control" id="qsAddStock" min="0" step="1" placeholder="0">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Kritik Stok</label>
+                    <input type="number" class="form-control" id="qsCritical" min="0" step="1" value="{{ $series->critical_stock ?? 0 }}">
+                </div>
+                <div class="small text-muted">Eski değerler görüntülenir, yeni değerleri kaydetmek için güncelleyin.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary" id="qsSaveBtn">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
+    const addStock = parseInt(document.getElementById('qsAddStock').value || '0', 10);
+    const critical = parseInt(document.getElementById('qsCritical').value || '0', 10);
+    fetch('{{ url('/products/series/' . $series->id . '/quick-stock') }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+        body: JSON.stringify({ add_stock: addStock, critical_stock: critical })
+    }).then(r => r.json()).then(resp => {
+        if (resp.success) {
+            alert('Güncellendi: Yeni stok ' + resp.data.stock_quantity + ' seri, kritik ' + resp.data.critical_stock);
+            location.reload();
+        } else {
+            alert('Güncelleme başarısız');
+        }
+    }).catch(()=>alert('Hata oluştu'));
+});
+</script>
+@endpush
+
 @endsection

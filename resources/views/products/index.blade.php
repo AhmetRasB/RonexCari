@@ -127,7 +127,7 @@
                                         <td>
                                             @if($product->colorVariants && $product->colorVariants->count() > 0)
                                                 <span class="fw-semibold">{{ $product->total_stock }}</span>
-                                                @if($product->colorVariants->where('stock_quantity', '<=', 'critical_stock')->count() > 0)
+                                                @if($product->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0)
                                                     <i class="ri-alert-line text-danger ms-1" title="Kritik Stok (Renk Varyantları)"></i>
                                                 @endif
                                             @else

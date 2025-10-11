@@ -94,22 +94,38 @@
                             <h6 class="fw-semibold text-primary mb-3 mt-4">Fiyat Bilgileri</h6>
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Maliyet (₺)</label>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Maliyet</label>
                             <input type="number" class="form-control radius-8 @error('cost') is-invalid @enderror" 
                                    name="cost" value="{{ old('cost') }}" step="0.01" min="0" max="999999.99" placeholder="0.00">
                             @error('cost')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Döviz</label>
+                            <select name="cost_currency" class="form-control radius-8">
+                                <option value="TRY" {{ old('cost_currency') == 'TRY' ? 'selected' : '' }}>TRY</option>
+                                <option value="USD" {{ old('cost_currency') == 'USD' ? 'selected' : '' }}>USD</option>
+                                <option value="EUR" {{ old('cost_currency') == 'EUR' ? 'selected' : '' }}>EUR</option>
+                            </select>
+                        </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Satış Fiyatı (₺)</label>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Satış Fiyatı</label>
                             <input type="number" class="form-control radius-8 @error('price') is-invalid @enderror" 
                                    name="price" value="{{ old('price') }}" step="0.01" min="0" max="999999.99" placeholder="0.00">
                             @error('price')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Döviz</label>
+                            <select name="price_currency" class="form-control radius-8">
+                                <option value="TRY" {{ old('price_currency', 'TRY') == 'TRY' ? 'selected' : '' }}>TRY</option>
+                                <option value="USD" {{ old('price_currency') == 'USD' ? 'selected' : '' }}>USD</option>
+                                <option value="EUR" {{ old('price_currency') == 'EUR' ? 'selected' : '' }}>EUR</option>
+                            </select>
                         </div>
 
                         <!-- Seri Bilgileri -->
@@ -167,17 +183,14 @@
 
                         <!-- Renk Seçimi -->
                         <div class="col-12">
-                            <h6 class="fw-semibold text-primary mb-3 mt-4">Renk Seçimi</h6>
+                            <h6 class="fw-semibold text-primary mb-3 mt-4">Renk Seçimi (Çoklu renk için virgülle ayırın)</h6>
                             <div class="position-relative">
-                                <input type="text" id="multiColorSearch" class="form-control" placeholder="Renk ara..." autocomplete="off">
+                                <input type="text" name="colors_input" class="form-control" placeholder="Örn: mavi, kırmızı, haki, koyu kahverengi" value="{{ old('colors_input') }}" autocomplete="off">
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:palette-outline" class="text-secondary-light"></iconify-icon>
                                 </div>
-                                <div id="multiColorDropdown" class="dropdown-menu w-100" style="display: none; max-height: 240px; overflow-y: auto; position: absolute; top: 100%; left: 0; z-index: 1060; background: white; border: 1px solid #dee2e6; border-radius: 0.375rem; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);"></div>
                             </div>
-                            <div id="selectedColorChips" class="d-flex flex-wrap gap-2 mt-2 mb-1"></div>
-                            <div id="multiColorsHidden"></div>
-                            <small class="text-muted">Seçilen her renk için ayrı stok takibi yapılacaktır.</small>
+                            <small class="text-muted">Birden fazla renk girmek için virgülle ayırın (örn: mavi, siyah, beyaz). Seçilen her renk için ayrı stok takibi yapılacaktır.</small>
                         </div>
 
                         <!-- Seri İçeriği -->
@@ -476,136 +489,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Renk seçimi JavaScript
-    const colors = [
-        'Kırmızı', 'Mavi', 'Yeşil', 'Sarı', 'Siyah', 'Beyaz', 'Mor', 'Turuncu', 'Pembe', 'Lacivert',
-        'Kahverengi', 'Gri', 'Altın', 'Gümüş', 'Bronz', 'Turkuaz', 'Lavanta', 'Koyu Mavi', 'Koyu Yeşil',
-        'Koyu Kırmızı', 'Açık Mavi', 'Açık Yeşil', 'Açık Pembe', 'Koyu Gri', 'Açık Gri', 'Neon Yeşil',
-        'Neon Turuncu', 'Neon Mavi', 'Neon Kırmızı', 'Mat Siyah', 'Mat Beyaz', 'Mat Gri',
-        'Mat Mavi', 'Mat Kırmızı', 'Mat Yeşil', 'Mat Sarı', 'Mat Mor', 'Mat Pembe', 'Mat Kahverengi'
-    ];
-
-    const selectedSet = new Set();
-
-    // Multi-color search functionality
-    $('#multiColorSearch').on('input', function() {
-        const query = $(this).val().toLowerCase();
-        if (query.length >= 1) {
-            const filteredColors = colors.filter(color => 
-                color.toLowerCase().includes(query)
-            );
-            renderMultiDropdown(filteredColors);
-        } else {
-            renderMultiDropdown(colors);
-        }
-    });
-
-    // Show all colors on focus
-    $('#multiColorSearch').on('focus', function() {
-        renderMultiDropdown(colors);
-    });
-
-    // Render multi-color dropdown
-    function renderMultiDropdown(list) {
-        let html = '';
-        if (list.length === 0) {
-            html = '<div class="dropdown-item text-secondary-light" style="padding: 8px 16px;">Renk bulunamadı</div>';
-        } else {
-            list.forEach(function(color) {
-                const active = selectedSet.has(color) ? ' active' : '';
-                const checked = selectedSet.has(color) ? 'checked' : '';
-                html += `
-                    <div class="color-option-check dropdown-item${active}" data-color="${color}" style="cursor: pointer; padding: 8px 16px;">
-                        <input type="checkbox" class="form-check-input" ${checked}>
-                        <span>${color}</span>
-                    </div>
-                `;
-            });
-        }
-        
-        $('#multiColorDropdown').html(html).show();
-        
-        // Ensure dropdown is positioned correctly
-        $('#multiColorDropdown').css({
-            'position': 'absolute',
-            'top': '100%',
-            'left': '0',
-            'right': '0',
-            'transform': 'none',
-            'margin-top': '0'
-        });
-    }
-
-    // Color selection
-    $(document).on('click', '.color-option-check', function(e) {
-        e.preventDefault();
-        const color = $(this).data('color');
-        const checkbox = $(this).find('input[type="checkbox"]');
-        
-        if (selectedSet.has(color)) {
-            selectedSet.delete(color);
-            checkbox.prop('checked', false);
-            $(this).removeClass('active');
-        } else {
-            selectedSet.add(color);
-            checkbox.prop('checked', true);
-            $(this).addClass('active');
-        }
-        
-        updateSelectedColors();
-    });
-
-    // Update selected colors display
-    function updateSelectedColors() {
-        const chipsContainer = $('#selectedColorChips');
-        const hiddenContainer = $('#multiColorsHidden');
-        
-        chipsContainer.empty();
-        hiddenContainer.empty();
-        
-        selectedSet.forEach(function(color) {
-            // Add chip
-            const chip = $(`
-                <span class="badge bg-primary d-inline-flex align-items-center gap-1">
-                    ${color}
-                    <button type="button" class="btn-close btn-close-white" style="font-size: 0.7em;" data-color="${color}"></button>
-                </span>
-            `);
-            chipsContainer.append(chip);
-            
-            // Add hidden input
-            hiddenContainer.append(`<input type="hidden" name="colors[]" value="${color}">`);
-        });
-    }
-
-    // Remove color chip
-    $(document).on('click', '.btn-close', function(e) {
-        e.preventDefault();
-        const color = $(this).data('color');
-        selectedSet.delete(color);
-        updateSelectedColors();
-        
-        // Update dropdown
-        const query = $('#multiColorSearch').val().toLowerCase();
-        if (query.length >= 1) {
-            const filteredColors = colors.filter(color => 
-                color.toLowerCase().includes(query)
-            );
-            renderMultiDropdown(filteredColors);
-        } else {
-            renderMultiDropdown(colors);
-        }
-    });
-
-    // Hide dropdown when clicking outside
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('#multiColorSearch, #multiColorDropdown').length) {
-            $('#multiColorDropdown').hide();
-        }
-    });
-
-    // Initialize with all colors
-    renderMultiDropdown(colors);
+    // No color JavaScript needed - simple text input with comma separation
     
     // Otomatik SKU ve Barkod oluşturma fonksiyonu
     function generateSeriesCodes() {

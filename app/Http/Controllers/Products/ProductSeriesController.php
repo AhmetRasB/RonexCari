@@ -63,6 +63,8 @@ class ProductSeriesController extends Controller
             'brand' => 'nullable|string',
             'cost' => 'nullable|numeric|min:0',
             'price' => 'nullable|numeric|min:0',
+            'cost_currency' => 'nullable|string|in:TRY,USD,EUR',
+            'price_currency' => 'nullable|string|in:TRY,USD,EUR',
             'image' => 'nullable|image',
             'series_type' => 'required|in:fixed,custom',
             'series_size' => 'nullable|integer|in:5,6,7',
@@ -75,7 +77,17 @@ class ProductSeriesController extends Controller
             'quantities.*' => 'required|integer|min:1',
             'colors' => 'array',
             'colors.*' => 'string',
+            'colors_input' => 'nullable|string',
         ]);
+        
+        // Parse colors_input (comma-separated text) into colors array
+        if (!empty($validated['colors_input'])) {
+            $colorsFromInput = array_filter(array_map('trim', explode(',', $validated['colors_input'])));
+            if (!empty($colorsFromInput)) {
+                $validated['colors'] = $colorsFromInput;
+            }
+            unset($validated['colors_input']);
+        }
 
         // Database column 'cost' is NOT NULL; if user leaves blank, default to 0.00
         if (!array_key_exists('cost', $validated) || $validated['cost'] === null) {
@@ -180,6 +192,8 @@ class ProductSeriesController extends Controller
             'brand' => 'nullable|string',
             'cost' => 'nullable|numeric|min:0',
             'price' => 'nullable|numeric|min:0',
+            'cost_currency' => 'nullable|string|in:TRY,USD,EUR',
+            'price_currency' => 'nullable|string|in:TRY,USD,EUR',
             'image' => 'nullable|image',
             'stock_quantity' => 'required|integer|min:0',
             'critical_stock' => 'nullable|integer|min:0',

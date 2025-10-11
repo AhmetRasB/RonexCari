@@ -284,7 +284,7 @@ document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
                                             <td class="text-center fw-semibold">{{ $variant->stock_quantity }}</td>
                                             <td class="text-center">{{ $variant->critical_stock }}</td>
                                             <td class="text-center">
-                                                @if($variant->stock_quantity <= $variant->critical_stock)
+                                                @if($variant->critical_stock > 0 && $variant->stock_quantity <= $variant->critical_stock)
                                                     <span class="badge bg-danger">Kritik</span>
                                                 @else
                                                     <span class="badge bg-success">Normal</span>

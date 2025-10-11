@@ -156,7 +156,7 @@
                                         <div class="form-control-plaintext">
                                             @if($series->critical_stock > 0)
                                                 {{ number_format($series->critical_stock) }} Seri
-                                                @if($series->stock_quantity <= $series->critical_stock)
+                                                @if($series->critical_stock > 0 && $series->stock_quantity <= $series->critical_stock)
                                                     <i class="ri-alert-line text-danger ms-1" title="Kritik Stok!"></i>
                                                 @endif
                                             @else
@@ -191,7 +191,7 @@
                                                 <td>{{ number_format($variant->stock_quantity) }} Seri</td>
                                                 <td>{{ number_format($variant->critical_stock) }} Seri</td>
                                                 <td>
-                                                    @if($variant->stock_quantity <= $variant->critical_stock && $variant->critical_stock > 0)
+                                                    @if($variant->critical_stock > 0 && $variant->stock_quantity <= $variant->critical_stock)
                                                         <span class="badge bg-danger">Kritik</span>
                                                     @else
                                                         <span class="badge bg-success">Normal</span>
@@ -204,7 +204,7 @@
                                                 <td><strong>{{ number_format($series->colorVariants->sum('stock_quantity')) }} Seri</strong></td>
                                                 <td><strong>{{ number_format($series->colorVariants->sum('critical_stock')) }} Seri</strong></td>
                                                 <td>
-                                                    @if($series->colorVariants->where('stock_quantity', '<=', 'critical_stock')->where('critical_stock', '>', 0)->count() > 0)
+                                                    @if($series->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0)
                                                         <span class="badge bg-warning">Dikkat</span>
                                                     @else
                                                         <span class="badge bg-success">İyi</span>

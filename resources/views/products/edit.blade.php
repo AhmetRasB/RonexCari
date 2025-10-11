@@ -85,19 +85,35 @@
                         <div class="col-12">
                             <h6 class="fw-semibold mb-3">Fiyat Bilgileri</h6>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">Alış Fiyatı</label>
-                            <input type="number" name="cost" class="form-control" value="{{ $product->cost ?? '' }}">
+                            <input type="number" name="cost" class="form-control" value="{{ $product->cost ?? '' }}" step="0.01" min="0">
                             @error('cost')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-2">
+                            <label class="form-label">Döviz</label>
+                            <select name="cost_currency" class="form-control">
+                                <option value="TRY" {{ ($product->cost_currency ?? 'TRY') == 'TRY' ? 'selected' : '' }}>TRY</option>
+                                <option value="USD" {{ ($product->cost_currency ?? 'TRY') == 'USD' ? 'selected' : '' }}>USD</option>
+                                <option value="EUR" {{ ($product->cost_currency ?? 'TRY') == 'EUR' ? 'selected' : '' }}>EUR</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Satış Fiyatı</label>
-                            <input type="number" name="price" class="form-control" value="{{ $product->price }}">
+                            <input type="number" name="price" class="form-control" value="{{ $product->price }}" step="0.01" min="0">
                             @error('price')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Döviz</label>
+                            <select name="price_currency" class="form-control">
+                                <option value="TRY" {{ ($product->price_currency ?? 'TRY') == 'TRY' ? 'selected' : '' }}>TRY</option>
+                                <option value="USD" {{ ($product->price_currency ?? 'TRY') == 'USD' ? 'selected' : '' }}>USD</option>
+                                <option value="EUR" {{ ($product->price_currency ?? 'TRY') == 'EUR' ? 'selected' : '' }}>EUR</option>
+                            </select>
                         </div>
                     </div>
 
@@ -207,11 +223,14 @@
                                 <iconify-icon icon="solar:box-minimalistic-outline" class="text-primary me-2"></iconify-icon>
                                 Stok Yönetimi
                                 @if($product->colorVariants && $product->colorVariants->count() > 0)
-                                    @if($product->colorVariants->where('stock_quantity', '<=', 'critical_stock')->count() > 0)
+                                    @php
+                                        $hasCritical = $product->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0;
+                                    @endphp
+                                    @if($hasCritical)
                                         <span class="badge bg-danger ms-2 blink">KRİTİK STOK!</span>
                                     @endif
                                 @else
-                                    @if($product->initial_stock <= $product->critical_stock)
+                                    @if($product->critical_stock > 0 && $product->initial_stock <= $product->critical_stock)
                                         <span class="badge bg-danger ms-2 blink">KRİTİK STOK!</span>
                                     @endif
                                 @endif
@@ -240,7 +259,7 @@
                                                 </thead>
                                                 <tbody>
                                                     @foreach($product->colorVariants as $index => $variant)
-                                                        <tr class="{{ $variant->stock_quantity <= $variant->critical_stock ? 'table-warning' : '' }}">
+                                                        <tr class="{{ ($variant->critical_stock > 0 && $variant->stock_quantity <= $variant->critical_stock) ? 'table-warning' : '' }}">
                                                             <td>
                                                                 <span class="badge" style="background:#e9f7ef; color:#198754; border:1px solid #c3e6cb;">
                                                                     {{ $variant->color }}
@@ -263,7 +282,7 @@
                                                                        style="width: 80px;">
                                                             </td>
                                                             <td>
-                                                                @if($variant->stock_quantity <= $variant->critical_stock)
+                                                                @if($variant->critical_stock > 0 && $variant->stock_quantity <= $variant->critical_stock)
                                                                     <span class="badge bg-danger">Kritik</span>
                                                                 @else
                                                                     <span class="badge bg-success">Normal</span>
@@ -288,7 +307,10 @@
                                                         <th class="fw-bold">{{ $product->colorVariants->sum('stock_quantity') }}</th>
                                                         <th class="fw-bold">{{ $product->colorVariants->sum('critical_stock') }}</th>
                                                         <th>
-                                                            @if($product->colorVariants->where('stock_quantity', '<=', 'critical_stock')->count() > 0)
+                                                            @php
+                                                                $hasProductCritical = $product->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0;
+                                                            @endphp
+                                                            @if($hasProductCritical)
                                                                 <span class="badge bg-warning">Dikkat</span>
                                                             @else
                                                                 <span class="badge bg-success">İyi</span>
@@ -542,7 +564,15 @@ $(document).ready(function() {
     const urlParams = new URLSearchParams(window.location.search);
     const fromDashboard = document.referrer.includes('/dashboard') || urlParams.get('focus') === 'stock';
     
-    if (fromDashboard || {{ $product->colorVariants && $product->colorVariants->count() > 0 ? ($product->colorVariants->where('stock_quantity', '<=', 'critical_stock')->count() > 0 ? 'true' : 'false') : ($product->initial_stock <= $product->critical_stock ? 'true' : 'false') }}) {
+    @php
+        $criticalCheck = false;
+        if ($product->colorVariants && $product->colorVariants->count() > 0) {
+            $criticalCheck = $product->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0;
+        } else {
+            $criticalCheck = $product->critical_stock > 0 && $product->initial_stock <= $product->critical_stock;
+        }
+    @endphp
+    if (fromDashboard || {{ $criticalCheck ? 'true' : 'false' }}) {
         // Sayfayı stok yönetimi bölümüne kaydır
         setTimeout(() => {
             const stockSection = $('[name="initial_stock"], input[name*="[stock_quantity]"]').first();

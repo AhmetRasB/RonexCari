@@ -713,8 +713,16 @@ window.addScannedProductByCode = function(code){
                 // Get detailed product/series information for pricing
                 $.get('{{ route("sales.invoices.search.products") }}', { q: data.id })
                     .done(function(list){
-                        if (list.length > 0) {
-                            const detailedItem = list[0];
+                        // Find the exact product by matching ID and type
+                        const detailedItem = list.find(p => {
+                            if (data.type === 'series') {
+                                return p.type === 'series' && p.id === ('series_' + data.id);
+                            } else {
+                                return p.type === 'product' && p.product_id == data.id;
+                            }
+                        });
+                        
+                        if (detailedItem) {
                             item.price = detailedItem.price;
                             item.purchase_price = detailedItem.purchase_price;
                             item.stock_quantity = detailedItem.stock_quantity;
@@ -727,11 +735,12 @@ window.addScannedProductByCode = function(code){
                             item.has_color_variants = detailedItem.has_color_variants;
                             item.color_variants = detailedItem.color_variants;
                             
-                            
+                            console.log('Barcode scan - Product found with color variants:', item.has_color_variants, item.color_variants);
                             
                             appendInvoiceItemFromResult(item);
                             toastr.success(item.name + ' eklendi');
                         } else {
+                            console.warn('Barcode scan - Product not found in search results, using basic info');
                             // Fallback: add with basic info
                             appendInvoiceItemFromResult(item);
                             toastr.success(item.name + ' eklendi');
@@ -872,6 +881,10 @@ $(document).on('click', '.customer-option', function() {
 
 function addInvoiceItemRow() {
     console.log('Adding invoice item row, current counter:', itemCounter);
+    
+    // Check if color column exists in table header
+    const hasColorColumn = $('#invoiceTableHeader th:contains("RENK")').length > 0;
+    
     const rowHtml = `
         <tr data-item-index="${itemCounter}">
             <td>
@@ -885,12 +898,14 @@ function addInvoiceItemRow() {
             <td>
                 <textarea name="items[${itemCounter}][description]" class="form-control" rows="3" placeholder="Açıklama" style="min-height: 60px; font-size: 14px;"></textarea>
             </td>
-            <td class="color-cell" style="display: none;">
+            ${hasColorColumn ? `
+            <td class="color-cell">
                 <select name="items[${itemCounter}][color_variant_id]" class="form-select color-variant-select" style="min-height: 50px; font-size: 14px;">
                     <option value="">Renk Seçin</option>
                 </select>
                 <input type="hidden" name="items[${itemCounter}][selected_color]" value="">
             </td>
+            ` : ''}
             <td>
                 <div class="input-group">
                     <input type="number" name="items[${itemCounter}][quantity]" class="form-control" value="1" min="0.01" step="0.01" required style="min-height: 50px; font-size: 16px;">
@@ -1695,12 +1710,44 @@ function addColorColumnToTable() {
         
         // Update table min-width when color column is added
         $('#invoiceItemsTable').css('min-width', '1700px');
+        
+        // Add color cells to all existing rows that don't have them
+        $('#invoiceItemsBody tr').each(function() {
+            const row = $(this);
+            if (row.find('.color-cell').length === 0) {
+                const rowIndex = row.data('item-index');
+                row.find('td:nth-child(2)').after(`
+                    <td class="color-cell">
+                        <select name="items[${rowIndex}][color_variant_id]" class="form-select color-variant-select" style="min-height: 50px; font-size: 14px;">
+                            <option value="">Renk Seçin</option>
+                        </select>
+                        <input type="hidden" name="items[${rowIndex}][selected_color]" value="">
+                    </td>
+                `);
+            }
+        });
     }
 }
 
 // Function to add color cell to row
 function addColorCellToRow(row, colorVariants) {
     const rowIndex = row.data('item-index');
+    
+    // Add color column to table header if not exists
+    addColorColumnToTable();
+    
+    // Check if color cell already exists, if not add it
+    if (row.find('.color-cell').length === 0) {
+        // Insert color cell after description column (2nd column)
+        row.find('td:nth-child(2)').after(`
+            <td class="color-cell">
+                <select name="items[${rowIndex}][color_variant_id]" class="form-select color-variant-select" style="min-height: 50px; font-size: 14px;">
+                    <option value="">Renk Seçin</option>
+                </select>
+                <input type="hidden" name="items[${rowIndex}][selected_color]" value="">
+            </td>
+        `);
+    }
     
     // Show color cell
     row.find('.color-cell').show();

@@ -13,13 +13,16 @@ class InvoiceItem extends Model
         'description',
         'selected_color',
         'product_id',
+        'color_variant_id',
         'product_type',
         'quantity',
         'unit',
         'unit_price',
+        'unit_currency',
         'tax_rate',
         'discount_rate',
         'line_total',
+        'total',
         'sort_order'
     ];
 
@@ -34,5 +37,10 @@ class InvoiceItem extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function colorVariant(): BelongsTo
+    {
+        return $this->belongsTo(ProductColorVariant::class, 'color_variant_id');
     }
 }
