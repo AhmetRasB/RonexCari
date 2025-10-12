@@ -111,6 +111,7 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
 
     // Products Routes
     Route::resource('products', ProductController::class);
+    Route::post('products/bulk-delete', [ProductController::class, 'bulkDelete'])->name('products.bulk-delete');
     Route::post('products/{product}/quick-stock', [ProductController::class, 'quickStockUpdate'])->name('products.quick-stock');
     Route::post('products/series/{series}/quick-stock', [\App\Http\Controllers\Products\ProductSeriesController::class, 'quickStockUpdate'])->name('products.series.quick-stock');
     Route::get('products/test-critical-stock', [ProductController::class, 'testCriticalStock'])->name('products.test-critical-stock');

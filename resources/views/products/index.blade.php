@@ -29,7 +29,13 @@
                     </div>
                 </form>
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="card-title mb-0">Tekli Ürün Listesi</h5>
+                    <div class="d-flex gap-2 align-items-center">
+                        <h5 class="card-title mb-0">Tekli Ürün Listesi</h5>
+                        <button type="button" class="btn btn-danger btn-sm" id="deleteSelectedBtn" style="display:none;">
+                            <iconify-icon icon="solar:trash-bin-minimalistic-outline" class="me-1"></iconify-icon>
+                            Seçilenleri Sil (<span id="selectedCount">0</span>)
+                        </button>
+                    </div>
                     <a href="{{ route('products.create') }}" class="btn btn-primary-100 text-primary-600 radius-8 px-20 py-11">
                         <iconify-icon icon="solar:add-circle-outline" class="me-2"></iconify-icon>
                         Yeni Ürün
@@ -70,7 +76,7 @@
                                     <tr>
                                         <td>
                                             <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" value="{{ $product->id }}">
+                                                <input class="form-check-input row-checkbox" type="checkbox" value="{{ $product->id }}" data-id="{{ $product->id }}">
                                             </div>
                                         </td>
                                         <td>
@@ -227,13 +233,69 @@ $(document).ready(function() {
 
     // Select All functionality
     $('#selectAll').on('change', function() {
-        $('tbody input[type="checkbox"]').prop('checked', this.checked);
+        $('.row-checkbox').prop('checked', this.checked);
+        updateDeleteButton();
     });
 
-    $('tbody input[type="checkbox"]').on('change', function() {
-        const totalCheckboxes = $('tbody input[type="checkbox"]').length;
-        const checkedCheckboxes = $('tbody input[type="checkbox"]:checked').length;
+    // Update delete button visibility
+    function updateDeleteButton() {
+        const checkedCount = $('.row-checkbox:checked').length;
+        $('#selectedCount').text(checkedCount);
+        
+        if (checkedCount > 0) {
+            $('#deleteSelectedBtn').show();
+        } else {
+            $('#deleteSelectedBtn').hide();
+        }
+    }
+
+    // Row checkbox change
+    $('.row-checkbox').on('change', function() {
+        const totalCheckboxes = $('.row-checkbox').length;
+        const checkedCheckboxes = $('.row-checkbox:checked').length;
         $('#selectAll').prop('checked', totalCheckboxes === checkedCheckboxes);
+        updateDeleteButton();
+    });
+
+    // Delete selected items
+    $('#deleteSelectedBtn').on('click', function() {
+        const selectedIds = [];
+        $('.row-checkbox:checked').each(function() {
+            selectedIds.push($(this).data('id'));
+        });
+
+        if (selectedIds.length === 0) {
+            alert('Lütfen silmek istediğiniz ürünleri seçin');
+            return;
+        }
+
+        const confirmMessage = selectedIds.length === 1 
+            ? 'Seçili ürünü silmek istediğinizden emin misiniz?' 
+            : `Seçili ${selectedIds.length} ürünü silmek istediğinizden emin misiniz?`;
+
+        if (confirm(confirmMessage)) {
+            // Create a form and submit
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ route("products.bulk-delete") }}';
+            
+            // CSRF token
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = '{{ csrf_token() }}';
+            form.appendChild(csrfInput);
+            
+            // IDs
+            const idsInput = document.createElement('input');
+            idsInput.type = 'hidden';
+            idsInput.name = 'ids';
+            idsInput.value = JSON.stringify(selectedIds);
+            form.appendChild(idsInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
     });
 });
 </script>
