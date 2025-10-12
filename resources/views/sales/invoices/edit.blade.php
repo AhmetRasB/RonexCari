@@ -52,7 +52,7 @@
                                 <div class="col-md-3">
                                     <label class="form-label">Fatura Saati <span class="text-danger">*</span></label>
                                     <div class="position-relative">
-                                        <input type="time" name="invoice_time" class="form-control" value="{{ $invoice->invoice_time ?? \Carbon\Carbon::now()->format('H:i') }}" required>
+                                        <input type="time" name="invoice_time" class="form-control" value="{{ $invoice->invoice_date->format('H:i') }}" required>
                                         <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                             <iconify-icon icon="solar:clock-circle-outline" class="text-secondary-light"></iconify-icon>
                                         </div>
@@ -122,8 +122,12 @@
                     <!-- Invoice Items -->
                     <div class="row mb-4">
                         <div class="col-12">
-                            <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h6 class="fw-semibold mb-0">Ürün/Hizmet Detayları</h6>
+                                <button type="button" class="btn btn-outline-success btn-sm" id="openInvoiceScanner">
+                                    <iconify-icon icon="solar:qr-code-outline" class="me-1"></iconify-icon>
+                                    QR ile Ekle
+                                </button>
                             </div>
                             <div class="table-responsive" style="overflow-x: auto; min-width: 100%;">
                                 <table class="table table-bordered" id="invoiceItemsTable" style="min-width: 1500px; width: 100%;">
@@ -263,51 +267,6 @@
                 <button type="button" class="btn btn-primary" id="saveNewCustomer" style="min-width: 100px;">
                     <iconify-icon icon="solar:check-circle-outline" class="me-1"></iconify-icon>
                     Kaydet
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Barcode Scan Confirmation Modal -->
-<div class="modal fade" id="barcodeConfirmModal" tabindex="-1" aria-labelledby="barcodeConfirmModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="barcodeConfirmModalLabel">
-                    <iconify-icon icon="solar:box-outline" class="me-2"></iconify-icon>
-                    Ürün Eklenecek
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Ürün Adı</label>
-                    <div id="scannedProductName" class="form-control-plaintext fw-semibold text-primary"></div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Fiyat</label>
-                    <div id="scannedProductPrice" class="form-control-plaintext"></div>
-                </div>
-                <div id="colorSelectionContainer" class="mb-3" style="display: none;">
-                    <label class="form-label fw-semibold">Renk Seçin <span class="text-danger">*</span></label>
-                    <select id="scannedProductColor" class="form-select">
-                        <option value="">Renk seçin...</option>
-                    </select>
-                </div>
-                <div class="alert alert-info mb-0">
-                    <iconify-icon icon="solar:info-circle-outline" class="me-2"></iconify-icon>
-                    Bu ürünü faturaya eklemek istiyor musunuz?
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <iconify-icon icon="solar:close-circle-outline" class="me-1"></iconify-icon>
-                    Hayır
-                </button>
-                <button type="button" class="btn btn-primary" id="confirmAddScannedProduct">
-                    <iconify-icon icon="solar:check-circle-outline" class="me-1"></iconify-icon>
-                    Evet, Ekle
                 </button>
             </div>
         </div>
@@ -948,12 +907,13 @@ window.addScannedProductByCode = function(code){
                             
                             console.log('Barcode scan - Product found with color variants:', item.has_color_variants, item.color_variants);
                             
-                            // Show confirmation modal instead of directly adding
-                            showBarcodeConfirmModal(item);
+                            appendInvoiceItemFromResult(item);
+                            toastr.success(item.name + ' eklendi');
                         } else {
                             console.warn('Barcode scan - Product not found in search results, using basic info');
-                            // Fallback: show modal with basic info
-                            showBarcodeConfirmModal(item);
+                            // Fallback: add with basic info
+                            appendInvoiceItemFromResult(item);
+                            toastr.success(item.name + ' eklendi');
                         }
                     })
                     .fail(function(){
@@ -1000,11 +960,6 @@ function appendInvoiceItemFromResult(item){
         // Add color cell to current row - wait for DOM to be ready
         setTimeout(() => {
             addColorCellToRow(row, item.color_variants);
-            
-            // If item has a selected color from modal, set it
-            if (item.selected_color) {
-                row.find('select[name*="[selected_color]"]').val(item.selected_color).trigger('change');
-            }
         }, 100);
         
         // Store color variants data
@@ -1022,60 +977,6 @@ function appendInvoiceItemFromResult(item){
         validateStock(row);
     }, 300);
 }
-
-// Global variable to store pending scanned item
-let pendingScannedItem = null;
-
-// Show barcode confirmation modal
-function showBarcodeConfirmModal(item) {
-    pendingScannedItem = item;
-    
-    // Set product name and price
-    $('#scannedProductName').text(item.name);
-    $('#scannedProductPrice').text(parseFloat(item.price).toFixed(2) + ' ' + (item.currency || 'TRY'));
-    
-    // Handle color selection
-    if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {
-        $('#colorSelectionContainer').show();
-        const colorSelect = $('#scannedProductColor');
-        colorSelect.empty().append('<option value="">Renk seçin...</option>');
-        
-        item.color_variants.forEach(variant => {
-            colorSelect.append(`<option value="${variant.color}">${variant.color} (Stok: ${variant.stock_quantity || 0})</option>`);
-        });
-    } else {
-        $('#colorSelectionContainer').hide();
-    }
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('barcodeConfirmModal'));
-    modal.show();
-}
-
-// Confirm and add scanned product
-$(document).on('click', '#confirmAddScannedProduct', function() {
-    if (!pendingScannedItem) return;
-    
-    const item = pendingScannedItem;
-    
-    // Check if color is required and selected
-    if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {
-        const selectedColor = $('#scannedProductColor').val();
-        if (!selectedColor) {
-            toastr.error('Lütfen bir renk seçin');
-            return;
-        }
-        item.selected_color = selectedColor;
-    }
-    
-    // Add item to invoice
-    appendInvoiceItemFromResult(item);
-    toastr.success(item.name + ' eklendi');
-    
-    // Close modal
-    bootstrap.Modal.getInstance(document.getElementById('barcodeConfirmModal')).hide();
-    pendingScannedItem = null;
-});
 
 function searchCustomers(query) {
     console.log('Searching customers with query:', query);
