@@ -10,6 +10,10 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Tedarikçi Listesi</h5>
                 <div class="d-flex gap-2">
+                    <button id="deleteSelectedBtn" class="btn btn-danger-100 text-danger-600 radius-8 px-20 py-11" style="display: none;">
+                        <iconify-icon icon="solar:trash-bin-minimalistic-outline" class="me-2"></iconify-icon>
+                        Seçilenleri Sil (<span id="selectedCount">0</span>)
+                    </button>
                     <a href="{{ route('finance.supplier-payments.index') }}" class="btn btn-warning-100 text-warning-600 radius-8 px-20 py-11">
                         <iconify-icon icon="solar:wallet-money-outline" class="me-2"></iconify-icon>
                         Tedarikçi Ödemeleri
@@ -55,7 +59,7 @@
                             <tr>
                                 <td>
                                     <div class="form-check style-check d-flex align-items-center">
-                                        <input class="form-check-input" type="checkbox" value="{{ $supplier->id }}">
+                                        <input class="form-check-input row-checkbox" type="checkbox" data-id="{{ $supplier->id }}">
                                         <label class="form-check-label">{{ $index + 1 }}</label>
                                     </div>
                                 </td>
@@ -153,10 +157,61 @@
 
     // Select all functionality
     document.getElementById('selectAll').addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+        const checkboxes = document.querySelectorAll('.row-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
         });
+        updateDeleteButton();
+    });
+
+    // Update delete button visibility
+    function updateDeleteButton() {
+        const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+        const deleteBtn = document.getElementById('deleteSelectedBtn');
+        const countSpan = document.getElementById('selectedCount');
+        
+        if (checkedBoxes.length > 0) {
+            deleteBtn.style.display = 'inline-block';
+            countSpan.textContent = checkedBoxes.length;
+        } else {
+            deleteBtn.style.display = 'none';
+        }
+    }
+
+    // Row checkbox change
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('row-checkbox')) {
+            updateDeleteButton();
+        }
+    });
+
+    // Delete selected
+    document.getElementById('deleteSelectedBtn').addEventListener('click', function() {
+        const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+        const ids = Array.from(checkedBoxes).map(cb => cb.dataset.id);
+        
+        if (ids.length === 0) return;
+        
+        if (confirm(ids.length + ' tedarikçiyi silmek istediğinizden emin misiniz?')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ route("purchases.suppliers.bulk-delete") }}';
+            
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = '{{ csrf_token() }}';
+            
+            const idsInput = document.createElement('input');
+            idsInput.type = 'hidden';
+            idsInput.name = 'ids';
+            idsInput.value = JSON.stringify(ids);
+            
+            form.appendChild(csrfInput);
+            form.appendChild(idsInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
     });
 </script>
 @endpush

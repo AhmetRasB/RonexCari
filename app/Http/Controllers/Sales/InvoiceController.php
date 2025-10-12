@@ -985,4 +985,19 @@ class InvoiceController extends Controller
         }
     }
 
+    public function bulkDelete(Request $request)
+    {
+        try {
+            $ids = json_decode($request->input('ids'), true);
+            if (empty($ids) || !is_array($ids)) {
+                return redirect()->back()->with('error', 'Geçersiz seçim');
+            }
+            $deletedCount = Invoice::whereIn('id', $ids)->delete();
+            return redirect()->route('sales.invoices.index')->with('success', $deletedCount . ' fatura başarıyla silindi');
+        } catch (\Exception $e) {
+            \Log::error('Bulk delete error: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+        }
+    }
+
 }

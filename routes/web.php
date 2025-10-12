@@ -79,6 +79,7 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
         Route::resource('customers', CustomerController::class);
         Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulk-delete');
         Route::resource('invoices', InvoiceController::class);
+        Route::post('invoices/bulk-delete', [InvoiceController::class, 'bulkDelete'])->name('invoices.bulk-delete');
         Route::resource('orders', OrderController::class);
         Route::resource('quotes', QuoteController::class);
         
@@ -95,7 +96,9 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     // Purchases Routes
     Route::prefix('purchases')->name('purchases.')->group(function () {
         Route::resource('suppliers', SupplierController::class);
+        Route::post('suppliers/bulk-delete', [SupplierController::class, 'bulkDelete'])->name('suppliers.bulk-delete');
         Route::resource('invoices', \App\Http\Controllers\Purchases\InvoiceController::class);
+        Route::post('invoices/bulk-delete', [\App\Http\Controllers\Purchases\InvoiceController::class, 'bulkDelete'])->name('invoices.bulk-delete');
         Route::resource('delivery-notes', \App\Http\Controllers\Purchases\DeliveryNoteController::class);
         Route::resource('orders', \App\Http\Controllers\Purchases\OrderController::class);
         
@@ -137,6 +140,7 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     // Expenses Routes
     Route::prefix('expenses')->name('expenses.')->group(function () {
         Route::resource('expenses', ExpenseController::class);
+        Route::post('expenses/bulk-delete', [ExpenseController::class, 'bulkDelete'])->name('expenses.bulk-delete');
         Route::resource('employees', EmployeeController::class);
         
         // Employee salary payment
@@ -146,7 +150,9 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     // Finance Routes
     Route::prefix('finance')->name('finance.')->group(function () {
         Route::resource('collections', \App\Http\Controllers\Finance\CollectionController::class);
+        Route::post('collections/bulk-delete', [\App\Http\Controllers\Finance\CollectionController::class, 'bulkDelete'])->name('collections.bulk-delete');
         Route::resource('supplier-payments', \App\Http\Controllers\Finance\SupplierPaymentController::class);
+        Route::post('supplier-payments/bulk-delete', [\App\Http\Controllers\Finance\SupplierPaymentController::class, 'bulkDelete'])->name('supplier-payments.bulk-delete');
         
         // Search routes
         Route::get('collections/search/customers', [\App\Http\Controllers\Finance\CollectionController::class, 'searchCustomers'])->name('collections.search.customers');
@@ -199,8 +205,10 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     // Management Routes (Admin and God Mode only)
     Route::prefix('management')->name('management.')->middleware(['auth'])->group(function () {
         Route::resource('users', UserController::class);
+        Route::post('users/bulk-delete', [UserController::class, 'bulkDelete'])->name('users.bulk-delete');
         Route::resource('roles', RoleController::class)->only(['index']);
         Route::resource('employees', ManagementEmployeeController::class);
+        Route::post('employees/bulk-delete', [ManagementEmployeeController::class, 'bulkDelete'])->name('employees.bulk-delete');
         
         // Salary payment routes
         Route::get('employees/{employee}/salary-payments/create', [\App\Http\Controllers\Management\SalaryPaymentController::class, 'create'])->name('employees.salary-payments.create');

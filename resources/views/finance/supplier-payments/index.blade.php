@@ -10,6 +10,10 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Tedarikçi Ödeme Listesi</h5>
                 <div class="d-flex gap-2">
+                    <button id="deleteSelectedBtn" class="btn btn-danger-100 text-danger-600 radius-8 px-20 py-11" style="display: none;">
+                        <iconify-icon icon="solar:trash-bin-minimalistic-outline" class="me-2"></iconify-icon>
+                        Seçilenleri Sil (<span id="selectedCount">0</span>)
+                    </button>
                     <a href="{{ route('purchases.suppliers.index') }}" class="btn btn-secondary-100 text-secondary-600 radius-8 px-20 py-11">
                         <iconify-icon icon="solar:buildings-outline" class="me-2"></iconify-icon>
                         Tedarikçiler
@@ -59,7 +63,7 @@
                             <tr>
                                 <td>
                                     <div class="form-check style-check d-flex align-items-center">
-                                        <input class="form-check-input" type="checkbox" value="{{ $supplierPayment->id }}">
+                                        <input class="form-check-input row-checkbox" type="checkbox" data-id="{{ $supplierPayment->id }}">
                                         <label class="form-check-label">{{ $index + 1 }}</label>
                                     </div>
                                 </td>
@@ -173,13 +177,59 @@ let table = new DataTable('#dataTable');
 
 // Select all functionality
 $('#selectAll').change(function() {
-    $('tbody input[type="checkbox"]').prop('checked', this.checked);
+    $('.row-checkbox').prop('checked', this.checked);
+    updateDeleteButton();
 });
 
 // Individual checkbox change
-$('tbody').on('change', 'input[type="checkbox"]', function() {
+$('tbody').on('change', '.row-checkbox', function() {
     if (!this.checked) {
         $('#selectAll').prop('checked', false);
+    }
+    updateDeleteButton();
+});
+
+// Update delete button visibility
+function updateDeleteButton() {
+    const checkedBoxes = $('.row-checkbox:checked');
+    const deleteBtn = $('#deleteSelectedBtn');
+    const countSpan = $('#selectedCount');
+    
+    if (checkedBoxes.length > 0) {
+        deleteBtn.show();
+        countSpan.text(checkedBoxes.length);
+    } else {
+        deleteBtn.hide();
+    }
+}
+
+// Delete selected
+$('#deleteSelectedBtn').click(function() {
+    const checkedBoxes = $('.row-checkbox:checked');
+    const ids = checkedBoxes.map(function() { return $(this).data('id'); }).get();
+    
+    if (ids.length === 0) return;
+    
+    if (confirm(ids.length + ' tedarikçi ödemesini silmek istediğinizden emin misiniz?')) {
+        const form = $('<form>', {
+            method: 'POST',
+            action: '{{ route("finance.supplier-payments.bulk-delete") }}'
+        });
+        
+        form.append($('<input>', {
+            type: 'hidden',
+            name: '_token',
+            value: '{{ csrf_token() }}'
+        }));
+        
+        form.append($('<input>', {
+            type: 'hidden',
+            name: 'ids',
+            value: JSON.stringify(ids)
+        }));
+        
+        $('body').append(form);
+        form.submit();
     }
 });
 </script>
