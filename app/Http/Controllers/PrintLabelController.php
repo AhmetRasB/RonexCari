@@ -460,19 +460,25 @@ class PrintLabelController extends Controller
         $name = $this->sanitize($series->name ?? '');
         $seriesSize = (int) ($series->series_size ?? 0);
         $barcode = $this->sanitize($series->barcode ?: ($series->sku ?: ('S' . str_pad((string)$series->id, 4, '0', STR_PAD_LEFT))));
-        $sizes = $series->seriesItems->pluck('size')->filter()->values()->all();
+        
+        // TÜM bedenler - tekrar edenlerle birlikte (unique değil!)
+        $allSizes = $series->seriesItems->pluck('size')->filter()->all();
+        
+        // Sadece unique bedenler (dış paket için)
+        $uniqueSizes = array_values(array_unique($allSizes));
+        
         $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
         $qrSeries = url('/products/series/' . $series->id);
 
-        $sizesCsv = $this->sanitize(implode(' ', $sizes));
+        $sizesCsv = $this->sanitize(implode(' ', $uniqueSizes));
         $colorsCsv = $this->sanitize(implode(', ', $colors));
 
         if ($mode === 'sizes') {
-            // Her beden için ayrı etiket üret - renk varyantları varsa her renk için de
+            // Her beden için ayrı etiket üret - AYNI BEDENDEN VARSA HEPSİ
             $blocks = [];
             
-            // Sadece bedenler (renk varyantlarını göz ardı et)
-            foreach ($sizes as $size) {
+            // TÜM bedenler (tekrarlı olanlar dahil)
+            foreach ($allSizes as $size) {
                 $sizeSan = $this->sanitize((string)$size);
 
                 $one = "^XA\n" .
