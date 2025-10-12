@@ -464,13 +464,11 @@ class PrintLabelController extends Controller
         // TÜM bedenler - tekrar edenlerle birlikte (unique değil!)
         $allSizes = $series->seriesItems->pluck('size')->filter()->all();
         
-        // Sadece unique bedenler (dış paket için)
-        $uniqueSizes = array_values(array_unique($allSizes));
-        
         $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
         $qrSeries = url('/products/series/' . $series->id);
 
-        $sizesCsv = $this->sanitize(implode(' ', $uniqueSizes));
+        // Dış pakette TÜM bedenler gösterilecek (tekrarlılar dahil!)
+        $sizesCsv = $this->sanitize(implode(' ', $allSizes));
         $colorsCsv = $this->sanitize(implode(', ', $colors));
 
         if ($mode === 'sizes') {
