@@ -8,7 +8,13 @@
     <div class="col-12">
         <div class="card basic-data-table">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">Müşteri Listesi</h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <h5 class="card-title mb-0">Müşteri Listesi</h5>
+                    <button type="button" class="btn btn-danger btn-sm" id="deleteSelectedBtn" style="display:none;">
+                        <iconify-icon icon="solar:trash-bin-minimalistic-outline" class="me-1"></iconify-icon>
+                        Seçilenleri Sil (<span id="selectedCount">0</span>)
+                    </button>
+                </div>
                 <a href="{{ route('sales.customers.create') }}" class="btn btn-primary-100 text-primary-600 radius-8 px-20 py-11">
                     <iconify-icon icon="solar:add-circle-outline" class="me-2"></iconify-icon>
                     Yeni Müşteri
@@ -48,7 +54,7 @@
                             <tr>
                                 <td>
                                     <div class="form-check style-check d-flex align-items-center">
-                                        <input class="form-check-input" type="checkbox" value="{{ $customer->id }}">
+                                        <input class="form-check-input row-checkbox" type="checkbox" value="{{ $customer->id }}" data-id="{{ $customer->id }}">
                                         <label class="form-check-label">{{ $index + 1 }}</label>
                                     </div>
                                 </td>
@@ -132,15 +138,73 @@
 
 @push('scripts')
 <script>
+$(document).ready(function() {
     let table = new DataTable('#dataTable');
 
-    // Select all functionality
-    document.getElementById('selectAll').addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = this.checked;
-        });
+    // Select All functionality
+    $('#selectAll').on('change', function() {
+        $('.row-checkbox').prop('checked', this.checked);
+        updateDeleteButton();
     });
+
+    // Update delete button visibility
+    function updateDeleteButton() {
+        const checkedCount = $('.row-checkbox:checked').length;
+        $('#selectedCount').text(checkedCount);
+        
+        if (checkedCount > 0) {
+            $('#deleteSelectedBtn').show();
+        } else {
+            $('#deleteSelectedBtn').hide();
+        }
+    }
+
+    // Row checkbox change
+    $(document).on('change', '.row-checkbox', function() {
+        const totalCheckboxes = $('.row-checkbox').length;
+        const checkedCheckboxes = $('.row-checkbox:checked').length;
+        $('#selectAll').prop('checked', totalCheckboxes === checkedCheckboxes);
+        updateDeleteButton();
+    });
+
+    // Delete selected items
+    $('#deleteSelectedBtn').on('click', function() {
+        const selectedIds = [];
+        $('.row-checkbox:checked').each(function() {
+            selectedIds.push($(this).data('id'));
+        });
+
+        if (selectedIds.length === 0) {
+            alert('Lütfen silmek istediğiniz müşterileri seçin');
+            return;
+        }
+
+        const confirmMessage = selectedIds.length === 1 
+            ? 'Seçili müşteriyi silmek istediğinizden emin misiniz?' 
+            : `Seçili ${selectedIds.length} müşteriyi silmek istediğinizden emin misiniz?`;
+
+        if (confirm(confirmMessage)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ route("sales.customers.bulk-delete") }}';
+            
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = '{{ csrf_token() }}';
+            form.appendChild(csrfInput);
+            
+            const idsInput = document.createElement('input');
+            idsInput.type = 'hidden';
+            idsInput.name = 'ids';
+            idsInput.value = JSON.stringify(selectedIds);
+            form.appendChild(idsInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+});
 </script>
 @endpush
 @endsection
