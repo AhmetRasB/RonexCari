@@ -397,4 +397,26 @@ class ProductSeriesController extends Controller
         }
         return [];
     }
+
+    /**
+     * Bulk delete product series
+     */
+    public function bulkDelete(Request $request)
+    {
+        try {
+            $ids = json_decode($request->input('ids'), true);
+            
+            if (empty($ids) || !is_array($ids)) {
+                return redirect()->back()->with('error', 'Geçersiz seçim');
+            }
+
+            $deletedCount = ProductSeries::whereIn('id', $ids)->delete();
+            
+            return redirect()->route('products.series.index')
+                ->with('success', $deletedCount . ' seri başarıyla silindi');
+        } catch (\Exception $e) {
+            \Log::error('Bulk delete error: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+        }
+    }
 }
