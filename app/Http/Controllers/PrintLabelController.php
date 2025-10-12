@@ -388,7 +388,7 @@ class PrintLabelController extends Controller
                 $qr = url('/products/' . $product->id);
                 $stock = $colorVariant->stock_quantity ?? 0;
 
-                // Geliştirilmiş etiket formatı - Büyük barkod tasarımı
+                // Geliştirilmiş etiket formatı - Sadece bedenler, büyük barkod
                 $one = "^XA\n" .
                        "^PW500\n" .
                        "^LL300\n" .
@@ -396,22 +396,20 @@ class PrintLabelController extends Controller
                        // Dış çerçeve
                        "^FO10,10^GB480,280,2^FS\n" .
                        // Kategori (üst)
-                       "^FO20,20^A0N,22,22^FD{$category}^FS\n" .
+                       "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
                        // Ürün adı (kalın)
-                       "^FO20,45^A0N,26,26^FD{$name}^FS\n" .
-                       // QR kod (sağ üstte, yüksekte)
+                       "^FO20,48^A0N,28,28^FD{$name}^FS\n" .
+                       // QR kod (sağ üstte)
                        "^FO360,15^BQN,2,3^FDLA,{$qr}^FS\n" .
-                       // Renk bilgisi
-                       "^FO20,75^A0N,24,24^FDRENK: {$color}^FS\n" .
-                       // Beden bilgisi (QR'ın altına gelmeyecek pozisyonda)
-                       ($size !== '' ? "^FO20,100^A0N,22,22^FDBEDEN: {$size}^FS\n" : '') .
-                       // Seri bilgisi (alt alta)
-                       "^FO20," . ($size !== '' ? '125' : '100') . "^A0N,20,20^FDSeri: 5'li^FS\n" .
+                       // Beden bilgisi (renk alanı kaldırıldı)
+                       ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
+                       // Seri bilgisi
+                       "^FO20," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
                        // Barkod numarası yazısı
-                       "^FO20," . ($size !== '' ? '150' : '125') . "^A0N,18,18^FD{$barcode}^FS\n" .
-                       // BÜYÜK BARKOD - En altta yatay geniş (RONEX yerine)
-                       "^BY3,2,80\n" .
-                       "^FO20," . ($size !== '' ? '175' : '150') . "^BCN,80,N,N,N^FD{$barcode}^FS\n" .
+                       "^FO20," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$barcode}^FS\n" .
+                       // ÇOK BÜYÜK BARKOD - Renk alanı kaldırıldı, daha fazla yer
+                       "^BY4,2,100\n" .
+                       "^FO20," . ($size !== '' ? '165' : '135') . "^BCN,100,N,N,N^FD{$barcode}^FS\n" .
                        "^XZ\n";
                 $blocks[] = str_repeat($one, max(1, $count));
             }
@@ -432,21 +430,20 @@ class PrintLabelController extends Controller
                    // Dış çerçeve
                    "^FO10,10^GB480,280,2^FS\n" .
                    // Kategori
-                   "^FO20,20^A0N,22,22^FD{$category}^FS\n" .
+                   "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
                    // Ürün adı
-                   "^FO20,45^A0N,26,26^FD{$name}^FS\n" .
+                   "^FO20,48^A0N,28,28^FD{$name}^FS\n" .
                    // QR kod (sağ üstte)
                    "^FO360,15^BQN,2,3^FDLA,{$qr}^FS\n" .
-                   // Renk ve beden
-                   ($color !== '' ? "^FO20,75^A0N,24,24^FDRENK: {$color}^FS\n" : '') .
-                   ($size !== '' ? "^FO20," . ($color !== '' ? '100' : '75') . "^A0N,22,22^FDBEDEN: {$size}^FS\n" : '') .
+                   // Sadece beden (renk kaldırıldı)
+                   ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
                    // Seri bilgisi
-                   "^FO20," . (($color !== '' || $size !== '') ? '125' : '75') . "^A0N,20,20^FDSeri: 5'li^FS\n" .
+                   "^FO20," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
                    // Barkod numarası
-                   "^FO20," . (($color !== '' || $size !== '') ? '150' : '100') . "^A0N,18,18^FD{$barcode}^FS\n" .
-                   // BÜYÜK BARKOD - En altta yatay geniş
-                   "^BY3,2,80\n" .
-                   "^FO20," . (($color !== '' || $size !== '') ? '175' : '125') . "^BCN,80,N,N,N^FD{$barcode}^FS\n" .
+                   "^FO20," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$barcode}^FS\n" .
+                   // ÇOK BÜYÜK BARKOD - Renk alanı kaldırıldı
+                   "^BY4,2,100\n" .
+                   "^FO20," . ($size !== '' ? '165' : '135') . "^BCN,100,N,N,N^FD{$barcode}^FS\n" .
                    "^XZ\n";
             $blocks[] = str_repeat($one, max(1, $count));
         }
@@ -474,69 +471,33 @@ class PrintLabelController extends Controller
             // Her beden için ayrı etiket üret - renk varyantları varsa her renk için de
             $blocks = [];
             
-            if (count($colors) > 0) {
-                // Renk varyantı varsa: Her renk x Her beden kombinasyonu
-                foreach ($colors as $color) {
-                    $colorSan = $this->sanitize((string)$color);
-                    foreach ($sizes as $size) {
-                        $sizeSan = $this->sanitize((string)$size);
+            // Sadece bedenler (renk varyantlarını göz ardı et)
+            foreach ($sizes as $size) {
+                $sizeSan = $this->sanitize((string)$size);
 
-                        $one = "^XA\n" .
-                               "^PW500\n" .
-                               "^LL300\n" .
-                               "^LH10,10\n" .
-                               // Dış çerçeve
-                               "^FO10,10^GB480,280,2^FS\n" .
-                               // Kategori
-                               "^FO20,20^A0N,22,22^FD{$category}^FS\n" .
-                               // Seri adı
-                               "^FO20,45^A0N,26,26^FD{$name}^FS\n" .
-                               // QR kod (sağ üstte)
-                               "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
-                               // Renk bilgisi
-                               "^FO20,75^A0N,24,24^FDRENK: {$colorSan}^FS\n" .
-                               // Beden bilgisi
-                               "^FO20,100^A0N,22,22^FDBEDEN: {$sizeSan}^FS\n" .
-                               // Seri bilgisi (alt alta)
-                               "^FO20,125^A0N,20,20^FDSeri: " . ($seriesSize > 0 ? $seriesSize . "'li" : 'Normal') . "^FS\n" .
-                               // Barkod numarası
-                               "^FO20,150^A0N,18,18^FD{$barcode}^FS\n" .
-                               // BÜYÜK BARKOD - En altta yatay geniş
-                               "^BY3,2,80\n" .
-                               "^FO20,175^BCN,80,N,N,N^FD{$barcode}^FS\n" .
-                               "^XZ\n";
-                        $blocks[] = str_repeat($one, max(1, $count));
-                    }
-                }
-            } else {
-                // Renk yoksa sadece bedenler
-                foreach ($sizes as $size) {
-                    $sizeSan = $this->sanitize((string)$size);
-
-                    $one = "^XA\n" .
-                           "^PW500\n" .
-                           "^LL300\n" .
-                           "^LH10,10\n" .
-                           // Dış çerçeve
-                           "^FO10,10^GB480,280,2^FS\n" .
-                           // Kategori
-                           "^FO20,20^A0N,22,22^FD{$category}^FS\n" .
-                           // Seri adı
-                           "^FO20,45^A0N,26,26^FD{$name}^FS\n" .
-                           // QR kod (sağ üstte)
-                           "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
-                           // Beden bilgisi
-                           "^FO20,75^A0N,24,24^FDBEDEN: {$sizeSan}^FS\n" .
-                           // Seri bilgisi (alt alta)
-                           "^FO20,100^A0N,20,20^FDSeri: " . ($seriesSize > 0 ? $seriesSize . "'li" : 'Normal') . "^FS\n" .
-                           // Barkod numarası
-                           "^FO20,125^A0N,18,18^FD{$barcode}^FS\n" .
-                           // BÜYÜK BARKOD - En altta yatay geniş
-                           "^BY3,2,80\n" .
-                           "^FO20,150^BCN,80,N,N,N^FD{$barcode}^FS\n" .
-                           "^XZ\n";
-                    $blocks[] = str_repeat($one, max(1, $count));
-                }
+                $one = "^XA\n" .
+                       "^PW500\n" .
+                       "^LL300\n" .
+                       "^LH10,10\n" .
+                       // Dış çerçeve
+                       "^FO10,10^GB480,280,2^FS\n" .
+                       // Kategori
+                       "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
+                       // Seri adı
+                       "^FO20,48^A0N,28,28^FD{$name}^FS\n" .
+                       // QR kod (sağ üstte)
+                       "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
+                       // Beden bilgisi (renk kaldırıldı)
+                       "^FO20,80^A0N,26,26^FDBEDEN: {$sizeSan}^FS\n" .
+                       // Seri bilgisi
+                       "^FO20,110^A0N,22,22^FDSeri: " . ($seriesSize > 0 ? $seriesSize . "'li" : 'Normal') . "^FS\n" .
+                       // Barkod numarası
+                       "^FO20,138^A0N,20,20^FD{$barcode}^FS\n" .
+                       // ÇOK BÜYÜK BARKOD - Renk alanı kaldırıldı
+                       "^BY4,2,100\n" .
+                       "^FO20,165^BCN,100,N,N,N^FD{$barcode}^FS\n" .
+                       "^XZ\n";
+                $blocks[] = str_repeat($one, max(1, $count));
             }
             return implode('', $blocks);
         }
@@ -552,22 +513,20 @@ class PrintLabelController extends Controller
                // Dış çerçeve
                "^FO10,10^GB480,280,2^FS\n" .
                // Kategori
-               "^FO20,20^A0N,22,22^FD{$category}^FS\n" .
+               "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
                // Ana başlık (büyük)
-               "^FO20,45^A0N,28,28^FD{$name}^FS\n" .
+               "^FO20,48^A0N,30,30^FD{$name}^FS\n" .
                // QR kod (sağ üstte)
                "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
                // Seri tipi ve yıl
-               "^FO20,75^A0N,24,24^FD{$seriesInfo} {$year}^FS\n" .
-               // Renkler (alt alta)
-               ($colorsCsv !== '' ? "^FO20,100^A0N,20,20^FDRenkler:^FS\n^FO20,120^A0N,18,18^FD{$colorsCsv}^FS\n" : '') .
-               // Bedenler (alt alta)
-               ($sizesCsv !== '' ? "^FO20," . ($colorsCsv !== '' ? '140' : '100') . "^A0N,20,20^FDBedenler:^FS\n^FO20," . ($colorsCsv !== '' ? '160' : '120') . "^A0N,18,18^FD{$sizesCsv}^FS\n" : '') .
+               "^FO20,80^A0N,26,26^FD{$seriesInfo} {$year}^FS\n" .
+               // Sadece bedenler (renkler kaldırıldı)
+               ($sizesCsv !== '' ? "^FO20,110^A0N,22,22^FDBedenler:^FS\n^FO20,135^A0N,20,20^FD{$sizesCsv}^FS\n" : '') .
                // Barkod numarası
-               "^FO20," . ($colorsCsv !== '' ? '185' : '145') . "^A0N,18,18^FD{$barcode}^FS\n" .
-               // BÜYÜK BARKOD - En altta yatay geniş
-               "^BY3,2,70\n" .
-               "^FO20," . ($colorsCsv !== '' ? '210' : '170') . "^BCN,70,N,N,N^FD{$barcode}^FS\n" .
+               "^FO20,163^A0N,20,20^FD{$barcode}^FS\n" .
+               // ÇOK BÜYÜK BARKOD - Renk alanı kaldırıldı
+               "^BY4,2,90\n" .
+               "^FO20,188^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                "^XZ\n";
         return str_repeat($one, max(1, $count));
     }
