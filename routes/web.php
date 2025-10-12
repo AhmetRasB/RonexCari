@@ -77,6 +77,7 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     // Sales Routes
     Route::prefix('sales')->name('sales.')->group(function () {
         Route::resource('customers', CustomerController::class);
+        Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulk-delete');
         Route::resource('invoices', InvoiceController::class);
         Route::resource('orders', OrderController::class);
         Route::resource('quotes', QuoteController::class);

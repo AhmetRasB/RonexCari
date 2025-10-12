@@ -1,0 +1,144 @@
+// Customer Controller
+public function bulkDelete(Request $request)
+{
+    try {
+        $ids = json_decode($request->input('ids'), true);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Geçersiz seçim');
+        }
+        $deletedCount = \App\Models\Customer::whereIn('id', $ids)->delete();
+        return redirect()->route('sales.customers.index')->with('success', $deletedCount . ' müşteri başarıyla silindi');
+    } catch (\Exception $e) {
+        \Log::error('Bulk delete error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+    }
+}
+
+// Supplier Controller
+public function bulkDelete(Request $request)
+{
+    try {
+        $ids = json_decode($request->input('ids'), true);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Geçersiz seçim');
+        }
+        $deletedCount = \App\Models\Supplier::whereIn('id', $ids)->delete();
+        return redirect()->route('purchases.suppliers.index')->with('success', $deletedCount . ' tedarikçi başarıyla silindi');
+    } catch (\Exception $e) {
+        \Log::error('Bulk delete error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+    }
+}
+
+// Sales Invoice Controller
+public function bulkDelete(Request $request)
+{
+    try {
+        $ids = json_decode($request->input('ids'), true);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Geçersiz seçim');
+        }
+        $deletedCount = \App\Models\Invoice::whereIn('id', $ids)->delete();
+        return redirect()->route('sales.invoices.index')->with('success', $deletedCount . ' fatura başarıyla silindi');
+    } catch (\Exception $e) {
+        \Log::error('Bulk delete error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+    }
+}
+
+// Purchase Invoice Controller
+public function bulkDelete(Request $request)
+{
+    try {
+        $ids = json_decode($request->input('ids'), true);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Geçersiz seçim');
+        }
+        $deletedCount = \App\Models\PurchaseInvoice::whereIn('id', $ids)->delete();
+        return redirect()->route('purchases.invoices.index')->with('success', $deletedCount . ' fatura başarıyla silindi');
+    } catch (\Exception $e) {
+        \Log::error('Bulk delete error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+    }
+}
+
+// Employee Controller
+public function bulkDelete(Request $request)
+{
+    try {
+        $ids = json_decode($request->input('ids'), true);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Geçersiz seçim');
+        }
+        $deletedCount = \App\Models\Employee::whereIn('id', $ids)->delete();
+        return redirect()->route('management.employees.index')->with('success', $deletedCount . ' çalışan başarıyla silindi');
+    } catch (\Exception $e) {
+        \Log::error('Bulk delete error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+    }
+}
+
+// User Controller
+public function bulkDelete(Request $request)
+{
+    try {
+        $ids = json_decode($request->input('ids'), true);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Geçersiz seçim');
+        }
+        $deletedCount = \App\Models\User::whereIn('id', $ids)->delete();
+        return redirect()->route('management.users.index')->with('success', $deletedCount . ' kullanıcı başarıyla silindi');
+    } catch (\Exception $e) {
+        \Log::error('Bulk delete error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+    }
+}
+
+// Expense Controller  
+public function bulkDelete(Request $request)
+{
+    try {
+        $ids = json_decode($request->input('ids'), true);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Geçersiz seçim');
+        }
+        $deletedCount = \App\Models\Expense::whereIn('id', $ids)->delete();
+        return redirect()->route('expenses.expenses.index')->with('success', $deletedCount . ' gider başarıyla silindi');
+    } catch (\Exception $e) {
+        \Log::error('Bulk delete error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+    }
+}
+
+// Collection Controller
+public function bulkDelete(Request $request)
+{
+    try {
+        $ids = json_decode($request->input('ids'), true);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Geçersiz seçim');
+        }
+        $deletedCount = \App\Models\Collection::whereIn('id', $ids)->delete();
+        return redirect()->route('finance.collections.index')->with('success', $deletedCount . ' tahsilat başarıyla silindi');
+    } catch (\Exception $e) {
+        \Log::error('Bulk delete error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+    }
+}
+
+// SupplierPayment Controller
+public function bulkDelete(Request $request)
+{
+    try {
+        $ids = json_decode($request->input('ids'), true);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Geçersiz seçim');
+        }
+        $deletedCount = \App\Models\SupplierPayment::whereIn('id', $ids)->delete();
+        return redirect()->route('finance.supplier-payments.index')->with('success', $deletedCount . ' ödeme başarıyla silindi');
+    } catch (\Exception $e) {
+        \Log::error('Bulk delete error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+    }
+}
+
