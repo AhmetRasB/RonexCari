@@ -19,6 +19,7 @@ class ProductSeries extends Model
         'brand',
         'cost',
         'price',
+        'currency',
         'image',
         'series_type',
         'series_size',

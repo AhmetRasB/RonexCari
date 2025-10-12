@@ -117,10 +117,20 @@
                                             <small class="text-muted d-block">Toplam Ürün</small>
                                         </td>
                                         <td>
-                                            <span class="fw-semibold">₺{{ number_format($serie->cost, 2) }}</span>
+                                            @php
+                                                $currency = $serie->currency ?? 'TRY';
+                                                $currencySymbol = $currency === 'USD' ? '$' : ($currency === 'EUR' ? '€' : '₺');
+                                            @endphp
+                                            <span class="fw-semibold">{{ number_format($serie->cost, 2) }} {{ $currencySymbol }}</span>
+                                            @if($currency !== 'TRY')
+                                                <br><small class="text-muted currency-convert" data-amount="{{ $serie->cost }}" data-currency="{{ $currency }}" data-type="cost">-</small>
+                                            @endif
                                         </td>
                                         <td>
-                                            <span class="fw-semibold text-primary">₺{{ number_format($serie->price, 2) }}</span>
+                                            <span class="fw-semibold text-primary">{{ number_format($serie->price, 2) }} {{ $currencySymbol }}</span>
+                                            @if($currency !== 'TRY')
+                                                <br><small class="text-muted currency-convert" data-amount="{{ $serie->price }}" data-currency="{{ $currency }}" data-type="price">-</small>
+                                            @endif
                                         </td>
                                         <td>
                                             @if($serie->is_active)
@@ -220,6 +230,27 @@ $(document).ready(function() {
         const checkedCheckboxes = $('tbody input[type="checkbox"]:checked').length;
         $('#selectAll').prop('checked', totalCheckboxes === checkedCheckboxes);
     });
+
+    // Currency conversion for all items
+    const currencyElements = $('.currency-convert');
+    if (currencyElements.length > 0) {
+        $.get('{{ route("sales.invoices.currency.rates") }}')
+            .done(function(response) {
+                const rates = response.success ? response.rates : { 'USD': 41.29, 'EUR': 48.55 };
+                
+                currencyElements.each(function() {
+                    const $el = $(this);
+                    const amount = parseFloat($el.data('amount'));
+                    const currency = $el.data('currency');
+                    const exchangeRate = rates[currency] || 1;
+                    const amountTRY = amount * exchangeRate;
+                    $el.text('(' + amountTRY.toFixed(2).replace('.', ',') + ' ₺)');
+                });
+            })
+            .fail(function() {
+                currencyElements.text('(Kur alınamadı)');
+            });
+    }
 });
 </script>
 @endpush

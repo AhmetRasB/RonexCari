@@ -47,7 +47,7 @@
                                 <div class="col-md-3">
                                     <label class="form-label">Fatura Saati <span class="text-danger">*</span></label>
                                     <div class="position-relative">
-                                        <input type="time" name="invoice_time" class="form-control" value="{{ $invoice->invoice_date->format('H:i') }}" required>
+                                        <input type="time" name="invoice_time" class="form-control" value="{{ $invoice->invoice_time ?? \Carbon\Carbon::now()->format('H:i') }}" required>
                                         <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                             <iconify-icon icon="solar:clock-circle-outline" class="text-secondary-light"></iconify-icon>
                                         </div>

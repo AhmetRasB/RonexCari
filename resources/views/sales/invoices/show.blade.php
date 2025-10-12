@@ -10,17 +10,13 @@
             <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
                 <h5 class="card-title mb-0">Fatura Detayı</h5>
                 <div class="d-flex flex-wrap align-items-center gap-2">
-                    <a href="{{ route('sales.invoices.preview', $invoice) }}" class="btn btn-sm btn-primary-600 radius-8 d-inline-flex align-items-center gap-1">
-                        <iconify-icon icon="iconamoon:eye-light" class="text-xl"></iconify-icon>
-                        Önizle
-                    </a>
                     <a href="{{ route('sales.invoices.edit', $invoice) }}" class="btn btn-sm btn-success radius-8 d-inline-flex align-items-center gap-1">
                         <iconify-icon icon="lucide:edit" class="text-xl"></iconify-icon>
                         Düzenle
                     </a>
                     <a href="{{ route('sales.invoices.print', $invoice) }}" target="_blank" class="btn btn-sm btn-warning radius-8 d-inline-flex align-items-center gap-1">
                         <iconify-icon icon="basil:printer-outline" class="text-xl"></iconify-icon>
-                        Yazdır
+                        Barkod Yazdır
                     </a>
                     <a href="{{ route('sales.invoices.index') }}" class="btn btn-sm btn-secondary radius-8 d-inline-flex align-items-center gap-1">
                         <iconify-icon icon="solar:arrow-left-outline" class="text-xl"></iconify-icon>
@@ -43,7 +39,7 @@
                             </tr>
                             <tr>
                                 <td class="fw-medium">Fatura Saati:</td>
-                                <td>{{ $invoice->invoice_time }}</td>
+                                <td>{{ $invoice->invoice_time ?: '00:00' }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-medium">Vade Tarihi:</td>

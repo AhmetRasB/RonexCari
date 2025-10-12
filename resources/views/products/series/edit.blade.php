@@ -345,11 +345,6 @@
                     <label class="form-label">Ekle (Seri Adedi)</label>
                     <input type="number" class="form-control" id="qsAddStock" min="0" step="1" placeholder="0">
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Kritik Stok</label>
-                    <input type="number" class="form-control" id="qsCritical" min="0" step="1" value="{{ $series->critical_stock ?? 0 }}">
-                </div>
-                <div class="small text-muted">Eski değerler görüntülenir, yeni değerleri kaydetmek için güncelleyin.</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
@@ -363,19 +358,32 @@
 <script>
 document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
     const addStock = parseInt(document.getElementById('qsAddStock').value || '0', 10);
-    const critical = parseInt(document.getElementById('qsCritical').value || '0', 10);
+    
+    if(addStock <= 0) {
+        alert('Lütfen eklenecek stok miktarını giriniz.');
+        return;
+    }
+    
     fetch('{{ url('/products/series/' . $series->id . '/quick-stock') }}', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
-        body: JSON.stringify({ add_stock: addStock, critical_stock: critical })
-    }).then(r => r.json()).then(resp => {
+        headers: { 
+            'Content-Type': 'application/json', 
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
+        },
+        body: JSON.stringify({ add_stock: addStock })
+    })
+    .then(r => r.json())
+    .then(resp => {
         if (resp.success) {
-            alert('Güncellendi: Yeni stok ' + resp.data.stock_quantity + ' seri, kritik ' + resp.data.critical_stock);
+            alert('Stok güncellendi! Yeni stok: ' + resp.data.stock_quantity + ' seri');
             location.reload();
         } else {
-            alert('Güncelleme başarısız');
+            alert('Güncelleme başarısız: ' + (resp.message || 'Bilinmeyen hata'));
         }
-    }).catch(()=>alert('Hata oluştu'));
+    })
+    .catch(err => {
+        alert('Hata oluştu: ' + err.message);
+    });
 });
 </script>
 @endpush

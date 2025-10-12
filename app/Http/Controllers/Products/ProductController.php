@@ -372,6 +372,11 @@ class ProductController extends Controller
      */
     public function quickStockUpdate(Request $request, Product $product)
     {
+        \Log::info('Quick stock update started', [
+            'product_id' => $product->id,
+            'request_data' => $request->all()
+        ]);
+        
         $data = $request->validate([
             'critical_stock' => 'nullable|integer|min:0',
             'add_stock' => 'nullable|integer|min:0',
@@ -383,8 +388,15 @@ class ProductController extends Controller
         $originalStockQuantity = (int) ($product->stock_quantity ?? 0);
         $originalInitialStock = (int) ($product->initial_stock ?? 0);
 
+        \Log::info('Original values', [
+            'critical_stock' => $originalCriticalStock,
+            'stock_quantity' => $originalStockQuantity,
+            'initial_stock' => $originalInitialStock
+        ]);
+
         if (array_key_exists('critical_stock', $data) && $data['critical_stock'] !== null) {
             $product->critical_stock = (int) $data['critical_stock'];
+            \Log::info('Updating critical_stock', ['new_value' => $product->critical_stock]);
         }
 
         if (array_key_exists('stock_quantity', $data) && $data['stock_quantity'] !== null) {
@@ -420,7 +432,19 @@ class ProductController extends Controller
             }
         }
 
+        \Log::info('Saving product', [
+            'product_id' => $product->id,
+            'critical_stock' => $product->critical_stock,
+            'stock_quantity' => $product->stock_quantity,
+            'initial_stock' => $product->initial_stock
+        ]);
+        
         $product->save();
+        
+        \Log::info('Product saved successfully', [
+            'product_id' => $product->id,
+            'final_critical_stock' => $product->fresh()->critical_stock
+        ]);
 
         // Renk varyantlarının güncel stok bilgilerini al
         $colorVariants = $product->colorVariants->map(function($variant) {

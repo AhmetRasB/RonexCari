@@ -90,13 +90,23 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold text-muted">Maliyet</label>
                                         <div class="form-control-plaintext fw-semibold text-danger">
-                                            ₺{{ number_format($series->cost, 2) }}
+                                            @php
+                                                $currency = $series->currency ?? 'TRY';
+                                                $currencySymbol = $currency === 'USD' ? '$' : ($currency === 'EUR' ? '€' : '₺');
+                                            @endphp
+                                            {{ number_format($series->cost, 2) }} {{ $currencySymbol }}
+                                            @if($currency !== 'TRY')
+                                                <br><small class="text-muted" id="costTRY">-</small>
+                                            @endif
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold text-muted">Satış Fiyatı</label>
                                         <div class="form-control-plaintext fw-semibold text-success">
-                                            ₺{{ number_format($series->price, 2) }}
+                                            {{ number_format($series->price, 2) }} {{ $currencySymbol }}
+                                            @if($currency !== 'TRY')
+                                                <br><small class="text-muted" id="priceTRY">-</small>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
@@ -331,19 +341,14 @@
                                 <form id="quick-stock-form">
                                     @csrf
                                     <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <label class="form-label">Kritik Stok</label>
-                                            <input type="number" class="form-control" id="critical_stock" 
-                                                   value="{{ $series->critical_stock }}" min="0">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Stok Ekle</label>
+                                        <div class="col-md-12">
+                                            <label class="form-label">Stok Ekle (Seri Adedi)</label>
                                             <input type="number" class="form-control" id="add_stock" 
                                                    placeholder="Eklenecek seri sayısı" min="0">
                                         </div>
                                         <div class="col-12">
                                             <button type="submit" class="btn btn-primary">
-                                                <i class="ri-save-line me-1"></i>Güncelle
+                                                <i class="ri-save-line me-1"></i>Stok Ekle
                                             </button>
                                         </div>
                                     </div>
@@ -508,6 +513,34 @@ document.addEventListener('DOMContentLoaded', function() {
     const qrImg = document.getElementById('qrImg');
     qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(seriesQRUrl)}`;
     
+    // Currency conversion for cost and price
+    @if(($series->currency ?? 'TRY') !== 'TRY')
+        const seriesCurrency = '{{ $series->currency ?? 'TRY' }}';
+        const seriesCost = {{ $series->cost }};
+        const seriesPrice = {{ $series->price }};
+        
+        $.get('{{ route("sales.invoices.currency.rates") }}')
+            .done(function(response) {
+                let exchangeRate;
+                if (response.success && response.rates[seriesCurrency]) {
+                    exchangeRate = response.rates[seriesCurrency];
+                } else {
+                    const fallbackRates = { 'USD': 41.29, 'EUR': 48.55 };
+                    exchangeRate = fallbackRates[seriesCurrency] || 1;
+                }
+                
+                const costTRY = seriesCost * exchangeRate;
+                const priceTRY = seriesPrice * exchangeRate;
+                
+                $('#costTRY').text('(' + costTRY.toFixed(2).replace('.', ',') + ' ₺)');
+                $('#priceTRY').text('(' + priceTRY.toFixed(2).replace('.', ',') + ' ₺)');
+            })
+            .fail(function() {
+                $('#costTRY').text('(Kur alınamadı)');
+                $('#priceTRY').text('(Kur alınamadı)');
+            });
+    @endif
+    
     // Auto-open barcode modal if redirected from create page
     @if(session('generate_barcodes'))
         const barcodeModal = new bootstrap.Modal(document.getElementById('barcodeModal'));
@@ -528,18 +561,16 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const criticalStock = document.getElementById('critical_stock').value;
         const addStock = document.getElementById('add_stock').value;
         
-        if (!addStock && !criticalStock) {
-            alert('En az bir alan doldurulmalıdır.');
+        if (!addStock || addStock <= 0) {
+            alert('Lütfen eklenecek stok miktarını giriniz.');
             return;
         }
         
         const formData = new FormData();
         formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-        if (criticalStock) formData.append('critical_stock', criticalStock);
-        if (addStock) formData.append('add_stock', addStock);
+        formData.append('add_stock', addStock);
         
         fetch('{{ route("products.series.quick-stock", $series) }}', {
             method: 'POST',
@@ -548,7 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('Stok bilgileri güncellendi.');
+                alert('Stok güncellendi! Yeni stok: ' + data.data.stock_quantity + ' seri');
                 location.reload();
             } else {
                 alert('Hata: ' + (data.message || 'Bilinmeyen hata'));

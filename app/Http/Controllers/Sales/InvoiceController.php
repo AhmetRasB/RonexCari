@@ -516,6 +516,46 @@ class InvoiceController extends Controller
             
             $totalAmount = $subtotal + $vatAmount;
             
+            // RESTORE STOCK FROM OLD ITEMS BEFORE DELETING
+            $oldItems = $invoice->items()->get();
+            foreach ($oldItems as $oldItem) {
+                if ($oldItem->product_id && $oldItem->quantity > 0) {
+                    if ($oldItem->product_type === 'product') {
+                        $product = \App\Models\Product::with('colorVariants')->find($oldItem->product_id);
+                        if ($product) {
+                            if ($oldItem->color_variant_id) {
+                                $colorVariant = $product->colorVariants()->find($oldItem->color_variant_id);
+                                if ($colorVariant) {
+                                    $colorVariant->increment('stock_quantity', $oldItem->quantity);
+                                }
+                            } elseif ($oldItem->selected_color && $product->colorVariants->count() > 0) {
+                                $colorVariant = $product->colorVariants()->where('color', $oldItem->selected_color)->first();
+                                if ($colorVariant) {
+                                    $colorVariant->increment('stock_quantity', $oldItem->quantity);
+                                }
+                            } else {
+                                $product->increment('stock_quantity', $oldItem->quantity);
+                            }
+                            $product->increment('initial_stock', $oldItem->quantity);
+                        }
+                    } elseif ($oldItem->product_type === 'series') {
+                        $series = \App\Models\ProductSeries::with('colorVariants')->find($oldItem->product_id);
+                        if ($series) {
+                            if ($oldItem->color_variant_id) {
+                                $colorVariant = $series->colorVariants()->find($oldItem->color_variant_id);
+                                if ($colorVariant) {
+                                    $colorVariant->increment('stock_quantity', $oldItem->quantity);
+                                    $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                    $series->save();
+                                }
+                            } else {
+                                $series->increment('stock_quantity', $oldItem->quantity);
+                            }
+                        }
+                    }
+                }
+            }
+            
             // Update invoice
             $invoice->update([
                 'customer_id' => $validated['customer_id'],
@@ -584,6 +624,93 @@ class InvoiceController extends Controller
                     'line_total' => $lineTotalAfterDiscount,
                     'sort_order' => $index
                 ]);
+            }
+            
+            // STOK DÜŞÜMÜ - ATOMIC OPERATION (same as create)
+            foreach ($validated['items'] as $item) {
+                $quantity = (float) ($item['quantity'] ?? 0);
+                $productId = $item['product_id'] ?? null;
+                $type = $item['type'] ?? 'product';
+                $colorVariantId = $item['color_variant_id'] ?? null;
+                $selectedColor = $item['selected_color'] ?? null;
+                
+                // Remove prefix from product_id if exists
+                if ($productId && $type === 'series' && strpos($productId, 'series_') === 0) {
+                    $productId = str_replace('series_', '', $productId);
+                } elseif ($productId && $type === 'product' && strpos($productId, 'product_') === 0) {
+                    $productId = str_replace('product_', '', $productId);
+                }
+                
+                \Log::info('Processing stock deduction for item in update', [
+                    'product_id' => $productId,
+                    'quantity' => $quantity,
+                    'type' => $type,
+                    'color_variant_id' => $colorVariantId,
+                    'selected_color' => $selectedColor
+                ]);
+                
+                if ($productId && $quantity > 0) {
+                    if ($type === 'product') {
+                        // Normal ürün stok düşümü
+                        $product = \App\Models\Product::with('colorVariants')->find($productId);
+                        if ($product) {
+                            // Color variant seçilmişse (öncelik ID), o rengin stokunu düşür
+                            if ($colorVariantId) {
+                                $colorVariant = $product->colorVariants()->where('id', $colorVariantId)->first();
+                                if ($colorVariant) {
+                                    if ($colorVariant->stock_quantity < $quantity) {
+                                        throw new \Exception("Yetersiz renk stoku! {$product->name} ({$colorVariant->color}) için stok: {$colorVariant->stock_quantity}, istenen: {$quantity}");
+                                    }
+                                    $colorVariant->decrement('stock_quantity', $quantity);
+                                }
+                            } else if (!empty($item['selected_color']) && $product->colorVariants->count() > 0) {
+                                $colorVariant = $product->colorVariants()->where('color', $item['selected_color'])->first();
+                                if ($colorVariant) {
+                                    if ($colorVariant->stock_quantity < $quantity) {
+                                        throw new \Exception("Yetersiz renk stoku! {$product->name} ({$colorVariant->color}) için stok: {$colorVariant->stock_quantity}, istenen: {$quantity}");
+                                    }
+                                    $colorVariant->decrement('stock_quantity', $quantity);
+                                }
+                            } else {
+                                // Color variant yoksa ana ürünün stokunu düşür
+                                if ($product->stock_quantity < $quantity) {
+                                    throw new \Exception("Yetersiz stok! {$product->name} için stok: {$product->stock_quantity}, istenen: {$quantity}");
+                                }
+                                $product->decrement('stock_quantity', $quantity);
+                            }
+                            
+                            // Ana ürünün initial_stock'unu da güncelle
+                            $product->decrement('initial_stock', $quantity);
+                        }
+                    } elseif ($type === 'series') {
+                        // Seri ürün stok düşümü (1 seri = 1 adet)
+                        $series = \App\Models\ProductSeries::with('colorVariants')->find($productId);
+                        if ($series) {
+                            // Color variant seçilmişse (öncelik ID), o rengin stokunu düşür
+                            if ($colorVariantId) {
+                                $colorVariant = $series->colorVariants()->where('id', $colorVariantId)->first();
+                                if ($colorVariant) {
+                                    if ($colorVariant->stock_quantity < $quantity) {
+                                        throw new \Exception("Yetersiz {$colorVariant->color} renk stoku! {$series->name} için {$colorVariant->color} stoku: {$colorVariant->stock_quantity} seri, istenen: {$quantity} seri");
+                                    }
+                                    
+                                    $colorVariant->decrement('stock_quantity', $quantity);
+                                    
+                                    // Ana seri stokunu da güncelle
+                                    $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                    $series->save();
+                                }
+                            } else {
+                                // Renk seçilmemişse ana seri stokunu düşür
+                                if ($series->stock_quantity < $quantity) {
+                                    throw new \Exception("Yetersiz seri stoku! {$series->name} için stok: {$series->stock_quantity} seri, istenen: {$quantity} seri");
+                                }
+                                $series->decrement('stock_quantity', $quantity);
+                            }
+                        }
+                    }
+                    // Service'ler için stok düşümü yok
+                }
             }
             
             DB::commit();

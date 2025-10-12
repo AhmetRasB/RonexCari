@@ -155,12 +155,16 @@ $(document).ready(function() {
             url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json'
         },
         columnDefs: [
-            { "className": "control", "orderable": false, "targets": 0 }, // Checkbox column with control
-            { "responsivePriority": 1, "targets": 6 }, // Actions - always visible
-            { "responsivePriority": 2, "targets": 1 }, // Name - high priority
-            { "responsivePriority": 3, "targets": 3 }, // Amount - high priority
-            { "responsivePriority": 4, "targets": 5 }, // Status - medium priority
-            { "responsivePriority": 10000, "targets": [2, 4] } // Hide these first on small screens
+            { "orderable": false, "targets": 0 }, // Checkbox column
+            { "orderable": false, "targets": 8 }, // Actions column
+            { "responsivePriority": 1, "targets": 8 }, // Actions - always visible
+            { "responsivePriority": 2, "targets": 1 }, // Name - high priority  
+            { "responsivePriority": 3, "targets": 5 }, // Amount - high priority
+            { "responsivePriority": 4, "targets": 6 }, // Date - medium priority
+            { "responsivePriority": 5, "targets": 7 }, // Status - medium priority
+            { "responsivePriority": 10, "targets": 2 }, // Store - low priority
+            { "responsivePriority": 11, "targets": 3 }, // User - low priority
+            { "responsivePriority": 12, "targets": 4 } // Description - lowest priority
         ]
     });
 

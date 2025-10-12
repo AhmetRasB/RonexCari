@@ -249,6 +249,11 @@ class ProductSeriesController extends Controller
      */
     public function quickStockUpdate(Request $request, ProductSeries $series)
     {
+        \Log::info('Series quick stock update started', [
+            'series_id' => $series->id,
+            'request_data' => $request->all()
+        ]);
+        
         $data = $request->validate([
             'critical_stock' => 'nullable|integer|min:0',
             'add_stock' => 'nullable|integer|min:0',
@@ -258,8 +263,14 @@ class ProductSeriesController extends Controller
         $originalStockQuantity = (int) ($series->stock_quantity ?? 0);
         $originalCriticalStock = (int) ($series->critical_stock ?? 0);
 
+        \Log::info('Original series values', [
+            'critical_stock' => $originalCriticalStock,
+            'stock_quantity' => $originalStockQuantity
+        ]);
+
         if (array_key_exists('critical_stock', $data) && $data['critical_stock'] !== null) {
             $series->critical_stock = (int) $data['critical_stock'];
+            \Log::info('Updating series critical_stock', ['new_value' => $series->critical_stock]);
         }
 
         if (array_key_exists('stock_quantity', $data) && $data['stock_quantity'] !== null) {
@@ -286,7 +297,18 @@ class ProductSeriesController extends Controller
             }
         }
 
+        \Log::info('Saving series', [
+            'series_id' => $series->id,
+            'critical_stock' => $series->critical_stock,
+            'stock_quantity' => $series->stock_quantity
+        ]);
+        
         $series->save();
+        
+        \Log::info('Series saved successfully', [
+            'series_id' => $series->id,
+            'final_critical_stock' => $series->fresh()->critical_stock
+        ]);
 
         // Renk varyantlarının güncel stok bilgilerini al
         $colorVariants = $series->colorVariants->map(function($variant) {
