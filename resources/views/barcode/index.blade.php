@@ -48,7 +48,7 @@
         <div class="mt-3 d-flex flex-wrap gap-2">
             <button type="button" class="btn btn-success" onclick="printAllViaQz()">Hepsini Makineye Yazdır</button>
             <button type="button" class="btn btn-outline-dark" onclick="previewAllZpl()">Önizleme</button>
-            <a class="btn btn-outline-primary" href="#" onclick="downloadAllZpl(event)">ZPL Dosyası İndir</a>
+            <a class="btn btn-outline-primary" href="#" onclick="downloadAllJScript(event)">JScript Dosyası İndir</a>
             <a class="btn btn-outline-secondary" href="#" onclick="downloadAllCsv(event)">CSV indir</a>
             <a href="{{ route('barcode.test') }}" class="btn btn-outline-info" target="_blank">Test QR / Barkod</a>
         </div>
@@ -64,7 +64,7 @@
         </div>
         <div class="alert alert-warning mt-2 mb-0">
             <strong>Yazdırma:</strong> QZ Tray kurulu olmalı. USB CAB EOS4 yazıcısını QZ Tray'den seçip tarayıcıya izin verin.<br>
-            <strong>USB Bellek:</strong> ZPL dosyasını indirip USB belleğe atabilirsiniz. Yazıcı direkt USB'den okuyabilir.
+            <strong>USB Bellek:</strong> JScript (CAB) komut dosyasını indirip USB belleğe atabilirsiniz. Yazıcı direkt USB'den okuyabilir.
         </div>
     </div>
 </div>
@@ -165,7 +165,7 @@ async function printAllViaQz(){
     }
 }
 
-async function downloadAllZpl(e){
+async function downloadAllJScript(e){
     e.preventDefault();
     try {
         const items = getAllPrintItems();
@@ -186,7 +186,7 @@ async function downloadAllZpl(e){
         const blob = new Blob([allZpl], { type: 'text/plain' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = 'etiketler.zpl';
+        link.download = 'etiketler.txt';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

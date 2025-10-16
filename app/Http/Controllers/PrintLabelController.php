@@ -9,7 +9,7 @@ use App\Models\ProductSeries;
 class PrintLabelController extends Controller
 {
     /**
-     * Generate ZPL for product or series labels (300dpi, 50x30mm).
+     * Generate CAB JScript for product or series labels (300dpi, 50x30mm).
      * Query params:
      * - type: product|series
      * - id: int
@@ -27,12 +27,12 @@ class PrintLabelController extends Controller
         }
 
         if ($type === 'product') {
-            $label = $this->buildProductZpl($id, $count);
+            $label = $this->buildProductJScript($id, $count);
         } else {
             if ($mode === 'full') {
-                $label = $this->buildSeriesZplFull($id, $count);
+                $label = $this->buildSeriesJScriptFull($id, $count);
             } else {
-                $label = $this->buildSeriesZpl($id, $mode, $count);
+                $label = $this->buildSeriesJScript($id, $mode, $count);
             }
         }
 
@@ -42,7 +42,7 @@ class PrintLabelController extends Controller
 
         return response($label, 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="etiket.zpl"',
+            'Content-Disposition' => 'attachment; filename="etiket.txt"',
         ]);
     }
 
@@ -370,7 +370,7 @@ class PrintLabelController extends Controller
         return preg_replace('/[\^~]/', '-', $value);
     }
 
-    private function buildProductZpl(int $productId, int $count = 1): ?string
+    private function buildProductJScript(int $productId, int $count = 1): ?string
     {
         $product = Product::with('colorVariants')->find($productId);
         if (!$product) return null;
@@ -388,29 +388,20 @@ class PrintLabelController extends Controller
                 $qr = url('/products/' . $product->id);
                 $stock = $colorVariant->stock_quantity ?? 0;
 
-                // Geliştirilmiş etiket formatı - Sadece bedenler, büyük barkod
-                $one = "^XA\n" .
-                       "^PW500\n" .
-                       "^LL300\n" .
-                       "^LH10,10\n" .
-                       // Dış çerçeve
-                       "^FO10,10^GB480,280,2^FS\n" .
-                       // Kategori (üst)
-                       "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
-                       // Ürün adı (kalın)
-                       "^FO20,48^A0N,28,28^FD{$name}^FS\n" .
-                       // QR kod (sağ üstte)
-                       "^FO360,15^BQN,2,3^FDLA,{$qr}^FS\n" .
-                       // Beden bilgisi (renk alanı kaldırıldı)
-                       ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
-                       // Seri bilgisi
-                       "^FO20," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
-                       // Barkod numarası yazısı
-                       "^FO20," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$barcode}^FS\n" .
-                       // ÇOK BÜYÜK BARKOD - Renk alanı kaldırıldı, daha fazla yer
-                       "^BY4,2,100\n" .
-                       "^FO20," . ($size !== '' ? '165' : '135') . "^BCN,100,N,N,N^FD{$barcode}^FS\n" .
-                       "^XZ\n";
+                // CAB JScript formatı - 50x30mm etiket
+                $one = "m m\n" .
+                       "J\n" .
+                       "S l1;0,0,68,71,100\n" .
+                       "H " . ($size !== '' ? '138' : '108') . "\n" .
+                       "O R\n" .
+                       "T:ARIAL.CPF;8,6,0,0,{$category}\n" .
+                       "T:ARIAL.CPF;10,20,0,0,{$name}\n" .
+                       "B:CODE128;8," . ($size !== '' ? '42' : '32') . ",0,CODE128,SC2;{$barcode}\n" .
+                       ($size !== '' ? "T:ARIAL.CPF;8,36,0,0,BEDEN: {$size}\n" : '') .
+                       "T:ARIAL.CPF;7," . ($size !== '' ? '48' : '38') . ",0,0,Seri: 5'li\n" .
+                       "T:ARIAL.CPF;7," . ($size !== '' ? '55' : '45') . ",0,0,{$barcode}\n" .
+                       "B:QRCODE;58,6,0,M,8,0;{$qr}\n" .
+                       "A 1\n";
                 $blocks[] = str_repeat($one, max(1, $count));
             }
         } else {
@@ -423,35 +414,26 @@ class PrintLabelController extends Controller
             $qr = url('/products/' . $product->id);
             $stock = $product->stock_quantity ?? 0;
 
-            $one = "^XA\n" .
-                   "^PW500\n" .
-                   "^LL300\n" .
-                   "^LH10,10\n" .
-                   // Dış çerçeve
-                   "^FO10,10^GB480,280,2^FS\n" .
-                   // Kategori
-                   "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
-                   // Ürün adı
-                   "^FO20,48^A0N,28,28^FD{$name}^FS\n" .
-                   // QR kod (sağ üstte)
-                   "^FO360,15^BQN,2,3^FDLA,{$qr}^FS\n" .
-                   // Sadece beden (renk kaldırıldı)
-                   ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
-                   // Seri bilgisi
-                   "^FO20," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
-                   // Barkod numarası
-                   "^FO20," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$barcode}^FS\n" .
-                   // ÇOK BÜYÜK BARKOD - Renk alanı kaldırıldı
-                   "^BY4,2,100\n" .
-                   "^FO20," . ($size !== '' ? '165' : '135') . "^BCN,100,N,N,N^FD{$barcode}^FS\n" .
-                   "^XZ\n";
+            $one = "m m\n" .
+                   "J\n" .
+                   "S l1;0,0,68,71,100\n" .
+                   "H " . ($size !== '' ? '138' : '108') . "\n" .
+                   "O R\n" .
+                   "T:ARIAL.CPF;8,6,0,0,{$category}\n" .
+                   "T:ARIAL.CPF;10,20,0,0,{$name}\n" .
+                   "B:CODE128;8," . ($size !== '' ? '42' : '32') . ",0,CODE128,SC2;{$barcode}\n" .
+                   ($size !== '' ? "T:ARIAL.CPF;8,36,0,0,BEDEN: {$size}\n" : '') .
+                   "T:ARIAL.CPF;7," . ($size !== '' ? '48' : '38') . ",0,0,Seri: 5'li\n" .
+                   "T:ARIAL.CPF;7," . ($size !== '' ? '55' : '45') . ",0,0,{$barcode}\n" .
+                   "B:QRCODE;58,6,0,M,8,0;{$qr}\n" .
+                   "A 1\n";
             $blocks[] = str_repeat($one, max(1, $count));
         }
         
         return implode('', $blocks);
     }
 
-    private function buildSeriesZpl(int $seriesId, string $mode, int $count = 1): ?string
+    private function buildSeriesJScript(int $seriesId, string $mode, int $count = 1): ?string
     {
         $series = ProductSeries::with(['seriesItems', 'colorVariants'])->find($seriesId);
         if (!$series) return null;
@@ -478,29 +460,21 @@ class PrintLabelController extends Controller
             // TÜM bedenler (tekrarlı olanlar dahil)
             foreach ($allSizes as $size) {
                 $sizeSan = $this->sanitize((string)$size);
+                $seriesInfo = $seriesSize > 0 ? "Seri: " . $seriesSize . "'li" : "Seri: Normal";
 
-                $one = "^XA\n" .
-                       "^PW500\n" .
-                       "^LL300\n" .
-                       "^LH10,10\n" .
-                       // Dış çerçeve
-                       "^FO10,10^GB480,280,2^FS\n" .
-                       // Kategori
-                       "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
-                       // Seri adı
-                       "^FO20,48^A0N,28,28^FD{$name}^FS\n" .
-                       // QR kod (sağ üstte)
-                       "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
-                       // Beden bilgisi (renk kaldırıldı)
-                       "^FO20,80^A0N,26,26^FDBEDEN: {$sizeSan}^FS\n" .
-                       // Seri bilgisi
-                       "^FO20,110^A0N,22,22^FDSeri: " . ($seriesSize > 0 ? $seriesSize . "'li" : 'Normal') . "^FS\n" .
-                       // Barkod numarası
-                       "^FO20,138^A0N,20,20^FD{$barcode}^FS\n" .
-                       // ÇOK BÜYÜK BARKOD - Renk alanı kaldırıldı
-                       "^BY4,2,100\n" .
-                       "^FO20,165^BCN,100,N,N,N^FD{$barcode}^FS\n" .
-                       "^XZ\n";
+                $one = "m m\n" .
+                       "J\n" .
+                       "S l1;0,0,68,71,100\n" .
+                       "H 138\n" .
+                       "O R\n" .
+                       "T:ARIAL.CPF;8,6,0,0,{$category}\n" .
+                       "T:ARIAL.CPF;10,20,0,0,{$name}\n" .
+                       "T:ARIAL.CPF;8,36,0,0,BEDEN: {$sizeSan}\n" .
+                       "T:ARIAL.CPF;7,48,0,0,{$seriesInfo}\n" .
+                       "T:ARIAL.CPF;7,55,0,0,{$barcode}\n" .
+                       "B:CODE128;8,42,0,CODE128,SC2;{$barcode}\n" .
+                       "B:QRCODE;58,6,0,M,8,0;{$qrSeries}\n" .
+                       "A 1\n";
                 $blocks[] = str_repeat($one, max(1, $count));
             }
             return implode('', $blocks);
@@ -510,42 +484,33 @@ class PrintLabelController extends Controller
         $seriesInfo = $seriesSize > 0 ? ($seriesSize . "'li SERI") : 'SERI';
         $year = date('Y');
 
-        $one = "^XA\n" .
-               "^PW500\n" .
-               "^LL300\n" .
-               "^LH10,10\n" .
-               // Dış çerçeve
-               "^FO10,10^GB480,280,2^FS\n" .
-               // Kategori
-               "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
-               // Ana başlık (büyük)
-               "^FO20,48^A0N,30,30^FD{$name}^FS\n" .
-               // QR kod (sağ üstte)
-               "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
-               // Seri tipi ve yıl
-               "^FO20,80^A0N,26,26^FD{$seriesInfo} {$year}^FS\n" .
-               // Sadece bedenler (renkler kaldırıldı)
-               ($sizesCsv !== '' ? "^FO20,110^A0N,22,22^FDBedenler:^FS\n^FO20,135^A0N,20,20^FD{$sizesCsv}^FS\n" : '') .
-               // Barkod numarası
-               "^FO20,163^A0N,20,20^FD{$barcode}^FS\n" .
-               // ÇOK BÜYÜK BARKOD - Renk alanı kaldırıldı
-               "^BY4,2,90\n" .
-               "^FO20,188^BCN,90,N,N,N^FD{$barcode}^FS\n" .
-               "^XZ\n";
+        $one = "m m\n" .
+               "J\n" .
+               "S l1;0,0,68,71,100\n" .
+               "H 163\n" .
+               "O R\n" .
+               "T:ARIAL.CPF;8,6,0,0,{$category}\n" .
+               "T:ARIAL.CPF;11,20,0,0,{$name}\n" .
+               "T:ARIAL.CPF;9,36,0,0,{$seriesInfo} {$year}\n" .
+               ($sizesCsv !== '' ? "T:ARIAL.CPF;7,48,0,0,Bedenler:\nT:ARIAL.CPF;7,56,0,0,{$sizesCsv}\n" : '') .
+               "T:ARIAL.CPF;7,63,0,0,{$barcode}\n" .
+               "B:CODE128;8,47,0,CODE128,SC2;{$barcode}\n" .
+               "B:QRCODE;58,6,0,M,8,0;{$qrSeries}\n" .
+               "A 1\n";
         return str_repeat($one, max(1, $count));
     }
 
     // Full sequence for series: per package prints [OUTER + each size] in order.
-    private function buildSeriesZplFull(int $seriesId, int $packages = 1): ?string
+    private function buildSeriesJScriptFull(int $seriesId, int $packages = 1): ?string
     {
         $series = ProductSeries::with(['seriesItems', 'colorVariants'])->find($seriesId);
         if (!$series) return null;
 
-        $outer = $this->buildSeriesZpl($seriesId, 'outer', 1);
-        $sizesZpl = $this->buildSeriesZpl($seriesId, 'sizes', 1);
-        if ($outer === null || $sizesZpl === null) return null;
+        $outer = $this->buildSeriesJScript($seriesId, 'outer', 1);
+        $sizesScript = $this->buildSeriesJScript($seriesId, 'sizes', 1);
+        if ($outer === null || $sizesScript === null) return null;
 
-        $sequence = $outer . $sizesZpl; // OUTER + all sizes (order preserved)
+        $sequence = $outer . $sizesScript; // OUTER + all sizes (order preserved)
         return str_repeat($sequence, max(1, $packages));
     }
 }
