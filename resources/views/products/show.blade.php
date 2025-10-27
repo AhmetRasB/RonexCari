@@ -43,6 +43,10 @@
                     <iconify-icon icon="solar:qr-code-outline" class="me-1"></iconify-icon>
                     Tara
                 </button>
+                <button type="button" class="btn btn-info me-2" onclick="downloadBartenderData()">
+                    <iconify-icon icon="solar:download-outline" class="me-1"></iconify-icon>
+                    Bartender Data
+                </button>
                 <button type="button" class="btn btn-warning me-2" data-bs-toggle="modal" data-bs-target="#quickStockModal">
                     <iconify-icon icon="solar:database-outline" class="me-1"></iconify-icon>
                     Hızlı Stok
@@ -458,4 +462,33 @@ document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
     </div>
 </div>
 @endif
+
+<script>
+async function downloadBartenderData(){
+    try {
+        const u = new URL('{{ route('print.labels.csv') }}', window.location.origin);
+        u.searchParams.set('type', 'product');
+        u.searchParams.set('id', '{{ $product->id }}');
+        
+        const response = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+        const csvData = await response.text();
+        
+        const fileName = `bartender_product_{{ $product->id }}.csv`;
+        
+        const blob = new Blob([csvData], { type: 'text/csv; charset=UTF-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        alert('Bartender CSV dosyası başarıyla indirildi!\n\nDosya adı: ' + fileName + '\n\nBartender\'da:\n1. Yeni veri kaynağı oluşturun\n2. CSV dosyasını seçin\n3. Alanları eşleştirin: type, category, name, size, barcode, stock');
+        
+    } catch (error) {
+        console.error('CSV download failed:', error);
+        alert('CSV indirme başarısız: ' + error.message);
+    }
+}
+</script>
 @endsection

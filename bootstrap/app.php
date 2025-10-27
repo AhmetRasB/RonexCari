@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
             'account.selection' => \App\Http\Middleware\AccountSelectionMiddleware::class,
         ]);
+        
+        // Add account selection middleware to web group
+        $middleware->web(append: [
+            \App\Http\Middleware\AccountSelectionMiddleware::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

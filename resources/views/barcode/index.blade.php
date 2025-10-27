@@ -50,6 +50,7 @@
             <button type="button" class="btn btn-outline-dark" onclick="previewAllZpl()">Önizleme</button>
             <a class="btn btn-outline-primary" href="#" onclick="downloadAllJScript(event)">JScript Dosyası İndir</a>
             <a class="btn btn-outline-secondary" href="#" onclick="downloadAllCsv(event)">CSV indir</a>
+            <button type="button" class="btn btn-outline-warning" onclick="showBartenderFields()">Bartender Data Fields</button>
             <a href="{{ route('barcode.test') }}" class="btn btn-outline-info" target="_blank">Test QR / Barkod</a>
         </div>
         <div class="alert alert-info mt-2 mb-0">
@@ -57,14 +58,60 @@
             <ul class="mb-0 mt-2">
                 <li><strong>QR Kod:</strong> Ürün/Seri detay sayfasına yönlendirir</li>
                 <li><strong>Barkod:</strong> CODE128 formatında yazdırılır</li>
-                <li><strong>Bilgiler:</strong> Ürün adı, renk, beden, stok, kategori</li>
-                <li><strong>Seri Ürünler:</strong> Dış paket + Her renk x Her beden etiketleri</li>
+                <li><strong>Bilgiler:</strong> Ürün adı, beden, stok, kategori (renkler kaldırıldı)</li>
+                <li><strong>Seri Ürünler:</strong> Dış paket + Her beden etiketleri</li>
+                <li><strong>Bartender Veri Kaynağı:</strong> CSV formatında, renkler kaldırılmış, toplam stok</li>
                 <li><strong>Karakter Dönüşümü:</strong> Türkçe karakterler İngilizce'ye çevrilir (ğ→g, ü→u, ş→s, vb.)</li>
             </ul>
         </div>
         <div class="alert alert-warning mt-2 mb-0">
             <strong>Yazdırma:</strong> QZ Tray kurulu olmalı. USB CAB EOS4 yazıcısını QZ Tray'den seçip tarayıcıya izin verin.<br>
             <strong>USB Bellek:</strong> JScript (CAB) komut dosyasını indirip USB belleğe atabilirsiniz. Yazıcı direkt USB'den okuyabilir.
+        </div>
+        <div class="alert alert-success mt-2 mb-0">
+            <strong>Bartender Entegrasyonu:</strong><br>
+            <strong>1. Veri Kaynağı:</strong> "Bartender Data Fields" butonuna tıklayarak alanları görün<br>
+            <strong>2. Bartender'da:</strong> Yeni veri kaynağı oluşturun ve CSV dosyasını seçin<br>
+            <strong>3. Alan Eşleştirme:</strong> type, category, name, size, barcode, stock alanlarını eşleştirin<br>
+            <strong>4. Tasarım:</strong> Etiket tasarımınızda bu alanları kullanın<br>
+            <strong>5. Yazdırma:</strong> Bartender'dan direkt yazdırın veya BTXML ile entegre edin
+        </div>
+    </div>
+</div>
+
+<!-- Bartender Data Fields Modal -->
+<div class="modal fade" id="bartenderFieldsModal" tabindex="-1" aria-labelledby="bartenderFieldsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bartenderFieldsModalLabel">
+                    <iconify-icon icon="solar:database-outline" class="me-2"></iconify-icon>
+                    Bartender Data Fields
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info mb-3">
+                    <iconify-icon icon="solar:info-circle-outline" class="me-2"></iconify-icon>
+                    <strong>Bartender Entegrasyonu:</strong> Aşağıdaki alanları kopyalayıp Bartender'da veri kaynağı olarak kullanabilirsiniz.
+                </div>
+                
+                <div id="bartenderFieldsContent">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Yükleniyor...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Veri alanları yükleniyor...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary" onclick="downloadBartenderCsv()">
+                    <iconify-icon icon="solar:download-outline" class="me-2"></iconify-icon>
+                    CSV İndir
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -208,6 +255,153 @@ async function downloadAllCsv(e){
         window.open(u.toString(), '_blank');
     } else {
         alert('CSV indirme sadece tek öğe için desteklenmektedir.');
+    }
+}
+
+// Global variable to store current item data
+let currentBartenderItem = null;
+
+async function showBartenderFields(){
+    const items = getAllPrintItems();
+    if (items.length === 0) {
+        alert('Lütfen en az bir öğe seçin.');
+        return;
+    }
+    
+    if (items.length > 1) {
+        alert('Bartender Data Fields sadece tek öğe için desteklenmektedir.');
+        return;
+    }
+    
+    currentBartenderItem = items[0];
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('bartenderFieldsModal'));
+    modal.show();
+    
+    // Load data fields
+    await loadBartenderFields();
+}
+
+async function loadBartenderFields(){
+    if (!currentBartenderItem) return;
+    
+    try {
+        const u = new URL('{{ route('print.labels.csv') }}', window.location.origin);
+        u.searchParams.set('type', currentBartenderItem.type);
+        u.searchParams.set('id', currentBartenderItem.id);
+        if (currentBartenderItem.type === 'series') u.searchParams.set('mode', currentBartenderItem.mode);
+        
+        const response = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+        const csvData = await response.text();
+        
+        // Parse CSV data
+        const lines = csvData.split('\n');
+        const headers = lines[0].split(',');
+        const data = lines[1] ? lines[1].split(',') : [];
+        
+        // Create fields display
+        const fieldsHtml = headers.map((header, index) => {
+            const value = data[index] || '';
+            return `
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold text-primary">${header}</label>
+                    </div>
+                    <div class="col-md-7">
+                        <div class="input-group">
+                            <input type="text" class="form-control field-value" value="${value}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('${value}')">
+                                <iconify-icon icon="solar:copy-outline"></iconify-icon>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-sm btn-outline-primary w-100" onclick="copyToClipboard('${value}')">
+                            Kopyala
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        document.getElementById('bartenderFieldsContent').innerHTML = `
+            <div class="mb-3">
+                <h6 class="fw-semibold text-success">
+                    <iconify-icon icon="solar:database-outline" class="me-2"></iconify-icon>
+                    ${currentBartenderItem.type === 'product' ? 'Ürün' : 'Seri'} Veri Alanları
+                </h6>
+                <p class="text-muted mb-3">Aşağıdaki alanları Bartender'da veri kaynağı olarak kullanabilirsiniz.</p>
+            </div>
+            ${fieldsHtml}
+            <div class="alert alert-warning mt-3">
+                <iconify-icon icon="solar:warning-outline" class="me-2"></iconify-icon>
+                <strong>Bartender'da Kullanım:</strong><br>
+                1. Yeni veri kaynağı oluşturun<br>
+                2. CSV dosyasını seçin veya alanları manuel olarak kopyalayın<br>
+                3. Alanları eşleştirin: ${headers.join(', ')}<br>
+                4. Etiket tasarımınızda bu alanları kullanın
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading Bartender fields:', error);
+        document.getElementById('bartenderFieldsContent').innerHTML = `
+            <div class="alert alert-danger">
+                <iconify-icon icon="solar:danger-triangle-outline" class="me-2"></iconify-icon>
+                Veri alanları yüklenirken hata oluştu: ${error.message}
+            </div>
+        `;
+    }
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        // Show success feedback
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<iconify-icon icon="solar:check-circle-outline"></iconify-icon> Kopyalandı!';
+        btn.classList.remove('btn-outline-secondary', 'btn-outline-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+        }, 2000);
+    }).catch(err => {
+        console.error('Copy failed:', err);
+        alert('Kopyalama başarısız: ' + err.message);
+    });
+}
+
+async function downloadBartenderCsv(){
+    if (!currentBartenderItem) return;
+    
+    try {
+        const u = new URL('{{ route('print.labels.csv') }}', window.location.origin);
+        u.searchParams.set('type', currentBartenderItem.type);
+        u.searchParams.set('id', currentBartenderItem.id);
+        if (currentBartenderItem.type === 'series') u.searchParams.set('mode', currentBartenderItem.mode);
+        
+        const response = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+        const csvData = await response.text();
+        
+        const fileName = `bartender_${currentBartenderItem.type}_${currentBartenderItem.id}_${currentBartenderItem.mode || 'data'}.csv`;
+        
+        const blob = new Blob([csvData], { type: 'text/csv; charset=UTF-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        alert('Bartender CSV dosyası başarıyla indirildi!\n\nDosya adı: ' + fileName);
+        
+    } catch (error) {
+        console.error('CSV download failed:', error);
+        alert('CSV indirme başarısız: ' + error.message);
     }
 }
 

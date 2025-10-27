@@ -56,7 +56,8 @@
                 <div class="modal-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <div class="btn-group" role="group" aria-label="Scan mode">
-                            <button type="button" class="btn btn-outline-primary active" id="scanModeBarcode">Barkod Okuyucu</button>
+                            <button type="button" class="btn btn-outline-primary active" id="scanModeBarcode">Kamera Barkod</button>
+                            <button type="button" class="btn btn-outline-success" id="scanModeUsb">USB Barkod Okuyucu</button>
                         </div>
                         <div class="form-check form-switch d-none" id="multiScanToggleWrapper">
                             <input class="form-check-input" type="checkbox" id="scanMultiToggle">
@@ -66,6 +67,19 @@
                     <div id="scannerViewport" class="border rounded position-relative" style="min-height:300px;">
                         <div id="qrReader" style="width:100%;"></div>
                         <div id="barcodeReader" class="d-none w-100" style="height:300px; background:#000;"></div>
+                        <div id="usbScanner" class="d-none p-4">
+                            <div class="text-center">
+                                <iconify-icon icon="solar:scanner-outline" class="text-success" style="font-size: 4rem;"></iconify-icon>
+                                <h5 class="mt-3">USB Barkod Okuyucu Hazır</h5>
+                                <p class="text-muted">USB barkod okuyucunuzu kullanarak barkod tarayın</p>
+                                <div class="mt-3">
+                                    <input type="text" id="usbBarcodeInput" class="form-control form-control-lg text-center" 
+                                           placeholder="Barkod okuyucu ile tarayın..." 
+                                           style="font-size: 1.2rem; letter-spacing: 2px;" autocomplete="off">
+                                </div>
+                                <small class="text-muted mt-2 d-block">Barkod okuyucu otomatik olarak algılanacaktır</small>
+                            </div>
+                        </div>
                         <div id="scanBorder" class="position-absolute top-0 start-0 w-100 h-100" style="border: 3px solid transparent; pointer-events:none;"></div>
                     </div>
                     <audio id="scanBeep">
@@ -100,11 +114,15 @@
         let isScannerPaused = false;
         let cooldownTimeout = null;
         let lastScannedBarcode = null;
+        let usbInputBuffer = '';
+        let usbInputTimer = null;
 
         const modalEl = document.getElementById('globalScannerModal');
         const scanBorder = document.getElementById('scanBorder');
         const qrReaderEl = document.getElementById('qrReader');
         const barcodeReaderEl = document.getElementById('barcodeReader');
+        const usbScannerEl = document.getElementById('usbScanner');
+        const usbBarcodeInput = document.getElementById('usbBarcodeInput');
         const beepEl = document.getElementById('scanBeep');
 
         function setBorder(color){
@@ -149,8 +167,11 @@
                     }
                 }
                 
-                // Start 5-second cooldown
-                startCooldown();
+                // Close scanner modal immediately after successful scan
+                const modal = bootstrap.Modal.getInstance(document.getElementById('scannerModal'));
+                if (modal) {
+                    modal.hide();
+                }
             } else if (onSingleResult) {
                 // Single scan mode - call callback immediately
                 onSingleResult(payload);
@@ -337,8 +358,72 @@
             });
         }
 
+        function startUsbScanner(){
+            stopAll();
+            currentMode = 'usb';
+            qrReaderEl.classList.add('d-none');
+            barcodeReaderEl.classList.add('d-none');
+            usbScannerEl.classList.remove('d-none');
+            
+            // USB input focus
+            usbBarcodeInput.focus();
+            
+            // USB barcode input event listeners
+            usbBarcodeInput.addEventListener('input', handleUsbInput);
+            usbBarcodeInput.addEventListener('keydown', handleUsbKeydown);
+            
+            console.log('🔌 USB barcode scanner ready');
+        }
+
+        function handleUsbInput(event) {
+            const value = event.target.value;
+            usbInputBuffer = value;
+            
+            // Clear previous timer
+            if (usbInputTimer) {
+                clearTimeout(usbInputTimer);
+            }
+            
+            // Set new timer - if no input for 100ms, process the barcode
+            usbInputTimer = setTimeout(() => {
+                if (usbInputBuffer.length > 0) {
+                    console.log('📱 USB barcode detected:', usbInputBuffer);
+                    handlePayload(usbInputBuffer);
+                    usbBarcodeInput.value = '';
+                    usbInputBuffer = '';
+                    if (!multiScan) { showPostScanControls(); }
+                }
+            }, 100);
+        }
+
+        function handleUsbKeydown(event) {
+            // Handle Enter key for immediate processing
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (usbInputBuffer.length > 0) {
+                    console.log('📱 USB barcode detected (Enter):', usbInputBuffer);
+                    handlePayload(usbInputBuffer);
+                    usbBarcodeInput.value = '';
+                    usbInputBuffer = '';
+                    if (!multiScan) { showPostScanControls(); }
+                }
+            }
+        }
+
         function stopAll(){
             console.log('🛑 Stopping all scanners...');
+            
+            // USB scanner cleanup
+            if (usbInputTimer) {
+                clearTimeout(usbInputTimer);
+                usbInputTimer = null;
+            }
+            usbInputBuffer = '';
+            if (usbBarcodeInput) {
+                usbBarcodeInput.value = '';
+                usbBarcodeInput.removeEventListener('input', handleUsbInput);
+                usbBarcodeInput.removeEventListener('keydown', handleUsbKeydown);
+            }
             
             // Quagga barkod okuyucuyu durdur - daha güvenli yaklaşım
             try { 
@@ -562,7 +647,20 @@
         }
 
         // QR butonu kaldırıldı, sadece barkod modu kullanılıyor
-        document.getElementById('scanModeBarcode').addEventListener('click', function(){ hidePostScanControls(); startBarcode(); });
+        document.getElementById('scanModeBarcode').addEventListener('click', function(){ 
+            hidePostScanControls(); 
+            startBarcode(); 
+            // Update button styles
+            document.getElementById('scanModeBarcode').classList.add('active');
+            document.getElementById('scanModeUsb').classList.remove('active');
+        });
+        document.getElementById('scanModeUsb').addEventListener('click', function(){ 
+            hidePostScanControls(); 
+            startUsbScanner(); 
+            // Update button styles
+            document.getElementById('scanModeUsb').classList.add('active');
+            document.getElementById('scanModeBarcode').classList.remove('active');
+        });
         document.getElementById('scanMultiToggle').addEventListener('change', function(e){ multiScan = !!e.target.checked; });
 
         function showPostScanControls(){
@@ -577,7 +675,12 @@
 
         document.getElementById('scanAgainBtn').addEventListener('click', function(){
             hidePostScanControls();
-            startBarcode(); // Her zaman barkod modu başlat
+            // Mevcut moda göre başlat
+            if (currentMode === 'usb') {
+                startUsbScanner();
+            } else {
+                startBarcode(); // Kamera barkod modu
+            }
         });
         document.getElementById('closeScannerBtn').addEventListener('click', function(e){
             e.preventDefault();
@@ -650,14 +753,10 @@
                 cooldownMessage.remove();
             }
             
-            // Çoklu tarama seçeneğini sadece invoice context'te göster
+            // Çoklu tarama seçeneğini kaldır - her zaman tekli tarama
             const multiScanToggle = document.getElementById('multiScanToggleWrapper');
-            if (invoiceContext) {
-                multiScanToggle.classList.remove('d-none');
-            } else {
-                multiScanToggle.classList.add('d-none');
-                multiScan = false; // Normal kullanımda çoklu tarama kapalı
-            }
+            multiScanToggle.classList.add('d-none');
+            multiScan = false;
             
             const defaultMode = 'barcode'; // Sadece barkod modu kullanılıyor
             const modal = new bootstrap.Modal(modalEl);
@@ -677,7 +776,7 @@
                 });
             }
             if (e.target.closest('#openInvoiceScanner')){
-                window.openGlobalScanner({ invoiceContext: true, multi: true });
+                window.openGlobalScanner({ invoiceContext: true });
             }
         });
     })();

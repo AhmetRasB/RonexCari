@@ -9,10 +9,16 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Seri Ürün Düzenle</h5>
-                <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#quickStockModal">
-                    <iconify-icon icon="solar:database-outline" class="me-1"></iconify-icon>
-                    Hızlı Stok
-                </button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#addSeriesSizeModal">
+                        <iconify-icon icon="solar:add-circle-outline" class="me-1"></iconify-icon>
+                        Yeni Seri Boyutu Ekle
+                    </button>
+                    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#quickStockModal">
+                        <iconify-icon icon="solar:database-outline" class="me-1"></iconify-icon>
+                        Hızlı Stok
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 <form action="{{ route('products.series.update', $series) }}" method="POST" enctype="multipart/form-data">
@@ -39,6 +45,15 @@
                             <input type="text" class="form-control radius-8 @error('sku') is-invalid @enderror" 
                                    name="sku" value="{{ old('sku', $series->sku) }}">
                             @error('sku')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Barkod</label>
+                            <input type="text" class="form-control radius-8 @error('barcode') is-invalid @enderror" 
+                                   name="barcode" value="{{ old('barcode', $series->barcode) }}" placeholder="Seri barkodu">
+                            @error('barcode')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
@@ -127,21 +142,15 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Stok Miktarı (Seri) *</label>
-                            <input type="number" class="form-control radius-8 @error('stock_quantity') is-invalid @enderror" 
-                                   name="stock_quantity" value="{{ old('stock_quantity', $series->stock_quantity) }}" min="0" required>
-                            @error('stock_quantity')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Toplam Stok (Adet)</label>
+                            <input type="text" class="form-control radius-8" 
+                                   value="{{ number_format($series->colorVariants->sum('stock_quantity')) }} Adet" readonly>
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Kritik Stok</label>
-                            <input type="number" class="form-control radius-8 @error('critical_stock') is-invalid @enderror" 
-                                   name="critical_stock" value="{{ old('critical_stock', $series->critical_stock) }}" min="0">
-                            @error('critical_stock')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Toplam Kritik Stok (Adet)</label>
+                            <input type="text" class="form-control radius-8" 
+                                   value="{{ number_format($series->colorVariants->sum('critical_stock')) }} Adet" readonly>
                         </div>
 
                         @if($series->colorVariants && $series->colorVariants->count() > 0)
@@ -158,8 +167,8 @@
                                                 <thead class="table-light">
                                                     <tr>
                                                         <th>Renk</th>
-                                                        <th>Mevcut Stok (Seri)</th>
-                                                        <th>Kritik Stok (Seri)</th>
+                                                        <th>Mevcut Stok (Adet)</th>
+                                                        <th>Kritik Stok (Adet)</th>
                                                         <th>Durum</th>
                                                         <th>İşlemler</th>
                                                     </tr>
@@ -211,8 +220,8 @@
                                                 <tfoot class="table-light">
                                                     <tr>
                                                         <th>Toplam</th>
-                                                        <th class="fw-bold">{{ $series->colorVariants->sum('stock_quantity') }} Seri</th>
-                                                        <th class="fw-bold">{{ $series->colorVariants->sum('critical_stock') }} Seri</th>
+                                                        <th class="fw-bold">{{ $series->colorVariants->sum('stock_quantity') }} Adet</th>
+                                                        <th class="fw-bold">{{ $series->colorVariants->sum('critical_stock') }} Adet</th>
                                                         <th>
                                                             @php
                                                                 $hasSeriesCritical = $series->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0;
@@ -328,6 +337,72 @@
         </div>
     </div>
 </div>
+<!-- Add Series Size Modal -->
+<div class="modal fade" id="addSeriesSizeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Yeni Seri Boyutu Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addSeriesSizeForm">
+                @csrf
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <!-- Seri Boyutu Seçimi -->
+                        <div class="col-12">
+                            <h6 class="fw-semibold text-primary mb-3">Seri Boyutu Seçimi</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Hangi seri tipine eklemek istiyorsunuz?</label>
+                                    <select class="form-select" id="seriesSizeSelect" required>
+                                        <option value="">Seri boyutu seçin</option>
+                                        <option value="2">2'li Seri</option>
+                                        <option value="3">3'lü Seri</option>
+                                        <option value="4">4'lü Seri</option>
+                                        <option value="5">5'li Seri</option>
+                                        <option value="6">6'lı Seri</option>
+                                        <option value="7">7'li Seri</option>
+                                        <option value="8">8'li Seri</option>
+                                        <option value="9">9'lu Seri</option>
+                                        <option value="10">10'lu Seri</option>
+                                        <option value="custom">Yeni Tip Belirle</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Özel Seri Boyutu</label>
+                                    <input type="number" class="form-control" id="customSeriesSize" 
+                                           placeholder="Özel seri boyutu" min="2" max="50" disabled>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Renk ve Stok Bilgileri -->
+                        <div class="col-12">
+                            <h6 class="fw-semibold text-primary mb-3">Renk ve Stok Bilgileri</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Renk</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="colorInput" 
+                                           placeholder="Renk adı yazın ve Enter'a basın">
+                                    <button type="button" class="btn btn-outline-secondary" id="addColorBtn">
+                                        <iconify-icon icon="solar:add-circle-outline"></iconify-icon>
+                                    </button>
+                                </div>
+                                <div id="colorTagsContainer" class="mt-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">Seri Boyutu Ekle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Quick Stock Modal -->
 <div class="modal fade" id="quickStockModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -338,11 +413,11 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label">Mevcut Stok (Seri)</label>
-                    <input type="text" class="form-control" value="{{ $series->stock_quantity ?? 0 }}" readonly>
+                    <label class="form-label">Mevcut Stok (Adet)</label>
+                    <input type="text" class="form-control" value="{{ number_format($series->colorVariants->sum('stock_quantity')) }} Adet" readonly>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Ekle (Seri Adedi)</label>
+                    <label class="form-label">Ekle (Adet)</label>
                     <input type="number" class="form-control" id="qsAddStock" min="0" step="1" placeholder="0">
                 </div>
             </div>
@@ -356,6 +431,11 @@
 
 @push('scripts')
 <script>
+// Color management variables
+let colorTags = [];
+let colorStocks = {};
+
+// Quick stock functionality
 document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
     const addStock = parseInt(document.getElementById('qsAddStock').value || '0', 10);
     
@@ -375,7 +455,7 @@ document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
     .then(r => r.json())
     .then(resp => {
         if (resp.success) {
-            alert('Stok güncellendi! Yeni stok: ' + resp.data.stock_quantity + ' seri');
+            alert('Stok güncellendi! Yeni stok: ' + resp.data.stock_quantity + ' adet');
             location.reload();
         } else {
             alert('Güncelleme başarısız: ' + (resp.message || 'Bilinmeyen hata'));
@@ -383,6 +463,136 @@ document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
     })
     .catch(err => {
         alert('Hata oluştu: ' + err.message);
+    });
+});
+
+// Series size selection functionality
+document.getElementById('seriesSizeSelect')?.addEventListener('change', function() {
+    const customInput = document.getElementById('customSeriesSize');
+    if (this.value === 'custom') {
+        customInput.disabled = false;
+        customInput.required = true;
+    } else {
+        customInput.disabled = true;
+        customInput.required = false;
+        customInput.value = '';
+    }
+});
+
+// Color tag functionality
+document.getElementById('colorInput')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        addColorTag();
+    }
+});
+
+document.getElementById('addColorBtn')?.addEventListener('click', function() {
+    addColorTag();
+});
+
+function addColorTag() {
+    const colorInput = document.getElementById('colorInput');
+    const color = colorInput.value.trim();
+    
+    if (color && !colorTags.includes(color)) {
+        colorTags.push(color);
+        colorStocks[color] = { stock_quantity: 0, critical_stock: 0 };
+        
+        const tagElement = document.createElement('span');
+        tagElement.className = 'badge bg-primary me-2 mb-2';
+        tagElement.innerHTML = `
+            ${color}
+            <button type="button" class="btn-close btn-close-white ms-1" onclick="removeColorTag('${color}')"></button>
+        `;
+        
+        document.getElementById('colorTagsContainer').appendChild(tagElement);
+        colorInput.value = '';
+        
+        // Open stock modal for this color
+        openColorStockModal(color);
+    }
+}
+
+function removeColorTag(color) {
+    colorTags = colorTags.filter(c => c !== color);
+    delete colorStocks[color];
+    
+    // Remove from DOM
+    const tags = document.querySelectorAll('#colorTagsContainer .badge');
+    tags.forEach(tag => {
+        if (tag.textContent.trim().startsWith(color)) {
+            tag.remove();
+        }
+    });
+}
+
+function openColorStockModal(color) {
+    const stockQuantity = prompt(`${color} rengi için stok miktarını girin:`, '0');
+    if (stockQuantity !== null) {
+        const criticalStock = prompt(`${color} rengi için kritik stok miktarını girin:`, '0');
+        if (criticalStock !== null) {
+            colorStocks[color] = {
+                stock_quantity: parseInt(stockQuantity) || 0,
+                critical_stock: parseInt(criticalStock) || 0
+            };
+        }
+    }
+}
+
+// Add series size form submission
+document.getElementById('addSeriesSizeForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const seriesSizeSelect = document.getElementById('seriesSizeSelect');
+    const customSeriesSize = document.getElementById('customSeriesSize');
+    
+    let seriesSize;
+    if (seriesSizeSelect.value === 'custom') {
+        seriesSize = parseInt(customSeriesSize.value);
+    } else {
+        seriesSize = parseInt(seriesSizeSelect.value);
+    }
+    
+    if (!seriesSize || seriesSize < 2) {
+        alert('Lütfen geçerli bir seri boyutu seçin.');
+        return;
+    }
+    
+    if (colorTags.length === 0) {
+        alert('Lütfen en az bir renk ekleyin.');
+        return;
+    }
+    
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+    formData.append('series_size', seriesSize);
+    
+    // Add color variants
+    colorTags.forEach((color, index) => {
+        formData.append(`color_variants[${index}][color]`, color);
+        formData.append(`color_variants[${index}][stock_quantity]`, colorStocks[color].stock_quantity);
+        formData.append(`color_variants[${index}][critical_stock]`, colorStocks[color].critical_stock);
+    });
+    
+    // Submit to add series size endpoint
+    fetch('{{ route("products.series.add-size", $series) }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Seri boyutu başarıyla eklendi!');
+            location.reload();
+        } else {
+            alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Bir hata oluştu.');
     });
 });
 </script>

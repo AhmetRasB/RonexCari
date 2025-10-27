@@ -35,9 +35,6 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
-// API Route for series default sizes
-Route::get('api/products/series-default-sizes', [\App\Http\Controllers\Products\ProductSeriesController::class, 'getDefaultSizes'])->name('products.series.default-sizes');
-
 
 // Account selection routes
 Route::get('/account/select', [AccountController::class, 'select'])->middleware(['auth'])->name('account.select');
@@ -46,8 +43,8 @@ Route::post('/account/switch', [AccountController::class, 'switch'])->middleware
 Route::get('/account/manage', [AccountController::class, 'manage'])->middleware(['auth'])->name('account.manage');
 Route::put('/account/{account}', [AccountController::class, 'update'])->middleware(['auth'])->name('account.update');
 
-// Product Series Routes (with auth middleware only)
-Route::middleware(['auth'])->group(function () {
+// Product Series Routes (with auth and account selection middleware)
+Route::middleware(['auth', 'account.selection'])->group(function () {
     Route::prefix('products')->name('products.')->group(function () {
         Route::resource('series', \App\Http\Controllers\Products\ProductSeriesController::class);
         
@@ -57,11 +54,8 @@ Route::middleware(['auth'])->group(function () {
         // Series barcode generation
         Route::post('series/{series}/barcodes/generate', [\App\Http\Controllers\Products\ProductSeriesController::class, 'generateBarcodes'])->name('series.barcodes.generate');
         
-        // Fixed Series Settings Routes
-        Route::get('fixed-series-settings', [\App\Http\Controllers\Products\FixedSeriesSettingController::class, 'index'])->name('fixed-series-settings.index');
-        Route::get('fixed-series-settings/{fixedSeriesSetting}/edit', [\App\Http\Controllers\Products\FixedSeriesSettingController::class, 'edit'])->name('fixed-series-settings.edit');
-        Route::put('fixed-series-settings/{fixedSeriesSetting}', [\App\Http\Controllers\Products\FixedSeriesSettingController::class, 'update'])->name('fixed-series-settings.update');
-        Route::post('fixed-series-settings/create-defaults', [\App\Http\Controllers\Products\FixedSeriesSettingController::class, 'createDefaults'])->name('fixed-series-settings.create-defaults');
+        // Series add size
+        Route::post('series/{series}/add-size', [\App\Http\Controllers\Products\ProductSeriesController::class, 'addSize'])->name('series.add-size');
     });
 });
 

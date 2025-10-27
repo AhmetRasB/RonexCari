@@ -121,25 +121,29 @@
                     <!-- Invoice Items -->
                     <div class="row mb-4">
                         <div class="col-12">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
                                 <h6 class="fw-semibold mb-0">Ürün/Hizmet Detayları</h6>
                                 <button type="button" class="btn btn-outline-success btn-sm" id="openInvoiceScanner">
                                     <iconify-icon icon="solar:qr-code-outline" class="me-1"></iconify-icon>
                                     QR ile Ekle
                                 </button>
                             </div>
-                            <div class="table-responsive" style="overflow-x: auto; min-width: 100%;">
-                                <table class="table table-bordered" id="invoiceItemsTable" style="min-width: 1500px; width: 100%;">
-                                    <thead>
+                            
+                            <!-- Desktop Table View -->
+                            <div class="d-none d-lg-block">
+                                <div class="table-responsive">
+                                    <table class="table table-hover" id="invoiceItemsTable">
+                                        <thead class="table-light">
                                         <tr id="invoiceTableHeader">
-                                            <th style="min-width: 250px; width: 20%;">ÜRÜN/HİZMET</th>
-                                            <th style="min-width: 200px; width: 15%;">AÇIKLAMA</th>
-                                            <th style="min-width: 180px; width: 12%;">MİKTAR</th>
-                                            <th style="min-width: 200px; width: 15%;">B. FİYAT</th>
-                                            <th style="min-width: 150px; width: 10%;">KDV</th>
-                                            <th style="min-width: 150px; width: 10%;">İNDİRİM</th>
-                                            <th style="min-width: 180px; width: 12%;">TOPLAM</th>
-                                            <th style="min-width: 100px; width: 6%;">İŞLEM</th>
+                                                <th style="min-width: 280px; padding: 15px;">ÜRÜN/HİZMET</th>
+                                                <th style="min-width: 200px; padding: 15px;">AÇIKLAMA</th>
+                                                <th style="min-width: 140px; padding: 15px;">SERİ BOYUTU</th>
+                                                <th style="min-width: 140px; padding: 15px;">MİKTAR</th>
+                                                <th style="min-width: 160px; padding: 15px;">B. FİYAT</th>
+                                                <th style="min-width: 120px; padding: 15px;">KDV</th>
+                                                <th style="min-width: 120px; padding: 15px;">İNDİRİM</th>
+                                                <th style="min-width: 160px; padding: 15px;">TOPLAM</th>
+                                                <th style="min-width: 80px; padding: 15px;">İŞLEM</th>
                                         </tr>
                                     </thead>
                                     <tbody id="invoiceItemsBody">
@@ -147,10 +151,23 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <button type="button" class="btn btn-outline-primary" id="addInvoiceItem">
+                            </div>
+
+                            <!-- Mobile Card View -->
+                            <div class="d-lg-none" id="mobileInvoiceItems">
+                                <!-- Mobile items will be added here -->
+                            </div>
+                            
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-outline-primary btn-lg w-100 d-lg-none" id="addInvoiceItemMobile">
+                                    <iconify-icon icon="solar:add-circle-outline" class="me-2"></iconify-icon>
+                                    Yeni Ürün Ekle
+                                </button>
+                                <button type="button" class="btn btn-outline-primary d-none d-lg-inline-block" id="addInvoiceItem">
                                 <iconify-icon icon="solar:add-circle-outline" class="me-2"></iconify-icon>
                                 Yeni Satır Ekle
                             </button>
+                            </div>
                         </div>
                     </div>
 
@@ -212,6 +229,36 @@
                         </div>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scanned Product Modal -->
+<div class="modal fade" id="scannedProductModal" tabindex="-1" aria-labelledby="scannedProductModalLabel" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="scannedProductModalLabel">
+                    <iconify-icon icon="solar:qr-code-outline" class="me-2"></iconify-icon>
+                    Taratılan Ürün
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="scannedProductContent">
+                    <!-- Scanned product details will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top p-3">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <iconify-icon icon="solar:close-circle-outline" class="me-1"></iconify-icon>
+                    İptal
+                </button>
+                <button type="button" class="btn btn-success" id="addScannedProduct">
+                    <iconify-icon icon="solar:check-circle-outline" class="me-1"></iconify-icon>
+                    Ekle
+                </button>
             </div>
         </div>
     </div>
@@ -326,34 +373,40 @@
         max-width: 120px;
     }
     
-    #invoiceItemsTable th:nth-child(4), /* B. FİYAT */
+    #invoiceItemsTable th:nth-child(4), /* MİKTAR */
     #invoiceItemsTable td:nth-child(4) {
-        min-width: 150px;
-        max-width: 150px;
+        min-width: 140px;
+        max-width: 140px;
     }
     
-    #invoiceItemsTable th:nth-child(5), /* KDV */
+    #invoiceItemsTable th:nth-child(5), /* B. FİYAT */
     #invoiceItemsTable td:nth-child(5) {
-        min-width: 120px;
-        max-width: 120px;
+        min-width: 160px;
+        max-width: 160px;
     }
     
-    #invoiceItemsTable th:nth-child(6), /* İNDİRİM */
+    #invoiceItemsTable th:nth-child(6), /* KDV */
     #invoiceItemsTable td:nth-child(6) {
         min-width: 120px;
         max-width: 120px;
     }
     
-    #invoiceItemsTable th:nth-child(7), /* TOPLAM */
+    #invoiceItemsTable th:nth-child(7), /* İNDİRİM */
     #invoiceItemsTable td:nth-child(7) {
-        min-width: 140px;
-        max-width: 140px;
+        min-width: 120px;
+        max-width: 120px;
     }
     
-    #invoiceItemsTable th:nth-child(8), /* İŞLEM */
+    #invoiceItemsTable th:nth-child(8), /* TOPLAM */
     #invoiceItemsTable td:nth-child(8) {
-        min-width: 100px;
-        max-width: 100px;
+        min-width: 160px;
+        max-width: 160px;
+    }
+    
+    #invoiceItemsTable th:nth-child(9), /* İŞLEM */
+    #invoiceItemsTable td:nth-child(9) {
+        min-width: 80px;
+        max-width: 80px;
     }
     
     /* Make form inputs more mobile-friendly */
@@ -547,6 +600,9 @@
 let itemCounter = 0;
 
 $(document).ready(function() {
+    // Add initial invoice item row
+    addInvoiceItemRow();
+    
     // Open scanner in invoice context
     $('#openInvoiceScanner').on('click', function(){
         if (window.openGlobalScanner) window.openGlobalScanner({ invoiceContext: true, multi: true });
@@ -600,12 +656,41 @@ $(document).ready(function() {
         addInvoiceItemRow();
     });
     
+    // Add new mobile item button
+    $('#addInvoiceItemMobile').on('click', function() {
+        console.log('Add mobile invoice item button clicked');
+        addMobileInvoiceItemRow();
+    });
+
+    // Add scanned product button
+    $('#addScannedProduct').on('click', function(){
+        if (scannedProductData) {
+            appendInvoiceItemFromResult(scannedProductData);
+            alert(scannedProductData.name + ' eklendi');
+            
+            // Close modal using Bootstrap method
+            const modal = bootstrap.Modal.getInstance(document.getElementById('scannedProductModal'));
+            if (modal) {
+                modal.hide();
+            } else {
+                $('#scannedProductModal').modal('hide');
+            }
+            scannedProductData = null;
+        }
+    });
+    
     // Remove item row
     $(document).on('click', '.remove-item', function() {
         if ($('#invoiceItemsBody tr').length > 1) {
             $(this).closest('tr').remove();
             calculateTotals();
         }
+    });
+    
+    // Remove mobile item button
+    $(document).on('click', '.remove-mobile-item', function() {
+        $(this).closest('.card').remove();
+        calculateTotals();
     });
     
     // Save new customer
@@ -695,102 +780,189 @@ window.addScannedProductById = function(id){
 }
 
 window.addScannedProductByCode = function(code){
-    // Use the dedicated barcode lookup endpoint for better accuracy
-    $.get('{{ route("barcode.lookup") }}', { barcode: code })
-        .done(function(data){
-            if (data.redirect_url) {
-                // Convert the lookup result to invoice item format
-                const item = {
-                    id: (data.type === 'series' ? 'series_' : 'product_') + data.id,
-                    name: data.name,
-                    product_code: code,
-                    type: data.type,
-                    price: 0, // Will be filled from the actual product/series data
-                    vat_rate: 20,
-                    currency: 'TRY'
-                };
-                
-                // Get detailed product/series information for pricing
-                $.get('{{ route("sales.invoices.search.products") }}', { q: data.id })
+    // Directly search for the product using the search endpoint
+    $.get('{{ route("sales.invoices.search.products") }}', { q: code })
                     .done(function(list){
-                        // Find the exact product by matching ID and type
-                        const detailedItem = list.find(p => {
-                            if (data.type === 'series') {
-                                return p.type === 'series' && p.id === ('series_' + data.id);
+            if (list.length > 0) {
+                // Use the first result (most relevant)
+                const item = list[0];
+                showScannedProductModal(item);
                             } else {
-                                return p.type === 'product' && p.product_id == data.id;
-                            }
-                        });
-                        
-                        if (detailedItem) {
-                            item.price = detailedItem.price;
-                            item.purchase_price = detailedItem.purchase_price;
-                            item.stock_quantity = detailedItem.stock_quantity;
-                            item.category = detailedItem.category;
-                            item.brand = detailedItem.brand;
-                            item.size = detailedItem.size;
-                            item.color = detailedItem.color;
-                            
-                            // Pass color variants data for products with multiple colors
-                            item.has_color_variants = detailedItem.has_color_variants;
-                            item.color_variants = detailedItem.color_variants;
-                            
-                            console.log('Barcode scan - Product found with color variants:', item.has_color_variants, item.color_variants);
-                            
-                            appendInvoiceItemFromResult(item);
-                            toastr.success(item.name + ' eklendi');
-                        } else {
-                            console.warn('Barcode scan - Product not found in search results, using basic info');
-                            // Fallback: add with basic info
-                            appendInvoiceItemFromResult(item);
-                            toastr.success(item.name + ' eklendi');
-                        }
-                    })
-                    .fail(function(){
-                        // Fallback: add with basic info
-                        appendInvoiceItemFromResult(item);
-                        toastr.success(item.name + ' eklendi');
-                    });
-            } else if (data.error) {
-                toastr.error('Barkod bulunamadı: ' + code);
+                alert('Kod ile ürün bulunamadı: ' + code);
             }
         })
-        .fail(function(){
-            // Fallback to old search method if barcode lookup fails
-            $.get('{{ route("sales.invoices.search.products") }}', { q: code })
-                .done(function(list){
-                    if (list.length > 0) {
-                        appendInvoiceItemFromResult(list[0]);
-                        toastr.success(list[0].name + ' eklendi');
-                    } else {
-                        toastr.error('Kod ile ürün bulunamadı: ' + code);
-                    }
-                })
-                .fail(function(){
-                    toastr.error('Ürün arama hatası');
-                });
+        .fail(function(xhr, status, error){
+            alert('Ürün arama hatası');
         });
 }
 
+// Global variable to store the scanned product data
+let scannedProductData = null;
+
+function showScannedProductModal(item) {
+    scannedProductData = item;
+    
+    const modalContent = `
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="alert alert-success">
+                    <iconify-icon icon="solar:check-circle-outline" class="me-2"></iconify-icon>
+                    <strong>Ürün bulundu!</strong> Aşağıdaki ürünü faturaya eklemek istediğinizden emin misiniz?
+                </div>
+            </div>
+            
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="fw-semibold text-primary mb-3">Ürün Bilgileri</h6>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Ürün/Hizmet Adı</label>
+                                <div class="form-control-plaintext fw-semibold">${item.name}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Kategori</label>
+                                <div class="form-control-plaintext">${item.category || 'Belirtilmemiş'}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Marka</label>
+                                <div class="form-control-plaintext">${item.brand || 'Belirtilmemiş'}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Satış Fiyatı</label>
+                                <div class="form-control-plaintext fw-semibold text-success">${parseFloat(item.price || 0).toFixed(2)} ₺</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Stok Durumu</label>
+                                <div class="form-control-plaintext">${item.stock_quantity || 0} adet</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="fw-semibold text-primary mb-3">Ek Bilgiler</h6>
+                        <div class="mb-2">
+                            <small class="text-muted">Ürün Kodu:</small><br>
+                            <span class="fw-semibold">${item.product_code || 'Yok'}</span>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">Tip:</small><br>
+                            <span class="badge bg-${item.type === 'series' ? 'info' : 'primary'}">${item.type === 'series' ? 'Seri Ürün' : 'Tekil Ürün'}</span>
+                        </div>
+                        ${item.size ? `
+                        <div class="mb-2">
+                            <small class="text-muted">Beden:</small><br>
+                            <span class="fw-semibold">${item.size}</span>
+                        </div>
+                        ` : ''}
+                        ${item.color ? `
+                        <div class="mb-2">
+                            <small class="text-muted">Renk:</small><br>
+                            <span class="fw-semibold">${item.color}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    $('#scannedProductContent').html(modalContent);
+    $('#scannedProductModal').modal('show');
+}
+
 function appendInvoiceItemFromResult(item){
+    // Check if we're on mobile or desktop
+    const isMobile = window.innerWidth < 992;
+    
+    if (isMobile) {
+        addMobileInvoiceItemRow();
+        const index = itemCounter - 1;
+        const card = $(`.card[data-item-index="${index}"]`);
+        
+        // Set all fields exactly like manual selection
+        card.find('input[name*="[product_service_name]"]').val(item.name);
+        card.find('input[name*="[unit_price]"]').val(item.price);
+        card.find('select[name*="[tax_rate]"]').val(item.vat_rate);
+        card.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
+        card.find('input[name*="[type]"]').val(item.type);
+        
+        // Handle color variants - EXACTLY like manual selection
+        if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {
+            // Show color selection in mobile
+            card.find('.color-selection-mobile').show();
+            
+            // Populate color options
+            const colorSelect = card.find('.color-variant-select');
+            colorSelect.empty().append('<option value="">Renk Seçin</option>');
+            
+            item.color_variants.forEach(function(variant) {
+                colorSelect.append(`<option value="${variant.id}" data-color="${variant.color}">${variant.color}</option>`);
+            });
+            
+            // Store color variants data
+            card.data('color-variants', item.color_variants);
+            
+            // If there's only one color, auto-select it and show stock info
+            if (item.color_variants.length === 1) {
+                const variant = item.color_variants[0];
+                colorSelect.val(variant.id);
+                card.find('input[name*="[selected_color]"]').val(variant.color);
+                
+                // Show stock information
+                const stockInfoHtml = `
+                    <div class="mobile-stock-info mt-2 p-3" style="background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="text-muted d-block">Mevcut Stok</small>
+                                <strong class="text-success">${variant.stock_quantity} Adet</strong>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted d-block">Kritik Stok</small>
+                                <small class="text-warning">${variant.critical_stock} Adet</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                card.find('.color-selection-mobile').after(stockInfoHtml);
+                
+                // Validate stock
+                const quantityInput = card.find('.quantity-input');
+                const seriesSizeSelect = card.find('.series-size-select');
+                validateMobileStock(card, variant, quantityInput, seriesSizeSelect);
+            }
+        }
+        
+        // Store stock information for validation
+        card.data('stock-quantity', item.stock_quantity || 0);
+        card.data('product-type', item.type);
+        
+        // Recalculate totals
+        calculateMobileLineTotal.call(card.find('.unit-price')[0]);
+    } else {
     addInvoiceItemRow();
     const index = itemCounter - 1;
     const row = $(`tr[data-item-index="${index}"]`);
+        
+        // Set all fields exactly like manual selection
     row.find('input[name*="[product_service_name]"]').val(item.name);
     row.find('input[name*="[unit_price]"]').val(item.price);
     row.find('select[name*="[tax_rate]"]').val(item.vat_rate);
     row.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
     row.find('input[name*="[type]"]').val(item.type);
     
-    // Handle color variants - same logic as manual selection
+        // Handle color variants - EXACTLY like manual selection
     if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {
         // Add color column to table header if not exists
         addColorColumnToTable();
         
-        // Add color cell to current row - wait for DOM to be ready
-        setTimeout(() => {
+            // Add color cell to current row - immediate like manual selection
             addColorCellToRow(row, item.color_variants);
-        }, 100);
         
         // Store color variants data
         row.data('color-variants', item.color_variants);
@@ -800,12 +972,9 @@ function appendInvoiceItemFromResult(item){
     row.data('stock-quantity', item.stock_quantity || 0);
     row.data('product-type', item.type);
     
+        // Recalculate totals
     calculateLineTotal.call(row.find('.unit-price')[0]);
-    
-    // Trigger stock validation for scanned products - wait for DOM to be ready
-    setTimeout(() => {
-        validateStock(row);
-    }, 300);
+    }
 }
 
 function searchCustomers(query) {
@@ -886,64 +1055,76 @@ function addInvoiceItemRow() {
     const hasColorColumn = $('#invoiceTableHeader th:contains("RENK")').length > 0;
     
     const rowHtml = `
-        <tr data-item-index="${itemCounter}">
-            <td>
+        <tr data-item-index="${itemCounter}" style="border-bottom: 2px solid #f8f9fa;">
+            <td style="padding: 20px 15px;">
                 <div class="position-relative">
-                    <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." data-row="${itemCounter}" required style="min-height: 50px; font-size: 16px;">
+                    <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." data-row="${itemCounter}" required style="min-height: 45px; font-size: 15px; border-radius: 8px;">
                     <div id="productServiceDropdown${itemCounter}" class="product-service-dropdown" style="display: none;">
                         <!-- Search results will be populated here -->
                     </div>
                 </div>
             </td>
-            <td>
-                <textarea name="items[${itemCounter}][description]" class="form-control" rows="3" placeholder="Açıklama" style="min-height: 60px; font-size: 14px;"></textarea>
+            <td style="padding: 20px 15px;">
+                <textarea name="items[${itemCounter}][description]" class="form-control" rows="2" placeholder="Açıklama" style="min-height: 45px; font-size: 14px; border-radius: 8px; resize: vertical;"></textarea>
+            </td>
+            <td class="series-size-cell" style="padding: 20px 15px;">
+                <select name="items[${itemCounter}][series_size]" class="form-select series-size-select" style="min-height: 45px; font-size: 14px; border-radius: 8px;">
+                    <option value="">Seri Boyutu</option>
+                    <option value="5">5'li</option>
+                    <option value="6">6'lı</option>
+                    <option value="7">7'li</option>
+                    <option value="8">8'li</option>
+                    <option value="10">10'lu</option>
+                    <option value="12">12'li</option>
+                </select>
             </td>
             ${hasColorColumn ? `
-            <td class="color-cell">
-                <select name="items[${itemCounter}][color_variant_id]" class="form-select color-variant-select" style="min-height: 50px; font-size: 14px;">
+            <td class="color-cell" style="padding: 20px 15px;">
+                <select name="items[${itemCounter}][color_variant_id]" class="form-select color-variant-select" style="min-height: 45px; font-size: 14px; border-radius: 8px;">
                     <option value="">Renk Seçin</option>
                 </select>
                 <input type="hidden" name="items[${itemCounter}][selected_color]" value="">
             </td>
             ` : ''}
-            <td>
+            <td style="padding: 20px 15px;">
                 <div class="input-group">
-                    <input type="number" name="items[${itemCounter}][quantity]" class="form-control" value="1" min="0.01" step="0.01" required style="min-height: 50px; font-size: 16px;">
-                    <span class="input-group-text" style="min-height: 50px; font-size: 14px;">Ad</span>
+                    <input type="number" name="items[${itemCounter}][quantity]" class="form-control quantity-input" value="1" min="0.01" step="0.01" required style="min-height: 45px; font-size: 15px; border-radius: 8px 0 0 8px;">
+                    <span class="input-group-text quantity-unit" style="min-height: 45px; font-size: 14px; border-radius: 0 8px 8px 0;">Adet</span>
                 </div>
+                <small class="text-muted calculated-series" style="display: none; font-size: 12px;"></small>
             </td>
-            <td>
+            <td style="padding: 20px 15px;">
                 <div class="input-group">
-                    <input type="number" name="items[${itemCounter}][unit_price]" class="form-control unit-price" value="0" min="0" step="0.01" required style="min-height: 50px; font-size: 16px;">
-                    <select name="items[${itemCounter}][unit_currency]" class="form-select unit-currency" style="max-width: 80px; min-height: 50px; font-size: 14px;">
+                    <input type="number" name="items[${itemCounter}][unit_price]" class="form-control unit-price" value="0" min="0" step="0.01" required style="min-height: 45px; font-size: 15px; border-radius: 8px 0 0 8px;">
+                    <select name="items[${itemCounter}][unit_currency]" class="form-select unit-currency" style="max-width: 70px; min-height: 45px; font-size: 14px; border-radius: 0 8px 8px 0;">
                         <option value="TRY" ${$('#currency').val() === 'TRY' ? 'selected' : ''}>₺</option>
                         <option value="USD" ${$('#currency').val() === 'USD' ? 'selected' : ''}>$</option>
                         <option value="EUR" ${$('#currency').val() === 'EUR' ? 'selected' : ''}>€</option>
                     </select>
                 </div>
             </td>
-            <td>
-                <select name="items[${itemCounter}][tax_rate]" class="form-select tax-rate" style="min-height: 50px; font-size: 14px;">
+            <td style="padding: 20px 15px;">
+                <select name="items[${itemCounter}][tax_rate]" class="form-select tax-rate" style="min-height: 45px; font-size: 14px; border-radius: 8px;">
                     <option value="0">KDV %0</option>
                     <option value="1">KDV %1</option>
                     <option value="10">KDV %10</option>
                     <option value="20" selected>KDV %20</option>
                 </select>
             </td>
-            <td>
+            <td style="padding: 20px 15px;">
                 <div class="input-group">
-                    <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" max="100" step="0.01" style="min-height: 50px; font-size: 16px;">
-                    <span class="input-group-text" style="min-height: 50px; font-size: 14px;">%</span>
+                    <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" max="100" step="0.01" style="min-height: 45px; font-size: 15px; border-radius: 8px 0 0 8px;">
+                    <span class="input-group-text" style="min-height: 45px; font-size: 14px; border-radius: 0 8px 8px 0;">%</span>
                 </div>
             </td>
-            <td>
+            <td style="padding: 20px 15px;">
                 <div class="input-group">
-                    <input type="text" class="form-control line-total" readonly value="0,00" style="min-height: 50px; font-size: 16px;">
-                    <span class="input-group-text invoice-currency-symbol" style="min-height: 50px; font-size: 14px;">${$('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺'}</span>
+                    <input type="text" class="form-control line-total" readonly value="0,00" style="min-height: 45px; font-size: 15px; border-radius: 8px 0 0 8px; background-color: #f8f9fa;">
+                    <span class="input-group-text invoice-currency-symbol" style="min-height: 45px; font-size: 14px; border-radius: 0 8px 8px 0; background-color: #f8f9fa;">${$('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺'}</span>
                 </div>
             </td>
-            <td>
-                <button type="button" class="btn btn-sm btn-outline-danger remove-item">
+            <td style="padding: 20px 15px; text-align: center;">
+                <button type="button" class="btn btn-sm btn-outline-danger remove-item" style="border-radius: 8px; padding: 8px 12px;">
                     <iconify-icon icon="solar:trash-bin-minimalistic-outline"></iconify-icon>
                 </button>
             </td>
@@ -960,6 +1141,157 @@ function addInvoiceItemRow() {
     const newRow = $(`tr[data-item-index="${itemCounter - 1}"]`);
     newRow.find('.unit-price, .discount-rate, .tax-rate, .unit-currency').on('input change', calculateLineTotal);
     newRow.find('input[name*="[quantity]"]').on('input', calculateLineTotal);
+}
+
+function addMobileInvoiceItemRow() {
+    console.log('Adding mobile invoice item row, current counter:', itemCounter);
+    
+    const mobileCardHtml = `
+        <div class="card mb-3" data-item-index="${itemCounter}" style="border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 fw-semibold text-primary">Ürün/Hizmet ${itemCounter + 1}</h6>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-mobile-item" style="border-radius: 8px;">
+                        <iconify-icon icon="solar:trash-bin-minimalistic-outline"></iconify-icon>
+                    </button>
+                </div>
+                
+                <!-- Product/Service Search -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Ürün/Hizmet</label>
+                    <div class="position-relative">
+                        <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." data-row="${itemCounter}" required style="min-height: 50px; font-size: 16px; border-radius: 10px;">
+                        <div id="productServiceDropdown${itemCounter}" class="product-service-dropdown" style="display: none;">
+                            <!-- Search results will be populated here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Description -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Açıklama</label>
+                    <textarea name="items[${itemCounter}][description]" class="form-control" rows="2" placeholder="Açıklama" style="min-height: 50px; font-size: 14px; border-radius: 10px; resize: vertical;"></textarea>
+                </div>
+                
+                <!-- Series Size -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Seri Boyutu</label>
+                    <select name="items[${itemCounter}][series_size]" class="form-select series-size-select" style="min-height: 50px; font-size: 14px; border-radius: 10px;">
+                        <option value="">Seri Boyutu</option>
+                        <option value="5">5'li</option>
+                        <option value="6">6'lı</option>
+                        <option value="7">7'li</option>
+                        <option value="8">8'li</option>
+                        <option value="10">10'lu</option>
+                        <option value="12">12'li</option>
+                    </select>
+                </div>
+                
+                <!-- Color Selection (will be added dynamically) -->
+                <div class="mb-3 color-selection-mobile" style="display: none;">
+                    <label class="form-label fw-semibold">Renk</label>
+                    <select name="items[${itemCounter}][color_variant_id]" class="form-select color-variant-select" style="min-height: 50px; font-size: 14px; border-radius: 10px;">
+                        <option value="">Renk Seçin</option>
+                    </select>
+                    <input type="hidden" name="items[${itemCounter}][selected_color]" value="">
+                </div>
+                
+                <!-- Quantity and Price Row -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Miktar</label>
+                    <div class="input-group">
+                        <input type="number" name="items[${itemCounter}][quantity]" class="form-control quantity-input" value="1" min="0.01" step="0.01" required style="min-height: 50px; font-size: 16px; border-radius: 10px 0 0 10px;">
+                        <span class="input-group-text quantity-unit" style="min-height: 50px; font-size: 14px; border-radius: 0 10px 10px 0;">Adet</span>
+                    </div>
+                    <small class="text-muted calculated-series" style="display: none; font-size: 12px;"></small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Birim Fiyat</label>
+                    <div class="input-group">
+                        <input type="number" name="items[${itemCounter}][unit_price]" class="form-control unit-price" value="0" min="0" step="0.01" required style="min-height: 50px; font-size: 16px; border-radius: 10px 0 0 10px;">
+                        <select name="items[${itemCounter}][unit_currency]" class="form-select unit-currency" style="max-width: 80px; min-height: 50px; font-size: 14px; border-radius: 0 10px 10px 0;">
+                            <option value="TRY" ${$('#currency').val() === 'TRY' ? 'selected' : ''}>₺</option>
+                            <option value="USD" ${$('#currency').val() === 'USD' ? 'selected' : ''}>$</option>
+                            <option value="EUR" ${$('#currency').val() === 'EUR' ? 'selected' : ''}>€</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Tax and Discount Row -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">KDV</label>
+                    <select name="items[${itemCounter}][tax_rate]" class="form-select tax-rate" style="min-height: 50px; font-size: 14px; border-radius: 10px;">
+                        <option value="0">KDV %0</option>
+                        <option value="1">KDV %1</option>
+                        <option value="10">KDV %10</option>
+                        <option value="20" selected>KDV %20</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">İndirim</label>
+                    <div class="input-group">
+                        <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" max="100" step="0.01" style="min-height: 50px; font-size: 16px; border-radius: 10px 0 0 10px;">
+                        <span class="input-group-text" style="min-height: 50px; font-size: 14px; border-radius: 0 10px 10px 0;">%</span>
+                    </div>
+                </div>
+                
+                <!-- Total -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Toplam</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control line-total" readonly value="0,00" style="min-height: 50px; font-size: 16px; border-radius: 10px 0 0 10px; background-color: #f8f9fa;">
+                        <span class="input-group-text invoice-currency-symbol" style="min-height: 50px; font-size: 14px; border-radius: 0 10px 10px 0; background-color: #f8f9fa;">${$('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺'}</span>
+                    </div>
+                </div>
+                
+                <!-- Hidden fields for product_id and type -->
+                <input type="hidden" name="items[${itemCounter}][product_id]" value="">
+                <input type="hidden" name="items[${itemCounter}][type]" value="">
+            </div>
+        </div>
+    `;
+    
+    $('#mobileInvoiceItems').append(mobileCardHtml);
+    itemCounter++;
+    
+    // Add event listeners for calculations
+    const newCard = $(`.card[data-item-index="${itemCounter - 1}"]`);
+    newCard.find('.unit-price, .discount-rate, .tax-rate, .unit-currency').on('input change', calculateMobileLineTotal);
+    newCard.find('input[name*="[quantity]"]').on('input', calculateMobileLineTotal);
+}
+
+function calculateMobileLineTotal() {
+    const card = $(this).closest('.card');
+    const quantity = parseFloat(card.find('input[name*="[quantity]"]').val()) || 0;
+    let unitPrice = parseFloat(card.find('.unit-price').val()) || 0;
+    const discountRate = parseFloat(card.find('.discount-rate').val()) || 0;
+    const unitCurrency = card.find('.unit-currency').val();
+    const taxRate = parseFloat(card.find('.tax-rate').val()) || 0;
+    
+    // Currency conversion if needed
+    if (unitCurrency !== $('#currency').val()) {
+        const exchangeRate = parseFloat($('#exchangeRate').val()) || 1;
+        unitPrice = unitPrice * exchangeRate;
+    }
+    
+    // Calculate discount
+    const discountAmount = (unitPrice * quantity * discountRate) / 100;
+    const subtotal = (unitPrice * quantity) - discountAmount;
+    
+    // Calculate tax
+    const taxAmount = (subtotal * taxRate) / 100;
+    const total = subtotal + taxAmount;
+    
+    // Update line total
+    card.find('.line-total').val(total.toFixed(2).replace('.', ','));
+    
+    // Update currency symbol
+    card.find('.invoice-currency-symbol').text($('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺');
+    
+    // Calculate totals
+    calculateTotals();
 }
 
 function calculateLineTotal() {
@@ -994,11 +1326,30 @@ function calculateTotals() {
     let totalDiscount = 0;
     let totalVat = 0;
     
+    // Calculate from desktop table rows
     $('#invoiceItemsBody tr').each(function() {
         const lineTotal = parseFloat($(this).find('.line-total').val().replace(',', '.')) || 0;
         const discountRate = parseFloat($(this).find('.discount-rate').val()) || 0;
         const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
         console.log('rowTotals:', { lineTotal, discountRate, taxRate });
+        
+        // Line total is already in invoice currency
+        const discountAmount = lineTotal * (discountRate / 100);
+        const lineTotalAfterDiscount = lineTotal - discountAmount;
+        
+        subtotal += lineTotalAfterDiscount;
+        totalDiscount += discountAmount;
+        
+        if ($('select[name="vat_status"]').val() === 'included') {
+            totalVat += lineTotalAfterDiscount * (taxRate / 100);
+        }
+    });
+    
+    // Calculate from mobile cards
+    $('#mobileInvoiceItems .card').each(function() {
+        const lineTotal = parseFloat($(this).find('.line-total').val().replace(',', '.')) || 0;
+        const discountRate = parseFloat($(this).find('.discount-rate').val()) || 0;
+        const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
         
         // Line total is already in invoice currency
         const discountAmount = lineTotal * (discountRate / 100);
@@ -1701,12 +2052,12 @@ function addColorColumnToTable() {
         // Adjust other column widths and update table min-width
         header.find('th:nth-child(1)').attr('style', 'min-width: 200px; width: 18%;'); // ÜRÜN/HİZMET
         header.find('th:nth-child(2)').attr('style', 'min-width: 150px; width: 12%;'); // AÇIKLAMA
-        header.find('th:nth-child(4)').attr('style', 'min-width: 160px; width: 10%;');  // MİKTAR
-        header.find('th:nth-child(5)').attr('style', 'min-width: 180px; width: 12%;'); // B. FİYAT
-        header.find('th:nth-child(6)').attr('style', 'min-width: 130px; width: 8%;');  // KDV
-        header.find('th:nth-child(7)').attr('style', 'min-width: 130px; width: 8%;');  // İNDİRİM
+        header.find('th:nth-child(4)').attr('style', 'min-width: 140px; width: 10%;');  // MİKTAR
+        header.find('th:nth-child(5)').attr('style', 'min-width: 160px; width: 12%;'); // B. FİYAT
+        header.find('th:nth-child(6)').attr('style', 'min-width: 120px; width: 8%;');  // KDV
+        header.find('th:nth-child(7)').attr('style', 'min-width: 120px; width: 8%;');  // İNDİRİM
         header.find('th:nth-child(8)').attr('style', 'min-width: 160px; width: 10%;'); // TOPLAM
-        header.find('th:nth-child(9)').attr('style', 'min-width: 90px; width: 5%;');   // İŞLEM
+        header.find('th:nth-child(9)').attr('style', 'min-width: 80px; width: 5%;');   // İŞLEM
         
         // Update table min-width when color column is added
         $('#invoiceItemsTable').css('min-width', '1700px');
@@ -1885,6 +2236,181 @@ $('#invoiceForm').on('submit', function(e) {
 });
 </script>
 
+<script>
+// Seri hesaplama sistemi - Desktop
+$(document).on('change', '.series-size-select, .quantity-input', function() {
+    const row = $(this).closest('tr');
+    const seriesSize = row.find('.series-size-select').val();
+    const quantity = parseFloat(row.find('.quantity-input').val()) || 0;
+    const calculatedSeries = row.find('.calculated-series');
+    
+    if (seriesSize && quantity > 0) {
+        const seriesCount = Math.floor(quantity / seriesSize);
+        calculatedSeries.text(`= ${seriesCount} adet`).show();
+    } else {
+        calculatedSeries.hide();
+    }
+});
+
+// Seri hesaplama sistemi - Mobile
+$(document).on('change', '.card .series-size-select, .card .quantity-input', function() {
+    const card = $(this).closest('.card');
+    const seriesSize = card.find('.series-size-select').val();
+    const quantity = parseFloat(card.find('.quantity-input').val()) || 0;
+    const calculatedSeries = card.find('.calculated-series');
+    
+    if (seriesSize && quantity > 0) {
+        const seriesCount = Math.floor(quantity / seriesSize);
+        calculatedSeries.text(`= ${seriesCount} adet`).show();
+    } else {
+        calculatedSeries.hide();
+    }
+});
+
+// Seri boyutu seçildiğinde miktar birimini güncelle - Desktop
+$(document).on('change', '.series-size-select', function() {
+    const row = $(this).closest('tr');
+    const seriesSize = $(this).val();
+    const quantityUnit = row.find('.quantity-unit');
+    
+    if (seriesSize) {
+        quantityUnit.text('Adet');
+    } else {
+        quantityUnit.text('Adet');
+    }
+});
+
+// Seri boyutu seçildiğinde miktar birimini güncelle - Mobile
+$(document).on('change', '.card .series-size-select', function() {
+    const card = $(this).closest('.card');
+    const seriesSize = $(this).val();
+    const quantityUnit = card.find('.quantity-unit');
+    
+    if (seriesSize) {
+        quantityUnit.text('Adet');
+    } else {
+        quantityUnit.text('Adet');
+    }
+});
+
+// Mobile color selection with stock validation
+$(document).on('change', '.card .color-variant-select', function() {
+    const card = $(this).closest('.card');
+    const selectedColorId = $(this).val();
+    const selectedColor = $(this).find('option:selected').data('color');
+    const colorVariants = card.data('color-variants');
+    const quantityInput = card.find('.quantity-input');
+    const seriesSizeSelect = card.find('.series-size-select');
+    
+    // Update hidden field
+    card.find('input[name*="[selected_color]"]').val(selectedColor);
+    
+    if (selectedColorId && colorVariants) {
+        const variant = colorVariants.find(v => v.id == selectedColorId);
+        if (variant) {
+            // Remove existing stock info
+            card.find('.mobile-stock-info').remove();
+            
+            // Add stock information
+            const stockInfoHtml = `
+                <div class="mobile-stock-info mt-2 p-3" style="background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted d-block">Mevcut Stok</small>
+                            <strong class="text-success">${variant.stock_quantity} Adet</strong>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted d-block">Kritik Stok</small>
+                            <small class="text-warning">${variant.critical_stock} Adet</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            card.find('.color-selection-mobile').after(stockInfoHtml);
+            
+            // Validate stock
+            validateMobileStock(card, variant, quantityInput, seriesSizeSelect);
+        }
+    } else {
+        // Remove stock info if no color selected
+        card.find('.mobile-stock-info').remove();
+    }
+});
+
+// Mobile stock validation function
+function validateMobileStock(card, variant, quantityInput, seriesSizeSelect) {
+    const quantity = parseFloat(quantityInput.val()) || 0;
+    const seriesSize = parseInt(seriesSizeSelect.val()) || 1;
+    const actualQuantity = seriesSize > 1 ? quantity * seriesSize : quantity;
+    
+    // Remove existing warnings
+    card.find('.mobile-stock-warning').remove();
+    card.removeClass('border-danger');
+    
+    if (actualQuantity > variant.stock_quantity) {
+        const warningHtml = `
+            <div class="mobile-stock-warning mt-2 p-3" style="background-color: #f8d7da; border-radius: 8px; border-left: 4px solid #dc3545;">
+                <div class="d-flex align-items-center">
+                    <iconify-icon icon="solar:danger-triangle-outline" class="text-danger me-2" style="font-size: 20px;"></iconify-icon>
+                    <div>
+                        <strong class="text-danger d-block">Stok Yetersiz!</strong>
+                        <small class="text-muted">Mevcut: ${variant.stock_quantity} Adet | İstenen: ${actualQuantity} Adet</small>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        card.find('.mobile-stock-info').after(warningHtml);
+        card.addClass('border-danger');
+    } else if (actualQuantity > variant.critical_stock) {
+        const warningHtml = `
+            <div class="mobile-stock-warning mt-2 p-3" style="background-color: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                <div class="d-flex align-items-center">
+                    <iconify-icon icon="solar:warning-outline" class="text-warning me-2" style="font-size: 20px;"></iconify-icon>
+                    <div>
+                        <strong class="text-warning d-block">Kritik Stok!</strong>
+                        <small class="text-muted">Kritik seviye: ${variant.critical_stock} Adet</small>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        card.find('.mobile-stock-info').after(warningHtml);
+    }
+}
+
+// Mobile quantity change validation
+$(document).on('input', '.card .quantity-input', function() {
+    const card = $(this).closest('.card');
+    const selectedColorId = card.find('.color-variant-select').val();
+    const colorVariants = card.data('color-variants');
+    
+    if (selectedColorId && colorVariants) {
+        const variant = colorVariants.find(v => v.id == selectedColorId);
+        if (variant) {
+            const seriesSizeSelect = card.find('.series-size-select');
+            validateMobileStock(card, variant, $(this), seriesSizeSelect);
+        }
+    }
+});
+
+// Mobile series size change validation
+$(document).on('change', '.card .series-size-select', function() {
+    const card = $(this).closest('.card');
+    const selectedColorId = card.find('.color-variant-select').val();
+    const colorVariants = card.data('color-variants');
+    
+    if (selectedColorId && colorVariants) {
+        const variant = colorVariants.find(v => v.id == selectedColorId);
+        if (variant) {
+            const quantityInput = card.find('.quantity-input');
+            validateMobileStock(card, variant, quantityInput, $(this));
+        }
+    }
+});
+</script>
+
 <style>
 .table-danger {
     background-color: #f8d7da !important;
@@ -1923,6 +2449,151 @@ $('#invoiceForm').on('submit', function(e) {
 
 .stock-warning strong {
     color: white !important;
+}
+
+/* Responsive invoice table improvements */
+@media (min-width: 992px) {
+    #invoiceItemsTable {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    #invoiceItemsTable th {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    #invoiceItemsTable td {
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f3f4;
+    }
+    
+    #invoiceItemsTable tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .form-control, .form-select {
+        border: 1px solid #e9ecef;
+        transition: all 0.2s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+}
+
+/* Mobile card improvements */
+@media (max-width: 991.98px) {
+    .card {
+        border: none;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        margin-bottom: 24px;
+        border-radius: 16px;
+    }
+    
+    .card-body {
+        padding: 24px;
+    }
+    
+    .form-label {
+        font-size: 15px;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 10px;
+        display: block;
+    }
+    
+    .form-control, .form-select {
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        transition: all 0.2s ease;
+        font-size: 16px;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .input-group-text {
+        background-color: #f8f9fa;
+        border-color: #e9ecef;
+        font-weight: 500;
+        font-size: 14px;
+    }
+    
+    .btn-outline-danger {
+        border-radius: 12px;
+        padding: 10px 14px;
+    }
+    
+    .mb-3 {
+        margin-bottom: 20px !important;
+    }
+    
+    .calculated-series {
+        margin-top: 6px;
+        display: block;
+    }
+    
+    /* Mobile stock info and warnings */
+    .mobile-stock-info {
+        font-size: 14px;
+        border: 1px solid #e9ecef;
+    }
+    
+    .mobile-stock-warning {
+        font-size: 14px;
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    .border-danger {
+        border: 2px solid #dc3545 !important;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+}
+
+/* General improvements */
+.calculated-series {
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.product-service-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.product-service-dropdown .dropdown-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f3f4;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.product-service-dropdown .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.product-service-dropdown .dropdown-item:last-child {
+    border-bottom: none;
 }
 </style>
 @endpush

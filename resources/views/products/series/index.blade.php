@@ -22,7 +22,7 @@
                             @endphp
                             <option value="">Tümü</option>
                             @foreach($options as $cat)
-                                <option value="{{ $cat }}" {{ (request('category') ?? '') === $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                <option value="{{ $cat }}" {{ ($selectedCategory ?? '') === $cat ? 'selected' : '' }}>{{ $cat }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -62,8 +62,8 @@
                                     <th>Seri Adı</th>
                                     <th>SKU</th>
                                     <th>Seri Boyutu</th>
-                                    <th>Stok (Seri)</th>
-                                    <th>Toplam Ürün</th>
+                                    <th>Toplam Stok (Adet)</th>
+                                    <th>Renk Sayısı</th>
                                     <th>Maliyet</th>
                                     <th>Satış Fiyatı</th>
                                     <th>Durum</th>
@@ -113,14 +113,18 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="fw-semibold">{{ number_format($serie->stock_quantity) }}</span>
-                                            @if($serie->critical_stock > 0 && $serie->stock_quantity <= $serie->critical_stock)
+                                            <span class="fw-semibold text-success">{{ number_format($serie->colorVariants->sum('stock_quantity')) }}</span>
+                                            <small class="text-muted d-block">Toplam Stok</small>
+                                            @php
+                                                $hasCriticalStock = $serie->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0;
+                                            @endphp
+                                            @if($hasCriticalStock)
                                                 <i class="ri-alert-line text-danger ms-1" title="Kritik Stok"></i>
                                             @endif
                                         </td>
                                         <td>
-                                            <span class="fw-semibold text-success">{{ number_format($serie->total_product_count) }}</span>
-                                            <small class="text-muted d-block">Toplam Ürün</small>
+                                            <span class="fw-semibold text-info">{{ $serie->colorVariants->count() }}</span>
+                                            <small class="text-muted d-block">Renk</small>
                                         </td>
                                         <td>
                                             @php

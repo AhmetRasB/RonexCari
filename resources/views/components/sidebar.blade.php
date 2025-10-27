@@ -99,9 +99,6 @@
                     <li>
                         <a href="{{ route('products.series.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Seri Ürünler</a>
                     </li>
-                    <li>
-                        <a href="{{ route('products.fixed-series-settings.index') }}"><i class="ri-circle-fill circle-icon text-info w-auto"></i> Sabit Seri Ayarları</a>
-                    </li>
                 </ul>
             </li>
 

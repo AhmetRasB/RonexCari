@@ -134,11 +134,15 @@
                         <div class="col-md-6">
                             <label class="form-label">Marka <span class="text-danger">*</span></label>
                             <div class="position-relative">
-                                <select name="brand" class="form-control" required>
-                                    <option value="">Seçiniz</option>
-                                    <option value="Ronex" {{ old('brand') == 'Ronex' ? 'selected' : '' }}>Ronex</option>
-                                    <option value="Diğer" {{ old('brand') == 'Diğer' ? 'selected' : '' }}>Diğer</option>
-                                </select>
+                                <input type="text" class="form-control @error('brand') is-invalid @enderror" 
+                                       name="brand" id="brandInput" value="{{ old('brand') }}" 
+                                       placeholder="Marka yazın veya seçin..." autocomplete="off" required>
+                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
+                                    <iconify-icon icon="solar:star-outline" class="text-secondary-light"></iconify-icon>
+                                </div>
+                                <div id="brandDropdown" class="dropdown-menu w-100" style="display: none; max-height: 200px; overflow-y: auto;">
+                                    <!-- Brand suggestions will be populated here -->
+                                </div>
                             </div>
                             @error('brand')
                                 <div class="text-danger mt-1">{{ $message }}</div>
@@ -177,15 +181,19 @@
                         </div>
                         <div class="col-md-6 mt-3">
                             <label class="form-label d-flex align-items-center justify-content-between">
-                                <span>Renk (Çoklu renk için virgülle ayırın)</span>
+                                <span>Renkler</span>
+                                <small class="text-muted">Enter tuşu ile ekleyin</small>
                             </label>
                             <div class="position-relative">
-                                <input type="text" name="colors_input" class="form-control" placeholder="Örn: mavi, kırmızı, haki, koyu kahverengi" value="{{ old('colors_input') }}" autocomplete="off">
+                                <div id="colorTagsContainer" class="border rounded p-2 min-height-50" style="min-height: 50px; background: #f8f9fa;">
+                                    <div id="colorTags" class="d-flex flex-wrap gap-2 mb-2"></div>
+                                    <input type="text" id="colorInput" class="form-control border-0 bg-transparent" placeholder="Renk yazın ve Enter'a basın..." autocomplete="off" style="box-shadow: none;">
+                                </div>
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:palette-outline" class="text-secondary-light"></iconify-icon>
                                 </div>
                             </div>
-                            <small class="text-secondary-light">Birden fazla renk girmek için virgülle ayırın (örn: mavi, siyah, beyaz). Her renk için ayrı ürün oluşturulur.</small>
+                            <small class="text-secondary-light">Her renk için ayrı stok miktarı belirleyebilirsiniz.</small>
                             @error('color')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
@@ -196,51 +204,13 @@
                         <div class="col-md-6 mt-3">
                             <label class="form-label">Barkod</label>
                             <div class="position-relative">
-                                <input type="text" name="barcode" id="productBarcode" class="form-control" placeholder="Barkod" value="{{ old('barcode') }}" readonly style="background-color: #f8f9fa;">
+                                <input type="text" name="barcode" id="productBarcode" class="form-control" placeholder="Kendi barkodunuzu girin" value="{{ old('barcode') }}">
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:qr-code-outline" class="text-secondary-light"></iconify-icon>
                                 </div>
                             </div>
-                            <small class="text-secondary-light">Otomatik oluşturulur (düzenlenemez)</small>
+                            <small class="text-secondary-light">Kendi barkodunuzu girin veya otomatik oluşturulsun</small>
                             @error('barcode')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mt-3">
-                            <label class="form-label">Tedarikçi Kodu</label>
-                            <div class="position-relative">
-                                <input type="text" name="supplier_code" class="form-control" placeholder="Tedarikçi Kodu" value="{{ old('supplier_code') }}">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:users-group-rounded-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            @error('supplier_code')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mt-3">
-                            <label class="form-label">GTIP Kodu</label>
-                            <div class="position-relative">
-                                <input type="text" name="gtip_code" class="form-control" placeholder="GTIP Kodu" value="{{ old('gtip_code') }}">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:buildings-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            <small class="text-secondary-light">İhracat işlemleri için kullanılır</small>
-                            @error('gtip_code')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mt-3">
-                            <label class="form-label">Sınıf Kodu</label>
-                            <div class="position-relative">
-                                <input type="text" name="class_code" class="form-control" placeholder="Sınıf Kodu" value="{{ old('class_code') }}">
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:users-group-two-rounded-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            <small class="text-secondary-light">Resmi kurum faturaları için kullanılır</small>
-                            @error('class_code')
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
@@ -252,32 +222,6 @@
                             <h6 class="fw-semibold mb-3">Ayarlar</h6>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Başlangıç Stok Miktarı <span class="text-danger">*</span></label>
-                            <div class="position-relative">
-                                <input type="number" name="stock_quantity" class="form-control" placeholder="Stok Miktarı" value="{{ old('stock_quantity', 0) }}" min="0" required>
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:box-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            <small class="text-secondary-light">Girilen miktar, açılış stok miktarı olarak işlenir</small>
-                            @error('initial_stock')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Kritik Stok Miktarı <span class="text-danger">*</span></label>
-                            <div class="position-relative">
-                                <input type="number" name="critical_stock" class="form-control" placeholder="Kritik Stok Miktarı" value="{{ old('critical_stock', 0) }}" min="0" required>
-                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                    <iconify-icon icon="solar:danger-outline" class="text-secondary-light"></iconify-icon>
-                                </div>
-                            </div>
-                            <small class="text-secondary-light">Girilen miktarın altına düşünce uyarı gönderilir</small>
-                            @error('critical_stock')
-                                <div class="text-danger mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mt-3">
                             <label class="form-label">Durum</label>
                             <div class="form-check form-switch">
                                 <input type="hidden" name="is_active" value="0">
@@ -325,11 +269,157 @@
     </div>
 </div>
 
+<!-- Color Stock Modal -->
+<div class="modal fade" id="colorStockModal" tabindex="-1" aria-labelledby="colorStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="colorStockModalLabel">Renk Stok Ayarları</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Renk: <span id="selectedColorName" class="badge bg-primary"></span></label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Stok Miktarı <span class="text-danger">*</span></label>
+                    <input type="number" id="colorStockQuantity" class="form-control" placeholder="Stok miktarı" min="0" required>
+                    <small class="text-muted">Bu renk için stok miktarı</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Kritik Stok Miktarı</label>
+                    <input type="number" id="colorCriticalStock" class="form-control" placeholder="Kritik stok miktarı" min="0">
+                    <small class="text-muted">Bu miktarın altına düşünce uyarı gönderilir</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" id="saveColorStock">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
 $(document).ready(function() {
     // Otomatik SKU ve Barkod oluştur
     generateProductCodes();
+    
+    // Renk sistemi
+    let colorTags = [];
+    let currentColorIndex = -1;
+    let colorStocks = {}; // Renk stok bilgilerini sakla
+    
+    // Renk input event listeners
+    $('#colorInput').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const colorName = $(this).val().trim();
+            if (colorName && !colorTags.includes(colorName)) {
+                addColorTag(colorName);
+                $(this).val('');
+            }
+        }
+    });
+    
+    // Renk tag ekleme
+    function addColorTag(colorName) {
+        colorTags.push(colorName);
+        const tagHtml = `
+            <span class="badge bg-primary d-inline-flex align-items-center gap-1" data-color="${colorName}">
+                ${colorName}
+                <button type="button" class="btn-close btn-close-white" style="font-size: 0.7em;" onclick="removeColorTag('${colorName}')"></button>
+            </span>
+        `;
+        $('#colorTags').append(tagHtml);
+        
+        // Modal aç
+        openColorStockModal(colorName);
+    }
+    
+    // Renk tag silme
+    window.removeColorTag = function(colorName) {
+        colorTags = colorTags.filter(color => color !== colorName);
+        delete colorStocks[colorName]; // Stok bilgilerini de sil
+        $(`[data-color="${colorName}"]`).remove();
+        updateColorInputs();
+    }
+    
+    // Renk stok modalını aç
+    function openColorStockModal(colorName) {
+        $('#selectedColorName').text(colorName);
+        $('#colorStockQuantity').val('');
+        $('#colorCriticalStock').val('');
+        currentColorIndex = colorTags.indexOf(colorName);
+        
+        const modal = new bootstrap.Modal(document.getElementById('colorStockModal'));
+        modal.show();
+    }
+    
+    // Renk stok kaydet
+    $('#saveColorStock').on('click', function() {
+        const colorName = $('#selectedColorName').text();
+        const stockQuantity = $('#colorStockQuantity').val();
+        const criticalStock = $('#colorCriticalStock').val();
+        
+        if (!stockQuantity) {
+            alert('Stok miktarı gereklidir!');
+            return;
+        }
+        
+        // Stok bilgilerini sakla
+        colorStocks[colorName] = {
+            stock: stockQuantity,
+            critical: criticalStock || '0'
+        };
+        
+        // Tag'i güncelle
+        const tagElement = $(`[data-color="${colorName}"]`);
+        tagElement.html(`
+            ${colorName} (${stockQuantity})
+            <button type="button" class="btn-close btn-close-white" style="font-size: 0.7em;" onclick="removeColorTag('${colorName}')"></button>
+        `);
+        
+        // Modal'ı kapat
+        const modal = bootstrap.Modal.getInstance(document.getElementById('colorStockModal'));
+        modal.hide();
+        
+        // Input'ları güncelle
+        updateColorInputs();
+    });
+    
+    // Hidden input'ları güncelle
+    function updateColorInputs() {
+        // Mevcut hidden input'ları kaldır
+        $('input[name^="color_variants"]').remove();
+        
+        // Yeni input'ları ekle
+        colorTags.forEach((colorName, index) => {
+            const stockData = colorStocks[colorName] || { stock: '0', critical: '0' };
+            const stockQuantity = stockData.stock;
+            const criticalStock = stockData.critical;
+            
+            // Hidden input'lar ekle
+            $('<input>').attr({
+                type: 'hidden',
+                name: `color_variants[${index}][color]`,
+                value: colorName
+            }).appendTo('#colorTagsContainer');
+            
+            $('<input>').attr({
+                type: 'hidden',
+                name: `color_variants[${index}][stock_quantity]`,
+                value: stockQuantity
+            }).appendTo('#colorTagsContainer');
+            
+            $('<input>').attr({
+                type: 'hidden',
+                name: `color_variants[${index}][critical_stock]`,
+                value: criticalStock || '0'
+            }).appendTo('#colorTagsContainer');
+        });
+    }
     
     // Otomatik SKU ve Barkod oluşturma fonksiyonu
     function generateProductCodes() {
@@ -341,11 +431,61 @@ $(document).ready(function() {
             $('#productSku').val(sku);
         }
         
-        // Barkod her zaman otomatik oluştur (kısa format)
-        const timestamp = Date.now().toString().slice(-4); // Son 4 hane
-        const barcode = 'P' + timestamp;
-        $('#productBarcode').val(barcode);
+        // Barkod otomatik oluştur (sadece boşsa)
+        if (!$('#productBarcode').val()) {
+            const timestamp = Date.now().toString().slice(-4); // Son 4 hane
+            const barcode = 'P' + timestamp;
+            $('#productBarcode').val(barcode);
+        }
     }
+
+    // Marka autocomplete
+    $('#brandInput').on('input', function() {
+        const query = $(this).val();
+        if (query.length >= 2) {
+            searchBrands(query);
+        } else {
+            $('#brandDropdown').hide();
+        }
+    });
+
+    // Hide dropdown when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#brandInput, #brandDropdown').length) {
+            $('#brandDropdown').hide();
+        }
+    });
+
+    function searchBrands(query) {
+        // Mevcut markalar
+        const existingBrands = ['Ronex', 'Diğer', 'Nike', 'Adidas', 'Puma', 'Lacoste', 'Tommy Hilfiger', 'Calvin Klein'];
+        
+        const filtered = existingBrands.filter(brand => 
+            brand.toLowerCase().includes(query.toLowerCase())
+        );
+        
+        let html = '';
+        if (filtered.length > 0) {
+            filtered.forEach(function(brand) {
+                html += `
+                    <div class="dropdown-item brand-option" data-brand="${brand}" style="cursor: pointer;">
+                        <i class="ri-star-line me-2"></i>${brand}
+                    </div>
+                `;
+            });
+        } else {
+            html = '<div class="dropdown-item text-muted">Marka bulunamadı</div>';
+        }
+        
+        $('#brandDropdown').html(html).show();
+    }
+
+    // Handle brand selection
+    $(document).on('click', '.brand-option', function() {
+        const brand = $(this).data('brand');
+        $('#brandInput').val(brand);
+        $('#brandDropdown').hide();
+    });
 });
 </script>
 @endpush

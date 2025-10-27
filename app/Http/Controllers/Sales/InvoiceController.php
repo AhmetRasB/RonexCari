@@ -783,6 +783,7 @@ class InvoiceController extends Controller
     {
         try {
             $query = $request->get('q', '');
+            
             if (strlen($query) < 2) {
                 return response()->json([]);
             }
@@ -854,6 +855,7 @@ class InvoiceController extends Controller
             ->where(function($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
                   ->orWhere('sku', 'like', "%{$query}%")
+                  ->orWhere('barcode', 'like', "%{$query}%")
                   ->orWhere('category', 'like', "%{$query}%")
                   ->orWhere('brand', 'like', "%{$query}%")
                   ->orWhere('description', 'like', "%{$query}%");
@@ -921,6 +923,15 @@ class InvoiceController extends Controller
         
         // Combine and return
         $results = $products->concat($productSeries)->concat($services)->take(20);
+        
+        \Log::info('Search results:', [
+            'query' => $query,
+            'products_count' => $products->count(),
+            'series_count' => $productSeries->count(),
+            'services_count' => $services->count(),
+            'total_results' => $results->count()
+        ]);
+        
         return response()->json($results);
         } catch (\Throwable $e) {
             \Log::error('searchProducts failed', ['error' => $e->getMessage(), 'q' => $request->get('q')]);

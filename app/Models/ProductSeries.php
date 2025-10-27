@@ -94,27 +94,6 @@ class ProductSeries extends Model
     }
 
     /**
-     * Seri boyutuna göre varsayılan bedenler (FixedSeriesSetting'den)
-     */
-    public static function getDefaultSizesForSeries($seriesSize)
-    {
-        // Önce veritabanından ayarları kontrol et
-        $setting = \App\Models\FixedSeriesSetting::where('series_size', $seriesSize)->first();
-        if ($setting) {
-            return $setting->sizes;
-        }
-        
-        // Eğer veritabanında yoksa varsayılan değerleri döndür
-        $defaultSizes = [
-            5 => ['XS', 'S', 'M', 'L', 'XL'],
-            6 => ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-            7 => ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'],
-        ];
-
-        return $defaultSizes[$seriesSize] ?? [];
-    }
-
-    /**
      * Get the account that owns this product series
      */
     public function account()

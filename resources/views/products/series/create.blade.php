@@ -42,8 +42,8 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Barkod</label>
                             <input type="text" class="form-control radius-8 @error('barcode') is-invalid @enderror" 
-                                   name="barcode" id="seriesBarcode" value="{{ old('barcode') }}" placeholder="Seri barkodu" readonly style="background-color: #f8f9fa;">
-                            <small class="text-secondary-light">Otomatik oluşturulur (düzenlenemez)</small>
+                                   name="barcode" id="seriesBarcode" value="{{ old('barcode') }}" placeholder="Kendi seri barkodunuzu girin">
+                            <small class="text-secondary-light">Kendi barkodunuzu girin veya otomatik oluşturulsun</small>
                             @error('barcode')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -61,14 +61,10 @@
                         <!-- Kategori ve Marka -->
                         <div class="col-md-6">
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Kategori</label>
-                            <select class="form-control radius-8 @error('category') is-invalid @enderror" name="category">
-                                <option value="">Kategori seçin</option>
-                                @php
-                                    $currentAccountId = session('current_account_id');
-                                    try { $code = \App\Models\Account::find($currentAccountId)?->code; } catch (\Throwable $e) { $code = null; }
-                                    $options = ($code === 'ronex1') ? ['Gömlek'] : (($code === 'ronex2') ? ['Ceket','Takım Elbise','Pantalon'] : ['Gömlek','Ceket','Takım Elbise','Pantalon']);
-                                @endphp
-                                @foreach($options as $cat)
+                            <select class="form-control radius-8 @error('category') is-invalid @enderror" 
+                                    name="category" id="category" required>
+                                <option value="">Kategori Seçin</option>
+                                @foreach($allowedCategories as $cat)
                                     <option value="{{ $cat }}" {{ old('category') == $cat ? 'selected' : '' }}>{{ $cat }}</option>
                                 @endforeach
                             </select>
@@ -79,11 +75,17 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Marka</label>
-                            <select class="form-control radius-8 @error('brand') is-invalid @enderror" name="brand">
-                                <option value="">Marka seçin</option>
-                                <option value="Ronex" {{ old('brand') == 'Ronex' ? 'selected' : '' }}>Ronex</option>
-                                <option value="Diğer" {{ old('brand') == 'Diğer' ? 'selected' : '' }}>Diğer</option>
-                            </select>
+                            <div class="position-relative">
+                                <input type="text" class="form-control radius-8 @error('brand') is-invalid @enderror" 
+                                       name="brand" id="brandInput" value="{{ old('brand') }}" 
+                                       placeholder="Marka yazın veya seçin..." autocomplete="off">
+                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
+                                    <iconify-icon icon="solar:star-outline" class="text-secondary-light"></iconify-icon>
+                                </div>
+                                <div id="brandDropdown" class="dropdown-menu w-100" style="display: none; max-height: 200px; overflow-y: auto;">
+                                    <!-- Brand suggestions will be populated here -->
+                                </div>
+                            </div>
                             @error('brand')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -128,69 +130,19 @@
                             </select>
                         </div>
 
-                        <!-- Seri Bilgileri -->
-                        <div class="col-12">
-                            <h6 class="fw-semibold text-primary mb-3 mt-4">Seri Bilgileri</h6>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Seri Tipi *</label>
-                            <select class="form-control radius-8 @error('series_type') is-invalid @enderror" 
-                                    name="series_type" id="series_type" required>
-                                <option value="">Seri tipi seçin</option>
-                                <option value="fixed" {{ old('series_type') == 'fixed' ? 'selected' : '' }}>Sabit Seri</option>
-                                <option value="custom" {{ old('series_type') == 'custom' ? 'selected' : '' }}>Özel Seri</option>
-                            </select>
-                            <small class="text-muted">Sabit: Önceden tanımlı bedenler, Özel: Kendi bedenleriniz</small>
-                            @error('series_type')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div class="col-md-4" id="series-size-container">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Seri Boyutu *</label>
-                            <select class="form-control radius-8 @error('series_size') is-invalid @enderror" 
-                                    name="series_size" id="series_size" required>
-                                <option value="">Seri boyutu seçin</option>
-                                <option value="5" {{ old('series_size') == '5' ? 'selected' : '' }}>5'li Seri</option>
-                                <option value="6" {{ old('series_size') == '6' ? 'selected' : '' }}>6'lı Seri</option>
-                                <option value="7" {{ old('series_size') == '7' ? 'selected' : '' }}>7'li Seri</option>
-                            </select>
-                            <small class="text-muted">Her seride kaç adet ürün olacağı</small>
-                            @error('series_size')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Seri Adedi *</label>
-                            <input type="number" class="form-control radius-8 @error('stock_quantity') is-invalid @enderror" 
-                                   name="stock_quantity" value="{{ old('stock_quantity', 1) }}" min="0" required>
-                            <small class="text-muted">Kaç adet seri oluşturulacak</small>
-                            @error('stock_quantity')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Kritik Stok</label>
-                            <input type="number" class="form-control radius-8 @error('critical_stock') is-invalid @enderror" 
-                                   name="critical_stock" value="{{ old('critical_stock') }}" min="0">
-                            @error('critical_stock')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
                         <!-- Renk Seçimi -->
                         <div class="col-12">
-                            <h6 class="fw-semibold text-primary mb-3 mt-4">Renk Seçimi (Çoklu renk için virgülle ayırın)</h6>
+                            <h6 class="fw-semibold text-primary mb-3 mt-4">Renkler</h6>
                             <div class="position-relative">
-                                <input type="text" name="colors_input" class="form-control" placeholder="Örn: mavi, kırmızı, haki, koyu kahverengi" value="{{ old('colors_input') }}" autocomplete="off">
+                                <div id="colorTagsContainer" class="border rounded p-2 min-height-50" style="min-height: 50px; background: #f8f9fa;">
+                                    <div id="colorTags" class="d-flex flex-wrap gap-2 mb-2"></div>
+                                    <input type="text" id="colorInput" class="form-control border-0 bg-transparent" placeholder="Renk yazın ve Enter'a basın..." autocomplete="off" style="box-shadow: none;">
+                                </div>
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:palette-outline" class="text-secondary-light"></iconify-icon>
                                 </div>
                             </div>
-                            <small class="text-muted">Birden fazla renk girmek için virgülle ayırın (örn: mavi, siyah, beyaz). Seçilen her renk için ayrı stok takibi yapılacaktır.</small>
+                            <small class="text-muted">Her renk için ayrı stok miktarı belirleyebilirsiniz.</small>
                         </div>
 
                         <!-- Seri İçeriği -->
@@ -199,12 +151,12 @@
                             <div class="alert alert-info mb-3">
                                 <i class="ri-information-line me-2"></i>
                                 <strong>Sabit Seri:</strong> Önceden tanımlı bedenler (XS, S, M, L, XL, XXL, XXXL) otomatik gelir, her bedenden 1'er adet olur.<br>
-                                <strong>Özel Seri:</strong> Kendi bedenlerinizi dropdown'dan seçebilir ve miktarlarını ayarlayabilirsiniz.
+                                <strong>Özel Seri:</strong> İstediğiniz bedenleri seçin ve miktarlarını ayarlayın.
                             </div>
                             <div id="series-content">
                                 <div class="alert alert-info">
                                     <i class="ri-information-line me-2"></i>
-                                    Önce seri boyutunu seçin, bedenler otomatik olarak eklenecektir.
+                                    Önce seri tipini seçin, bedenler otomatik olarak eklenecektir.
                                 </div>
                             </div>
                         </div>
@@ -244,6 +196,38 @@
         </div>
     </div>
 </div>
+
+<!-- Color Stock Modal -->
+<div class="modal fade" id="colorStockModal" tabindex="-1" aria-labelledby="colorStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="colorStockModalLabel">Renk Stok Ayarları</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Renk: <span id="selectedColorName" class="badge bg-primary"></span></label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Stok Miktarı <span class="text-danger">*</span></label>
+                    <input type="number" id="colorStockQuantity" class="form-control" placeholder="Stok miktarı" min="0" required>
+                    <small class="text-muted">Bu renk için stok miktarı (adet)</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Kritik Stok Miktarı</label>
+                    <input type="number" id="colorCriticalStock" class="form-control" placeholder="Kritik stok miktarı" min="0">
+                    <small class="text-muted">Bu miktarın altına düşünce uyarı gönderilir</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" id="saveColorStock">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -259,235 +243,174 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
 
     // Element'leri bul
-    const seriesTypeSelect = document.getElementById('series_type');
-    const seriesSizeSelect = document.getElementById('series_size');
     const seriesContent = document.getElementById('series-content');
 
     // Element'lerin varlığını kontrol et
-    if (!seriesTypeSelect || !seriesSizeSelect || !seriesContent) {
+    if (!seriesContent) {
         console.error('Required elements not found:', {
-            seriesTypeSelect: !!seriesTypeSelect,
-            seriesSizeSelect: !!seriesSizeSelect,
             seriesContent: !!seriesContent
         });
         return;
     }
 
-    // Seri tipi veya boyutu değiştiğinde bedenleri güncelle
-    seriesTypeSelect.addEventListener('change', updateSeriesContent);
-    seriesSizeSelect.addEventListener('change', updateSeriesContent);
-
-    function updateSeriesContent() {
-        const seriesType = seriesTypeSelect.value;
-        const seriesSize = seriesSizeSelect.value;
-        const seriesSizeContainer = document.getElementById('series-size-container');
-        
-        // Seri boyutu alanını göster/gizle
-        if (seriesType === 'custom') {
-            seriesSizeContainer.style.display = 'none';
-            seriesSizeSelect.required = false;
-            loadCustomSeries();
-        } else if (seriesType === 'fixed') {
-            seriesSizeContainer.style.display = 'block';
-            seriesSizeSelect.required = true;
-            if (!seriesSize) {
-                seriesContent.innerHTML = '<div class="alert alert-info"><i class="ri-information-line me-2"></i>Önce seri boyutunu seçin.</div>';
-                return;
-            }
-            loadFixedSeries(parseInt(seriesSize));
-        } else {
-            seriesSizeContainer.style.display = 'block';
-            seriesSizeSelect.required = true;
-            seriesContent.innerHTML = '<div class="alert alert-info"><i class="ri-information-line me-2"></i>Önce seri tipi ve boyutunu seçin.</div>';
-        }
-    }
-
-    function loadFixedSeries(seriesSize) {
-        // API'den güncel beden ayarlarını çek
-        fetch(`/api/products/series-default-sizes?series_size=${seriesSize}`)
-            .then(response => response.json())
-            .then(data => {
-                const selectedSizes = data.sizes || [];
-                
-                let html = '<div class="table-responsive"><table class="table table-bordered">';
-                html += '<thead><tr><th>Beden</th><th>Seri Başına Adet</th></tr></thead><tbody>';
-                
-                selectedSizes.forEach(function(size) {
-                    html += `
-                        <tr>
-                            <td>
-                                <input type="text" class="form-control" name="sizes[]" value="${size}" readonly>
-                            </td>
-                            <td>
-                                <input type="number" class="form-control" name="quantities[]" value="1" min="1" required>
-                            </td>
-                        </tr>
-                    `;
-                });
-                
-                html += '</tbody></table></div>';
-                html += '<div class="alert alert-info mt-2">';
-                html += '<i class="ri-information-line me-2"></i>';
-                html += '<strong>Sabit Seri:</strong> Bedenler önceden tanımlıdır, miktarları istediğiniz gibi ayarlayabilirsiniz.';
-                html += '</div>';
-                
-                seriesContent.innerHTML = html;
-            })
-            .catch(error => {
-                console.error('Error loading fixed series:', error);
-                seriesContent.innerHTML = '<div class="alert alert-danger"><i class="ri-error-warning-line me-2"></i>Beden ayarları yüklenirken hata oluştu.</div>';
-            });
-    }
+    // Sayfa yüklendiğinde bedenleri göster
+    loadCustomSeries();
 
     function loadCustomSeries() {
-        let html = '<div class="table-responsive"><table class="table table-bordered">';
-        html += '<thead><tr><th>Beden</th><th>Seri Başına Adet</th><th>İşlem</th></tr></thead><tbody>';
+        // Giyim bedenleri (XS'den 8XL'a kadar)
+        const clothingSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '4XL', '5XL', '6XL', '7XL', '8XL'];
         
-        // İlk satırı boş olarak ekle
-        html += `
-            <tr>
-                <td>
-                    <select class="form-control" name="sizes[]" required>
-                        <option value="">Beden seçin</option>
-                        ${sizeOptions.map(size => `<option value="${size}">${size}</option>`).join('')}
-                    </select>
-                </td>
-                <td>
-                    <input type="number" class="form-control" name="quantities[]" value="1" min="1" required>
-                </td>
-                <td>
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-size" disabled>
-                        <i class="ri-delete-bin-line"></i>
-                    </button>
-                </td>
-            </tr>
-        `;
+        // Pantolon bedenleri (28'den 50'ye kadar)
+        const pantsSizes = [];
+        for (let i = 28; i <= 50; i += 2) {
+            pantsSizes.push(i.toString());
+        }
         
-        html += '</tbody></table></div>';
-        html += '<button type="button" class="btn btn-outline-primary btn-sm" id="add-custom-size">Beden Ekle</button>';
-        html += '<div id="total-quantity-info" class="alert alert-info mt-2">';
+        let html = '<div class="row">';
+        html += '<div class="col-md-6">';
+        html += '<div class="card border-0 shadow-sm">';
+        html += '<div class="card-header bg-primary text-white">';
+        html += '<h6 class="mb-0"><i class="ri-shirt-line me-2"></i>Giyim Bedenleri</h6>';
+        html += '</div>';
+        html += '<div class="card-body">';
+        html += '<div class="row g-2">';
+        
+        clothingSizes.forEach(function(size) {
+            html += `
+                <div class="col-4 col-md-3">
+                    <div class="form-check form-check-custom">
+                        <input class="form-check-input size-checkbox" type="checkbox" name="selected_sizes[]" value="${size}" id="size_${size}">
+                        <label class="form-check-label fw-semibold" for="size_${size}">${size}</label>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '<div class="col-md-6">';
+        html += '<div class="card border-0 shadow-sm">';
+        html += '<div class="card-header bg-info text-white">';
+        html += '<h6 class="mb-0"><i class="ri-pants-line me-2"></i>Pantolon Bedenleri</h6>';
+        html += '</div>';
+        html += '<div class="card-body">';
+        html += '<div class="row g-2">';
+        
+        pantsSizes.forEach(function(size) {
+            html += `
+                <div class="col-4 col-md-3">
+                    <div class="form-check form-check-custom">
+                        <input class="form-check-input size-checkbox" type="checkbox" name="selected_sizes[]" value="${size}" id="size_${size}">
+                        <label class="form-check-label fw-semibold" for="size_${size}">${size}</label>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '<div class="mt-4">';
+        html += '<div class="card border-0 shadow-sm">';
+        html += '<div class="card-header bg-success text-white">';
+        html += '<h6 class="mb-0"><i class="ri-list-check me-2"></i>Seçilen Bedenler ve Miktarlar</h6>';
+        html += '</div>';
+        html += '<div class="card-body">';
+        html += '<div id="selectedSizesContainer">';
+        html += '<div class="alert alert-info text-center">';
         html += '<i class="ri-information-line me-2"></i>';
-        html += '<strong>Özel Seri:</strong> İstediğiniz kadar beden ekleyebilirsiniz. Toplam miktar otomatik hesaplanır.';
+        html += 'Lütfen yukarıdan bedenleri seçin, miktarları ayarlayın.';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
         html += '</div>';
         
         seriesContent.innerHTML = html;
-        updateRemoveButtons(); // Initial update for remove buttons
-    }
-
-    // Özel beden ekleme
-    document.addEventListener('click', function(e) {
-        if (e.target && e.target.id === 'add-custom-size') {
-            const currentRows = document.querySelectorAll('#series-content tbody tr').length;
-            
-            const newRow = `
-                <tr>
-                    <td>
-                        <select class="form-control" name="sizes[]" required>
-                            <option value="">Beden seçin</option>
-                            ${sizeOptions.map(size => `<option value="${size}">${size}</option>`).join('')}
-                        </select>
-                    </td>
-                    <td>
-                        <input type="number" class="form-control" name="quantities[]" value="1" min="1" required>
-                    </td>
-                    <td>
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-size">
-                            <i class="ri-delete-bin-line"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-            
-            document.querySelector('#series-content tbody').insertAdjacentHTML('beforeend', newRow);
-            updateRemoveButtons();
-            updateTotalQuantityInfo();
-        }
-
-        // Beden silme
-        if (e.target && e.target.closest('.remove-size')) {
-            const currentRows = document.querySelectorAll('#series-content tbody tr').length;
-            if (currentRows > 1) {
-                e.target.closest('tr').remove();
-                updateRemoveButtons();
-                updateTotalQuantityInfo();
+        
+        // Beden seçimi değiştiğinde miktar alanlarını güncelle
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('size-checkbox')) {
+                updateSelectedSizes();
             }
-        }
-    });
-
-    function updateRemoveButtons() {
-        const currentRows = document.querySelectorAll('#series-content tbody tr').length;
-        const removeButtons = document.querySelectorAll('.remove-size');
-        removeButtons.forEach(button => {
-            button.disabled = currentRows <= 1;
         });
     }
 
-    function updateTotalQuantityInfo() {
-        const seriesType = seriesTypeSelect.value;
+    function updateSelectedSizes() {
+        const selectedCheckboxes = document.querySelectorAll('.size-checkbox:checked');
+        const container = document.getElementById('selectedSizesContainer');
         
-        // Sadece custom seri tipi için toplam miktar bilgisini göster
-        if (seriesType === 'custom') {
-            const quantityInputs = document.querySelectorAll('input[name="quantities[]"]');
-            let totalQuantity = 0;
-            
-            quantityInputs.forEach(input => {
-                totalQuantity += parseInt(input.value) || 0;
-            });
-            
-            const totalInfo = document.getElementById('total-quantity-info');
-            if (totalInfo) {
-                totalInfo.innerHTML = `
+        if (selectedCheckboxes.length === 0) {
+            container.innerHTML = `
+                <div class="alert alert-info text-center">
                     <i class="ri-information-line me-2"></i>
-                    <strong>Toplam Miktar:</strong> ${totalQuantity} adet
-                    <span class="text-success ms-2"><i class="ri-check-line"></i> Özel Seri</span>
-                `;
-            }
+                    Lütfen yukarıdan bedenleri seçin, miktarları ayarlayın.
+                </div>
+            `;
+            return;
         }
+        
+        let html = '<div class="table-responsive">';
+        html += '<table class="table table-hover table-bordered">';
+        html += '<thead class="table-primary">';
+        html += '<tr><th class="text-center">Beden</th><th class="text-center">Seri Başına Adet</th></tr>';
+        html += '</thead><tbody>';
+        
+        selectedCheckboxes.forEach(function(checkbox, index) {
+            const size = checkbox.value;
+            html += `
+                <tr>
+                    <td class="text-center">
+                        <span class="badge bg-primary fs-6">${size}</span>
+                        <input type="hidden" name="sizes[]" value="${size}">
+                    </td>
+                    <td>
+                        <div class="input-group">
+                            <input type="number" class="form-control text-center" name="quantities[]" value="1" min="1" required>
+                            <span class="input-group-text">adet</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table></div>';
+        html += '<div class="alert alert-success text-center">';
+        html += '<i class="ri-check-line me-2"></i>';
+        html += '<strong>Seçilen Bedenler:</strong> ' + selectedCheckboxes.length + ' adet beden seçildi. Miktarları ayarlayabilirsiniz.';
+        html += '</div>';
+        
+        container.innerHTML = html;
     }
+
+    // Eski beden ekleme kodu kaldırıldı - artık checkbox sistemi kullanılıyor
+
+    // Eski fonksiyonlar kaldırıldı - artık checkbox sistemi kullanılıyor
 
 
     // Form submit validation
     document.getElementById('submit-btn').addEventListener('click', function(e) {
         const seriesType = seriesTypeSelect.value;
-        const seriesSize = parseInt(seriesSizeSelect.value);
         
-        // Özel seri için sadece en az 1 beden kontrolü yap
+        // Özel seri için seçilen beden kontrolü yap
         if (seriesType === 'custom') {
-            const sizeInputs = document.querySelectorAll('select[name="sizes[]"]');
-            let validSizes = 0;
-            sizeInputs.forEach(select => {
-                if (select.value && select.value.trim() !== '') {
-                    validSizes++;
-                }
-            });
+            const selectedCheckboxes = document.querySelectorAll('.size-checkbox:checked');
             
-            if (validSizes === 0) {
+            if (selectedCheckboxes.length === 0) {
                 e.preventDefault();
                 alert('Özel seri için en az 1 beden seçmelisiniz.');
                 return false;
             }
         }
-        
-        // Sabit seri için sadece beden sayısı kontrolü yap
-        if (seriesType === 'fixed') {
-            const sizeInputs = document.querySelectorAll('input[name="sizes[]"]');
-            if (sizeInputs.length !== seriesSize) {
-                e.preventDefault();
-                alert(`Sabit seri için ${seriesSize} beden olmalı, ${sizeInputs.length} beden bulundu.`);
-                return false;
-            }
-        }
     });
 
-    // Miktar değiştiğinde toplam kontrolü (özel seriler için)
-    document.addEventListener('input', function(e) {
-        if (e.target && e.target.name === 'quantities[]') {
-            const seriesType = seriesTypeSelect.value;
-            if (seriesType === 'custom') {
-                updateTotalQuantityInfo();
-            }
-        }
-    });
+    // Miktar kontrolü artık updateSelectedSizes fonksiyonunda yapılıyor
 
     // No color JavaScript needed - simple text input with comma separation
     
@@ -501,10 +424,175 @@ document.addEventListener('DOMContentLoaded', function() {
             $('#seriesSku').val(sku);
         }
         
-        // Barkod her zaman otomatik oluştur (kısa format)
-        const timestamp = Date.now().toString().slice(-4); // Son 4 hane
-        const barcode = 'S' + timestamp;
-        $('#seriesBarcode').val(barcode);
+        // Barkod otomatik oluştur (sadece boşsa)
+        if (!$('#seriesBarcode').val()) {
+            const timestamp = Date.now().toString().slice(-4); // Son 4 hane
+            const barcode = 'S' + timestamp;
+            $('#seriesBarcode').val(barcode);
+        }
+    }
+
+    // Marka autocomplete
+    $('#brandInput').on('input', function() {
+        const query = $(this).val();
+        if (query.length >= 2) {
+            searchBrands(query);
+        } else {
+            $('#brandDropdown').hide();
+        }
+    });
+
+    // Hide dropdowns when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#brandInput, #brandDropdown').length) {
+            $('#brandDropdown').hide();
+        }
+    });
+
+    function searchBrands(query) {
+        // Mevcut markalar
+        const existingBrands = ['Ronex', 'Diğer', 'Nike', 'Adidas', 'Puma', 'Lacoste', 'Tommy Hilfiger', 'Calvin Klein'];
+        
+        const filtered = existingBrands.filter(brand => 
+            brand.toLowerCase().includes(query.toLowerCase())
+        );
+        
+        let html = '';
+        if (filtered.length > 0) {
+            filtered.forEach(function(brand) {
+                html += `
+                    <div class="dropdown-item brand-option" data-brand="${brand}" style="cursor: pointer;">
+                        <i class="ri-star-line me-2"></i>${brand}
+                    </div>
+                `;
+            });
+        } else {
+            html = '<div class="dropdown-item text-muted">Marka bulunamadı</div>';
+        }
+        
+        $('#brandDropdown').html(html).show();
+    }
+
+    // Handle brand selection
+    $(document).on('click', '.brand-option', function() {
+        const brand = $(this).data('brand');
+        $('#brandInput').val(brand);
+        $('#brandDropdown').hide();
+    });
+
+    // Renk sistemi
+    let colorTags = [];
+    let currentColorIndex = -1;
+    let colorStocks = {}; // Renk stok bilgilerini sakla
+    
+    // Renk input event listeners
+    $('#colorInput').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const colorName = $(this).val().trim();
+            if (colorName && !colorTags.includes(colorName)) {
+                addColorTag(colorName);
+                $(this).val('');
+            }
+        }
+    });
+    
+    // Renk tag ekleme
+    function addColorTag(colorName) {
+        colorTags.push(colorName);
+        const tagHtml = `
+            <span class="badge bg-primary d-inline-flex align-items-center gap-1" data-color="${colorName}">
+                ${colorName}
+                <button type="button" class="btn-close btn-close-white" style="font-size: 0.7em;" onclick="removeColorTag('${colorName}')"></button>
+            </span>
+        `;
+        $('#colorTags').append(tagHtml);
+        
+        // Modal aç
+        openColorStockModal(colorName);
+    }
+    
+    // Renk tag silme
+    window.removeColorTag = function(colorName) {
+        colorTags = colorTags.filter(color => color !== colorName);
+        delete colorStocks[colorName]; // Stok bilgilerini de sil
+        $(`[data-color="${colorName}"]`).remove();
+        updateColorInputs();
+    }
+    
+    // Renk stok modalını aç
+    function openColorStockModal(colorName) {
+        $('#selectedColorName').text(colorName);
+        $('#colorStockQuantity').val('');
+        $('#colorCriticalStock').val('');
+        currentColorIndex = colorTags.indexOf(colorName);
+        
+        const modal = new bootstrap.Modal(document.getElementById('colorStockModal'));
+        modal.show();
+    }
+    
+    // Renk stok kaydet
+    $('#saveColorStock').on('click', function() {
+        const colorName = $('#selectedColorName').text();
+        const stockQuantity = $('#colorStockQuantity').val();
+        const criticalStock = $('#colorCriticalStock').val();
+        
+        if (!stockQuantity) {
+            alert('Stok miktarı gereklidir!');
+            return;
+        }
+        
+        // Stok bilgilerini sakla
+        colorStocks[colorName] = {
+            stock: stockQuantity,
+            critical: criticalStock || '0'
+        };
+        
+        // Tag'i güncelle
+        const tagElement = $(`[data-color="${colorName}"]`);
+        tagElement.html(`
+            ${colorName} (${stockQuantity})
+            <button type="button" class="btn-close btn-close-white" style="font-size: 0.7em;" onclick="removeColorTag('${colorName}')"></button>
+        `);
+        
+        // Modal'ı kapat
+        const modal = bootstrap.Modal.getInstance(document.getElementById('colorStockModal'));
+        modal.hide();
+        
+        // Input'ları güncelle
+        updateColorInputs();
+    });
+    
+    // Hidden input'ları güncelle
+    function updateColorInputs() {
+        // Mevcut hidden input'ları kaldır
+        $('input[name^="color_variants"]').remove();
+        
+        // Yeni input'ları ekle
+        colorTags.forEach((colorName, index) => {
+            const stockData = colorStocks[colorName] || { stock: '0', critical: '0' };
+            const stockQuantity = stockData.stock;
+            const criticalStock = stockData.critical;
+            
+            // Hidden input'lar ekle
+            $('<input>').attr({
+                type: 'hidden',
+                name: `color_variants[${index}][color]`,
+                value: colorName
+            }).appendTo('#colorTagsContainer');
+            
+            $('<input>').attr({
+                type: 'hidden',
+                name: `color_variants[${index}][stock_quantity]`,
+                value: stockQuantity
+            }).appendTo('#colorTagsContainer');
+            
+            $('<input>').attr({
+                type: 'hidden',
+                name: `color_variants[${index}][critical_stock]`,
+                value: criticalStock || '0'
+            }).appendTo('#colorTagsContainer');
+        });
     }
 });
 </script>

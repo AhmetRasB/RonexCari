@@ -103,7 +103,7 @@ class SampleDataSeeder extends Seeder
             'barcode' => '1234567890123',
             'is_active' => true,
         ]);
-
+        
         Product::create([
             'name' => 'Ofis Sandalyesi',
             'sku' => 'SAN-001',

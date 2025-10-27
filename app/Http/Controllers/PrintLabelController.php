@@ -101,9 +101,10 @@ class PrintLabelController extends Controller
 
     /**
      * Export CSV for BarTender (.btw) workflows.
-     * Columns (product): type,category,name,color,size,barcode
-     * Columns (series outer): type,category,name,series_size,colors,sizes,barcode
-     * Columns (series sizes): type,category,name,size,color,barcode
+     * Bartender optimized format - colors removed from barcodes
+     * Columns (product): type,category,name,size,barcode,stock
+     * Columns (series outer): type,category,name,series_size,sizes,barcode
+     * Columns (series sizes): type,category,name,size,series_size,barcode
      */
     public function csv(Request $request)
     {
@@ -120,80 +121,51 @@ class PrintLabelController extends Controller
             $p = Product::with('colorVariants')->find($id);
             if (!$p) return response()->json(['message' => 'Item not found'], 404);
             
-            // Eğer renk varyantları varsa, her renk için ayrı satır
+            // Bartender için renkler kaldırıldı - sadece toplam stok
+            $totalStock = 0;
             if ($p->colorVariants && $p->colorVariants->count() > 0) {
-                foreach ($p->colorVariants as $colorVariant) {
-                    $lines[] = [
-                        'product',
-                        $this->sanitize($p->category ?? ''),
-                        $this->sanitize($p->name ?? ''),
-                        $this->sanitize($colorVariant->color ?? ''),
-                        $this->sanitize($p->size ?? ''),
-                        $this->sanitize($p->barcode ?: ($p->sku ?: ('P' . str_pad((string)$p->id, 4, '0', STR_PAD_LEFT)))),
-                        $colorVariant->stock_quantity ?? 0,
-                    ];
-                }
+                $totalStock = $p->colorVariants->sum('stock_quantity');
             } else {
-                $lines[] = [
-                    'product',
-                    $this->sanitize($p->category ?? ''),
-                    $this->sanitize($p->name ?? ''),
-                    $this->sanitize($p->color ?? ''),
-                    $this->sanitize($p->size ?? ''),
-                    $this->sanitize($p->barcode ?: ($p->sku ?: ('P' . str_pad((string)$p->id, 4, '0', STR_PAD_LEFT)))),
-                    $p->stock_quantity ?? 0,
-                ];
+                $totalStock = $p->stock_quantity ?? 0;
             }
-            $header = ['type','category','name','color','size','barcode','stock'];
+            
+            $lines[] = [
+                'product',
+                $this->sanitize($p->category ?? ''),
+                $this->sanitize($p->name ?? 'Ürün Adı Yok'),
+                $this->sanitize($p->size ?? ''),
+                $this->sanitize($p->barcode ?: ($p->sku ?: ('P' . str_pad((string)$p->id, 4, '0', STR_PAD_LEFT)))),
+                $totalStock,
+            ];
+            $header = ['type','category','name','size','barcode','stock'];
         } else {
             $s = ProductSeries::with(['seriesItems','colorVariants'])->find($id);
             if (!$s) return response()->json(['message' => 'Item not found'], 404);
             $barcode = $this->sanitize($s->barcode ?: ($s->sku ?: ('S' . str_pad((string)$s->id, 4, '0', STR_PAD_LEFT))));
             if ($mode === 'sizes') {
-                $header = ['type','category','name','size','color','series_size','barcode'];
-                $colors = $s->colorVariants->pluck('color')->filter()->values()->all();
+                $header = ['type','category','name','size','size_count','barcode'];
                 $sizes = $s->seriesItems->pluck('size')->filter()->values()->all();
                 
-                // Renk varyantı varsa: Her renk x Her beden
-                if (count($colors) > 0) {
-                    foreach ($colors as $color) {
-                        foreach ($sizes as $size) {
-                            $lines[] = [
-                                'series_size',
-                                $this->sanitize($s->category ?? ''),
-                                $this->sanitize($s->name ?? ''),
-                                $this->sanitize((string)$size),
-                                $this->sanitize($color),
-                                (int) ($s->series_size ?? 0),
-                                $barcode,
-                            ];
-                        }
-                    }
-                } else {
-                    // Renk yoksa sadece bedenler
-                    foreach ($sizes as $size) {
-                        $lines[] = [
-                            'series_size',
-                            $this->sanitize($s->category ?? ''),
-                            $this->sanitize($s->name ?? ''),
-                            $this->sanitize((string)$size),
-                            '',
-                            (int) ($s->series_size ?? 0),
-                            $barcode,
-                        ];
-                    }
+                // Sadece bedenler - renk alanları kaldırıldı
+                foreach ($sizes as $size) {
+                    $lines[] = [
+                        'series_size',
+                        $this->sanitize($s->category ?? ''),
+                        $this->sanitize($s->name ?? 'Seri Adı Yok'),
+                        $this->sanitize((string)$size),
+                        (int) ($s->series_size ?? 0),
+                        $barcode,
+                    ];
                 }
             } else {
-                $header = ['type','category','name','series_size','colors','sizes','barcode','year'];
+                $header = ['type','category','name','size_count','size_list','barcode','year'];
                 $sizesCsv = $this->sanitize(implode(' ', $s->seriesItems->pluck('size')->filter()->values()->all()));
-                $colorsCsv = $this->sanitize(implode(', ', $s->colorVariants->pluck('color')->filter()->values()->all()));
                 $lines[] = [
                     'series_outer',
                     $this->sanitize($s->category ?? ''),
-                    $this->sanitize($s->name ?? ''),
+                    $this->sanitize($s->name ?? 'Seri Adı Yok'),
                     (int) ($s->series_size ?? 0),
-                    $colorsCsv,
-                    $sizesCsv,
+                    $sizesCsv ?: 'Beden Yok',
                     $barcode,
                     date('Y'),
                 ];
@@ -235,79 +207,49 @@ class PrintLabelController extends Controller
             $p = Product::with('colorVariants')->find($id);
             if (!$p) return response()->json(['message' => 'Item not found'], 404);
             
-            // Eğer renk varyantları varsa, her renk için ayrı item
+            // Bartender için renkler kaldırıldı - sadece toplam stok
+            $totalStock = 0;
             if ($p->colorVariants && $p->colorVariants->count() > 0) {
-                foreach ($p->colorVariants as $colorVariant) {
-                    $items[] = [
-                        'type' => 'product',
-                        'category' => $this->sanitize($p->category ?? ''),
-                        'name' => $this->sanitize($p->name ?? ''),
-                        'color' => $this->sanitize($colorVariant->color ?? ''),
-                        'size' => $this->sanitize($p->size ?? ''),
-                        'barcode' => $this->sanitize($p->barcode ?: ($p->sku ?: ('P' . str_pad((string)$p->id, 4, '0', STR_PAD_LEFT)))),
-                        'stock' => $colorVariant->stock_quantity ?? 0,
-                        'year' => date('Y'),
-                    ];
-                }
+                $totalStock = $p->colorVariants->sum('stock_quantity');
             } else {
-                $items[] = [
-                    'type' => 'product',
-                    'category' => $this->sanitize($p->category ?? ''),
-                    'name' => $this->sanitize($p->name ?? ''),
-                    'color' => $this->sanitize($p->color ?? ''),
-                    'size' => $this->sanitize($p->size ?? ''),
-                    'barcode' => $this->sanitize($p->barcode ?: ($p->sku ?: ('P' . str_pad((string)$p->id, 4, '0', STR_PAD_LEFT)))),
-                    'stock' => $p->stock_quantity ?? 0,
-                    'year' => date('Y'),
-                ];
+                $totalStock = $p->stock_quantity ?? 0;
             }
+            
+            $items[] = [
+                'type' => 'product',
+                'category' => $this->sanitize($p->category ?? ''),
+                'name' => $this->sanitize($p->name ?? 'Ürün Adı Yok'),
+                'size' => $this->sanitize($p->size ?? ''),
+                'barcode' => $this->sanitize($p->barcode ?: ($p->sku ?: ('P' . str_pad((string)$p->id, 4, '0', STR_PAD_LEFT)))),
+                'stock' => $totalStock,
+                'year' => date('Y'),
+            ];
         } else {
             $s = ProductSeries::with(['seriesItems','colorVariants'])->find($id);
             if (!$s) return response()->json(['message' => 'Item not found'], 404);
             $barcode = $this->sanitize($s->barcode ?: ($s->sku ?: ('S' . str_pad((string)$s->id, 4, '0', STR_PAD_LEFT))));
             if ($mode === 'sizes') {
-                $colors = $s->colorVariants->pluck('color')->filter()->values()->all();
                 $sizes = $s->seriesItems->pluck('size')->filter()->values()->all();
                 
-                // Renk varyantı varsa: Her renk x Her beden
-                if (count($colors) > 0) {
-                    foreach ($colors as $color) {
-                        foreach ($sizes as $size) {
-                            $items[] = [
-                                'type' => 'series_size',
-                                'category' => $this->sanitize($s->category ?? ''),
-                                'name' => $this->sanitize($s->name ?? ''),
-                                'size' => $this->sanitize((string)$size),
-                                'color' => $this->sanitize($color),
-                                'series_size' => (int) ($s->series_size ?? 0),
-                                'barcode' => $barcode,
-                                'year' => date('Y'),
-                            ];
-                        }
-                    }
-                } else {
-                    // Renk yoksa sadece bedenler
-                    foreach ($sizes as $size) {
-                        $items[] = [
-                            'type' => 'series_size',
-                            'category' => $this->sanitize($s->category ?? ''),
-                            'name' => $this->sanitize($s->name ?? ''),
-                            'size' => $this->sanitize((string)$size),
-                            'color' => '',
-                            'series_size' => (int) ($s->series_size ?? 0),
-                            'barcode' => $barcode,
-                            'year' => date('Y'),
-                        ];
-                    }
+                // Sadece bedenler - renk alanları kaldırıldı
+                foreach ($sizes as $size) {
+                    $items[] = [
+                        'type' => 'series_size',
+                        'category' => $this->sanitize($s->category ?? ''),
+                        'name' => $this->sanitize($s->name ?? 'Seri Adı Yok'),
+                        'size' => $this->sanitize((string)$size),
+                        'size_count' => (int) ($s->series_size ?? 0),
+                        'barcode' => $barcode,
+                        'year' => date('Y'),
+                    ];
                 }
             } else {
                 $items[] = [
                     'type' => 'series_outer',
                     'category' => $this->sanitize($s->category ?? ''),
-                    'name' => $this->sanitize($s->name ?? ''),
-                    'series_size' => (int) ($s->series_size ?? 0),
-                    'colors' => $this->sanitize(implode(', ', $s->colorVariants->pluck('color')->filter()->values()->all())),
-                    'sizes' => $this->sanitize(implode(' ', $s->seriesItems->pluck('size')->filter()->values()->all())),
+                    'name' => $this->sanitize($s->name ?? 'Seri Adı Yok'),
+                    'size_count' => (int) ($s->series_size ?? 0),
+                    'size_list' => $this->sanitize(implode(' ', $s->seriesItems->pluck('size')->filter()->values()->all())) ?: 'Beden Yok',
                     'barcode' => $barcode,
                     'year' => date('Y'),
                 ];
@@ -454,10 +396,10 @@ class PrintLabelController extends Controller
         $colorsCsv = $this->sanitize(implode(', ', $colors));
 
         if ($mode === 'sizes') {
-            // Her beden için ayrı etiket üret - AYNI BEDENDEN VARSA HEPSİ
+            // Her beden için ayrı etiket üret - renk bilgisi kaldırıldı
             $blocks = [];
             
-            // TÜM bedenler (tekrarlı olanlar dahil)
+            // TÜM bedenler (tekrarlı olanlar dahil) - sadece bedenler
             foreach ($allSizes as $size) {
                 $sizeSan = $this->sanitize((string)$size);
                 $seriesInfo = $seriesSize > 0 ? "Seri: " . $seriesSize . "'li" : "Seri: Normal";
@@ -465,7 +407,7 @@ class PrintLabelController extends Controller
                 $one = "m m\n" .
                        "J\n" .
                        "S l1;0,0,68,71,100\n" .
-                       "H 138\n" .
+                       "H 120\n" .
                        "O R\n" .
                        "T:ARIAL.CPF;8,6,0,0,{$category}\n" .
                        "T:ARIAL.CPF;10,20,0,0,{$name}\n" .
@@ -480,14 +422,14 @@ class PrintLabelController extends Controller
             return implode('', $blocks);
         }
 
-        // DIŞ paket etiketi (OUTER mode)
+        // DIŞ paket etiketi (OUTER mode) - renk bilgisi kaldırıldı
         $seriesInfo = $seriesSize > 0 ? ($seriesSize . "'li SERI") : 'SERI';
         $year = date('Y');
 
         $one = "m m\n" .
                "J\n" .
                "S l1;0,0,68,71,100\n" .
-               "H 163\n" .
+               "H 140\n" .
                "O R\n" .
                "T:ARIAL.CPF;8,6,0,0,{$category}\n" .
                "T:ARIAL.CPF;11,20,0,0,{$name}\n" .
@@ -512,6 +454,82 @@ class PrintLabelController extends Controller
 
         $sequence = $outer . $sizesScript; // OUTER + all sizes (order preserved)
         return str_repeat($sequence, max(1, $packages));
+    }
+
+    private function buildProductZpl(int $productId): ?string
+    {
+        $product = Product::with('colorVariants')->find($productId);
+        if (!$product) return null;
+
+        $category = $this->sanitize($product->category ?? '');
+        $name = $this->sanitize($product->name ?? '');
+        $color = $this->sanitize($product->color ?? '');
+        $size = $this->sanitize($product->size ?? '');
+        $barcode = $this->sanitize($product->barcode ?: ($product->sku ?: ('P' . str_pad((string)$product->id, 4, '0', STR_PAD_LEFT))));
+        $qr = url('/products/' . $product->id);
+
+        return "^XA\n" .
+               "^FO50,50^A0N,30,30^FD{$category}^FS\n" .
+               "^FO50,90^A0N,40,40^FD{$name}^FS\n" .
+               "^FO50,140^BY3\n" .
+               "^BCN,100,Y,N,N^FD{$barcode}^FS\n" .
+               ($size !== '' ? "^FO50,250^A0N,25,25^FDBEDEN: {$size}^FS\n" : '') .
+               "^FO50,280^A0N,20,20^FD{$barcode}^FS\n" .
+               "^FO50,320^BQN,2,3^FDQA,{$qr}^FS\n" .
+               "^XZ";
+    }
+
+    private function buildSeriesZpl(int $seriesId, string $mode): ?string
+    {
+        $series = ProductSeries::with(['seriesItems', 'colorVariants'])->find($seriesId);
+        if (!$series) return null;
+
+        $category = $this->sanitize($series->category ?? '');
+        $name = $this->sanitize($series->name ?? '');
+        $seriesSize = (int) ($series->series_size ?? 0);
+        $barcode = $this->sanitize($series->barcode ?: ($series->sku ?: ('S' . str_pad((string)$series->id, 4, '0', STR_PAD_LEFT))));
+        $qrSeries = url('/products/series/' . $series->id);
+        
+        $allSizes = $series->seriesItems->pluck('size')->filter()->all();
+        $sizesCsv = $this->sanitize(implode(' ', $allSizes));
+
+        if ($mode === 'sizes') {
+            // Her beden için ayrı ZPL etiket - renk bilgisi kaldırıldı
+            $zplBlocks = [];
+            
+            foreach ($allSizes as $size) {
+                $sizeSan = $this->sanitize((string)$size);
+                $seriesInfo = $seriesSize > 0 ? "Seri: " . $seriesSize . "'li" : "Seri: Normal";
+
+                $zpl = "^XA\n" .
+                       "^FO50,50^A0N,30,30^FD{$category}^FS\n" .
+                       "^FO50,90^A0N,40,40^FD{$name}^FS\n" .
+                       "^FO50,140^A0N,35,35^FDBEDEN: {$sizeSan}^FS\n" .
+                       "^FO50,180^A0N,25,25^FD{$seriesInfo}^FS\n" .
+                       "^FO50,220^BY3\n" .
+                       "^BCN,100,Y,N,N^FD{$barcode}^FS\n" .
+                       "^FO50,330^A0N,20,20^FD{$barcode}^FS\n" .
+                       "^FO50,360^BQN,2,3^FDQA,{$qrSeries}^FS\n" .
+                       "^XZ";
+                $zplBlocks[] = $zpl;
+            }
+            return implode("\n", $zplBlocks);
+        }
+
+        // DIŞ paket etiketi (OUTER mode) - renk bilgisi kaldırıldı
+        $seriesInfo = $seriesSize > 0 ? ($seriesSize . "'li SERI") : 'SERI';
+        $year = date('Y');
+
+        return "^XA\n" .
+               "^FO50,50^A0N,30,30^FD{$category}^FS\n" .
+               "^FO50,90^A0N,45,45^FD{$name}^FS\n" .
+               "^FO50,140^A0N,35,35^FD{$seriesInfo} {$year}^FS\n" .
+               ($sizesCsv !== '' ? "^FO50,180^A0N,25,25^FDBedenler: {$sizesCsv}^FS\n" : '') .
+               "^FO50,220^BY3\n" .
+               "^BCN,100,Y,N,N^FD{$barcode}^FS\n" .
+               "^FO50,330^A0N,20,20^FD{$barcode}^FS\n" .
+               "^FO50,360^BQN,2,3^FDQA,{$qrSeries}^FS\n" .
+               "^XZ";
     }
 }
 

@@ -74,6 +74,10 @@ class ProductController extends Controller
                 'colors' => 'array',
                 'colors.*' => 'string',
                 'colors_input' => 'nullable|string',
+                'color_variants' => 'array',
+                'color_variants.*.color' => 'required|string',
+                'color_variants.*.stock_quantity' => 'required|integer|min:0',
+                'color_variants.*.critical_stock' => 'nullable|integer|min:0',
                 'barcode' => 'nullable|string',
                 'description' => 'nullable|string',
                 'image' => 'nullable|image',
@@ -161,24 +165,42 @@ class ProductController extends Controller
 
             // If multiple colors selected, create one product with color variants
             $colors = array_filter(array_map('trim', (array)($validated['colors'] ?? [])));
-            if (!empty($colors)) {
+            $colorVariants = $request->input('color_variants', []);
+            
+            if (!empty($colors) || !empty($colorVariants)) {
                 // Create single product without color
                 $productData = $validated;
                 unset($productData['colors']); // Remove colors from main product
+                unset($productData['color_variants']); // Remove color variants from main product
                 $product = $createOne($productData);
                 
-                // Create color variants
-                $stockPerColor = $validated['stock_quantity'] ?? 0;
-                $criticalStockPerColor = $validated['critical_stock'] ?? 0;
-                
-                foreach ($colors as $color) {
-                    \App\Models\ProductColorVariant::create([
-                        'product_id' => $product->id,
-                        'color' => $color,
-                        'stock_quantity' => $stockPerColor,
-                        'critical_stock' => $criticalStockPerColor,
-                        'is_active' => true
-                    ]);
+                // Create color variants from new tag system
+                if (!empty($colorVariants)) {
+                    foreach ($colorVariants as $variant) {
+                        if (!empty($variant['color'])) {
+                            \App\Models\ProductColorVariant::create([
+                                'product_id' => $product->id,
+                                'color' => $variant['color'],
+                                'stock_quantity' => $variant['stock_quantity'] ?? 0,
+                                'critical_stock' => $variant['critical_stock'] ?? 0,
+                                'is_active' => true
+                            ]);
+                        }
+                    }
+                } else {
+                    // Fallback to old system
+                    $stockPerColor = $validated['stock_quantity'] ?? 0;
+                    $criticalStockPerColor = $validated['critical_stock'] ?? 0;
+                    
+                    foreach ($colors as $color) {
+                        \App\Models\ProductColorVariant::create([
+                            'product_id' => $product->id,
+                            'color' => $color,
+                            'stock_quantity' => $stockPerColor,
+                            'critical_stock' => $criticalStockPerColor,
+                            'is_active' => true
+                        ]);
+                    }
                 }
                 
                 $createdProducts[] = $product;

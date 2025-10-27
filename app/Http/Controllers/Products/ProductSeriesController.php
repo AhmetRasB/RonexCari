@@ -66,10 +66,6 @@ class ProductSeriesController extends Controller
             'cost_currency' => 'nullable|string|in:TRY,USD,EUR',
             'price_currency' => 'nullable|string|in:TRY,USD,EUR',
             'image' => 'nullable|image',
-            'series_type' => 'required|in:fixed,custom',
-            'series_size' => 'nullable|integer|in:5,6,7',
-            'stock_quantity' => 'required|integer|min:0',
-            'critical_stock' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
             'sizes' => 'required|array|min:1',
             'sizes.*' => 'required|string',
@@ -78,6 +74,10 @@ class ProductSeriesController extends Controller
             'colors' => 'array',
             'colors.*' => 'string',
             'colors_input' => 'nullable|string',
+            'color_variants' => 'array',
+            'color_variants.*.color' => 'required|string',
+            'color_variants.*.stock_quantity' => 'required|integer|min:0',
+            'color_variants.*.critical_stock' => 'nullable|integer|min:0',
         ]);
         
         // Parse colors_input (comma-separated text) into colors array
@@ -92,16 +92,6 @@ class ProductSeriesController extends Controller
         // Database column 'cost' is NOT NULL; if user leaves blank, default to 0.00
         if (!array_key_exists('cost', $validated) || $validated['cost'] === null) {
             $validated['cost'] = 0.00;
-        }
-
-        // Sabit seri için series_size zorunlu
-        if ($validated['series_type'] === 'fixed' && empty($validated['series_size'])) {
-            return back()->withErrors(['series_size' => 'Sabit seri için seri boyutu seçilmelidir.'])->withInput();
-        }
-
-        // Özel seri için seri boyutunu toplam miktar olarak ayarla
-        if ($validated['series_type'] === 'custom') {
-            $validated['series_size'] = array_sum($validated['quantities']);
         }
 
         // Görsel yükleme
@@ -128,16 +118,29 @@ class ProductSeriesController extends Controller
 
         // Renk varyantlarını oluştur
         $colors = array_filter(array_map('trim', (array)($validated['colors'] ?? [])));
-        if (!empty($colors)) {
-            $stockPerColor = $validated['stock_quantity'] ?? 0;
-            $criticalStockPerColor = $validated['critical_stock'] ?? 0;
-            
+        $colorVariants = $request->input('color_variants', []);
+        
+        if (!empty($colorVariants)) {
+            // Yeni tag sistemi - her renk için ayrı stok miktarı
+            foreach ($colorVariants as $variant) {
+                if (!empty($variant['color'])) {
+                    \App\Models\ProductSeriesColorVariant::create([
+                        'product_series_id' => $series->id,
+                        'color' => $variant['color'],
+                        'stock_quantity' => $variant['stock_quantity'] ?? 0, // Her renk için ayrı stok
+                        'critical_stock' => $variant['critical_stock'] ?? 0,
+                        'is_active' => true
+                    ]);
+                }
+            }
+        } elseif (!empty($colors)) {
+            // Eski sistem (fallback) - her renk için ayrı stok miktarı
             foreach ($colors as $color) {
                 \App\Models\ProductSeriesColorVariant::create([
                     'product_series_id' => $series->id,
                     'color' => $color,
-                    'stock_quantity' => $stockPerColor,
-                    'critical_stock' => $criticalStockPerColor,
+                    'stock_quantity' => 0, // Varsayılan stok
+                    'critical_stock' => 0,
                     'is_active' => true
                 ]);
             }
@@ -195,8 +198,6 @@ class ProductSeriesController extends Controller
             'cost_currency' => 'nullable|string|in:TRY,USD,EUR',
             'price_currency' => 'nullable|string|in:TRY,USD,EUR',
             'image' => 'nullable|image',
-            'stock_quantity' => 'required|integer|min:0',
-            'critical_stock' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
             'color_variants' => 'array',
             'color_variants.*.stock_quantity' => 'integer|min:0',
@@ -221,10 +222,6 @@ class ProductSeriesController extends Controller
                     ]);
                 }
             }
-            
-            // Ana seri stokunu renk varyantları toplamına eşitle
-            $totalStock = $series->colorVariants->sum('stock_quantity');
-            $validated['stock_quantity'] = $totalStock;
         }
 
         $series->update($validated);
@@ -255,63 +252,36 @@ class ProductSeriesController extends Controller
         ]);
         
         $data = $request->validate([
-            'critical_stock' => 'nullable|integer|min:0',
-            'add_stock' => 'nullable|integer|min:0',
-            'stock_quantity' => 'nullable|integer|min:0',
+            'add_stock' => 'required|integer|min:0',
         ]);
 
-        $originalStockQuantity = (int) ($series->stock_quantity ?? 0);
-        $originalCriticalStock = (int) ($series->critical_stock ?? 0);
-
-        \Log::info('Original series values', [
-            'critical_stock' => $originalCriticalStock,
-            'stock_quantity' => $originalStockQuantity
-        ]);
-
-        if (array_key_exists('critical_stock', $data) && $data['critical_stock'] !== null) {
-            $series->critical_stock = (int) $data['critical_stock'];
-            \Log::info('Updating series critical_stock', ['new_value' => $series->critical_stock]);
-        }
-
-        if (array_key_exists('stock_quantity', $data) && $data['stock_quantity'] !== null) {
-            $series->stock_quantity = (int) $data['stock_quantity'];
-        }
-
-        if (!empty($data['add_stock'])) {
-            $addStockAmount = (int) $data['add_stock'];
-            
-            // Renk varyantlarını da güncelle
-            $colorVariants = $series->colorVariants;
-            if ($colorVariants->count() > 0) {
-                // Her renk varyantına direkt aynı miktarı ekle
-                foreach ($colorVariants as $variant) {
-                    $currentStock = (int) $variant->stock_quantity;
-                    $newVariantStock = $currentStock + $addStockAmount;
-                    $variant->update(['stock_quantity' => $newVariantStock]);
-                }
-                // Ana serinin stok miktarını varyantların toplamına eşitle
-                $series->stock_quantity = $colorVariants->sum('stock_quantity');
-            } else {
-                // Tek renkli seri ise direkt ana seriye ekle
-                $series->stock_quantity = $originalStockQuantity + $addStockAmount;
+        $addStockAmount = (int) $data['add_stock'];
+        
+        // Renk varyantlarını güncelle
+        $colorVariants = $series->colorVariants;
+        if ($colorVariants->count() > 0) {
+            // Her renk varyantına direkt aynı miktarı ekle
+            foreach ($colorVariants as $variant) {
+                $currentStock = (int) $variant->stock_quantity;
+                $newVariantStock = $currentStock + $addStockAmount;
+                $variant->update(['stock_quantity' => $newVariantStock]);
             }
+        } else {
+            // Renk varyantı yoksa hata döndür
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu seri için renk varyantı bulunamadı.'
+            ], 400);
         }
 
-        \Log::info('Saving series', [
+        \Log::info('Series quick stock update completed', [
             'series_id' => $series->id,
-            'critical_stock' => $series->critical_stock,
-            'stock_quantity' => $series->stock_quantity
-        ]);
-        
-        $series->save();
-        
-        \Log::info('Series saved successfully', [
-            'series_id' => $series->id,
-            'final_critical_stock' => $series->fresh()->critical_stock
+            'added_stock' => $addStockAmount,
+            'total_variants' => $colorVariants->count()
         ]);
 
         // Renk varyantlarının güncel stok bilgilerini al
-        $colorVariants = $series->colorVariants->map(function($variant) {
+        $updatedVariants = $series->fresh()->colorVariants->map(function($variant) {
             return [
                 'id' => $variant->id,
                 'color' => $variant->color,
@@ -323,30 +293,11 @@ class ProductSeriesController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Stok bilgileri güncellendi.',
+            'message' => 'Stok başarıyla eklendi.',
             'data' => [
-                'stock_quantity' => (int) ($series->stock_quantity ?? 0),
-                'critical_stock' => (int) ($series->critical_stock ?? 0),
-                'added' => (int) ($data['add_stock'] ?? 0),
-                'original_stock_quantity' => $originalStockQuantity,
-                'original_critical_stock' => $originalCriticalStock,
-                'color_variants' => $colorVariants,
-                'has_color_variants' => $colorVariants->count() > 0
-            ],
-        ]);
-    }
-
-    /**
-     * Seri boyutuna göre varsayılan bedenleri getir
-     */
-    public function getDefaultSizes(Request $request)
-    {
-        $seriesSize = $request->get('series_size');
-        $defaultSizes = ProductSeries::getDefaultSizesForSeries($seriesSize);
-        
-        return response()->json([
-            'sizes' => $defaultSizes,
-            'quantities' => array_fill(0, count($defaultSizes), 1)
+                'stock_quantity' => $updatedVariants->sum('stock_quantity'),
+                'color_variants' => $updatedVariants
+            ]
         ]);
     }
 
@@ -417,6 +368,68 @@ class ProductSeriesController extends Controller
         } catch (\Exception $e) {
             \Log::error('Bulk delete error: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+        }
+    }
+
+    /**
+     * Add new series size to existing series
+     */
+    public function addSize(Request $request, ProductSeries $series)
+    {
+        $validated = $request->validate([
+            'series_size' => 'required|integer|min:2|max:50',
+            'color_variants' => 'required|array|min:1',
+            'color_variants.*.color' => 'required|string|max:255',
+            'color_variants.*.stock_quantity' => 'required|integer|min:0',
+            'color_variants.*.critical_stock' => 'required|integer|min:0',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Create new series with the same data but different series_size
+            $newSeries = $series->replicate();
+            $newSeries->series_size = $validated['series_size'];
+            $newSeries->name = $series->name . ' (' . $validated['series_size'] . 'li)';
+            $newSeries->save();
+
+            // Create series items based on existing series items
+            foreach ($series->seriesItems as $item) {
+                $newSeries->seriesItems()->create([
+                    'size' => $item->size,
+                    'quantity_per_series' => $item->quantity_per_series,
+                ]);
+            }
+
+            // Create color variants
+            foreach ($validated['color_variants'] as $colorData) {
+                $newSeries->colorVariants()->create([
+                    'color' => $colorData['color'],
+                    'stock_quantity' => $colorData['stock_quantity'],
+                    'critical_stock' => $colorData['critical_stock'],
+                    'is_active' => true,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Yeni seri boyutu başarıyla eklendi.',
+                'data' => [
+                    'series_id' => $newSeries->id,
+                    'series_size' => $newSeries->series_size,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Add series size error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Seri boyutu eklenirken bir hata oluştu: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

@@ -13,6 +13,10 @@
                     <p class="text-muted mb-0">Seri Ürün Detayları</p>
                 </div>
                 <div>
+                    <button type="button" class="btn btn-info me-2" onclick="downloadBartenderData()">
+                        <iconify-icon icon="solar:download-outline" class="me-1"></iconify-icon>
+                        Bartender Data
+                    </button>
                     <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#barcodeModal">
                         <i class="ri-barcode-line me-1"></i>Barkod Oluştur
                     </button>
@@ -116,23 +120,7 @@
                             <div class="col-12">
                                 <h6 class="fw-semibold text-primary mb-3">Seri Detayları</h6>
                                 <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-semibold text-muted">Seri Tipi</label>
-                                        <div class="form-control-plaintext">
-                                            @if($series->series_type === 'fixed')
-                                                <span class="badge bg-primary">Sabit Seri</span>
-                                            @else
-                                                <span class="badge bg-success">Özel Seri</span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-semibold text-muted">Seri Boyutu</label>
-                                        <div class="form-control-plaintext fw-semibold">
-                                            {{ $series->series_size }}'li Seri
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <label class="form-label fw-semibold text-muted">Durum</label>
                                         <div class="form-control-plaintext">
                                             @if($series->is_active)
@@ -140,6 +128,12 @@
                                             @else
                                                 <span class="badge bg-secondary">Pasif</span>
                                             @endif
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold text-muted">Toplam Beden Sayısı</label>
+                                        <div class="form-control-plaintext fw-semibold">
+                                            {{ $series->seriesItems->count() }} Beden
                                         </div>
                                     </div>
                                 </div>
@@ -150,28 +144,21 @@
                                 <h6 class="fw-semibold text-primary mb-3">Stok Bilgileri</h6>
                                 <div class="row g-3">
                                     <div class="col-md-4">
-                                        <label class="form-label fw-semibold text-muted">Stok (Seri)</label>
-                                        <div class="form-control-plaintext fw-semibold">
-                                            {{ number_format($series->stock_quantity) }} Seri
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-semibold text-muted">Toplam Ürün</label>
+                                        <label class="form-label fw-semibold text-muted">Toplam Stok</label>
                                         <div class="form-control-plaintext fw-semibold text-success">
-                                            {{ number_format($series->total_product_count) }} Adet
+                                            {{ number_format($series->colorVariants->sum('stock_quantity')) }} Adet
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label fw-semibold text-muted">Kritik Stok</label>
-                                        <div class="form-control-plaintext">
-                                            @if($series->critical_stock > 0)
-                                                {{ number_format($series->critical_stock) }} Seri
-                                                @if($series->critical_stock > 0 && $series->stock_quantity <= $series->critical_stock)
-                                                    <i class="ri-alert-line text-danger ms-1" title="Kritik Stok!"></i>
-                                                @endif
-                                            @else
-                                                <span class="text-muted">Belirlenmemiş</span>
-                                            @endif
+                                        <label class="form-label fw-semibold text-muted">Toplam Kritik Stok</label>
+                                        <div class="form-control-plaintext fw-semibold text-warning">
+                                            {{ number_format($series->colorVariants->sum('critical_stock')) }} Adet
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold text-muted">Renk Sayısı</label>
+                                        <div class="form-control-plaintext fw-semibold">
+                                            {{ $series->colorVariants->count() }} Renk
                                         </div>
                                     </div>
                                 </div>
@@ -186,7 +173,7 @@
                                         <thead>
                                             <tr>
                                                 <th>Renk</th>
-                                                <th>Stok (Seri)</th>
+                                                <th>Stok (Adet)</th>
                                                 <th>Kritik Stok</th>
                                                 <th>Durum</th>
                                             </tr>
@@ -198,8 +185,8 @@
                                                     <span class="badge bg-{{ $variant->color === 'Kırmızı' ? 'danger' : ($variant->color === 'Mavi' ? 'primary' : ($variant->color === 'Yeşil' ? 'success' : ($variant->color === 'Sarı' ? 'warning' : ($variant->color === 'Siyah' ? 'dark' : 'secondary')))) }} me-2">●</span>
                                                     {{ $variant->color }}
                                                 </td>
-                                                <td>{{ number_format($variant->stock_quantity) }} Seri</td>
-                                                <td>{{ number_format($variant->critical_stock) }} Seri</td>
+                                                <td>{{ number_format($variant->stock_quantity) }} Adet</td>
+                                                <td>{{ number_format($variant->critical_stock) }} Adet</td>
                                                 <td>
                                                     @if($variant->critical_stock > 0 && $variant->stock_quantity <= $variant->critical_stock)
                                                         <span class="badge bg-danger">Kritik</span>
@@ -211,8 +198,8 @@
                                             @endforeach
                                             <tr class="table-info">
                                                 <td><strong>Toplam</strong></td>
-                                                <td><strong>{{ number_format($series->colorVariants->sum('stock_quantity')) }} Seri</strong></td>
-                                                <td><strong>{{ number_format($series->colorVariants->sum('critical_stock')) }} Seri</strong></td>
+                                                <td><strong>{{ number_format($series->colorVariants->sum('stock_quantity')) }} Adet</strong></td>
+                                                <td><strong>{{ number_format($series->colorVariants->sum('critical_stock')) }} Adet</strong></td>
                                                 <td>
                                                     @if($series->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0)
                                                         <span class="badge bg-warning">Dikkat</span>
@@ -342,9 +329,9 @@
                                     @csrf
                                     <div class="row g-3">
                                         <div class="col-md-12">
-                                            <label class="form-label">Stok Ekle (Seri Adedi)</label>
+                                            <label class="form-label">Stok Ekle (Adet)</label>
                                             <input type="number" class="form-control" id="add_stock" 
-                                                   placeholder="Eklenecek seri sayısı" min="0">
+                                                   placeholder="Eklenecek adet sayısı" min="0">
                                         </div>
                                         <div class="col-12">
                                             <button type="submit" class="btn btn-primary">
@@ -579,7 +566,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('Stok güncellendi! Yeni stok: ' + data.data.stock_quantity + ' seri');
+                alert('Stok güncellendi! Yeni stok: ' + data.data.stock_quantity + ' adet');
                 location.reload();
             } else {
                 alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
@@ -692,6 +679,34 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => tmp.remove(), 1000);
     });
 });
+
+async function downloadBartenderData(){
+    try {
+        const u = new URL('{{ route('print.labels.csv') }}', window.location.origin);
+        u.searchParams.set('type', 'series');
+        u.searchParams.set('id', '{{ $series->id }}');
+        u.searchParams.set('mode', 'outer'); // Default to outer mode
+        
+        const response = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+        const csvData = await response.text();
+        
+        const fileName = `bartender_series_{{ $series->id }}_outer.csv`;
+        
+        const blob = new Blob([csvData], { type: 'text/csv; charset=UTF-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        alert('Bartender CSV dosyası başarıyla indirildi!\n\nDosya adı: ' + fileName + '\n\nBartender\'da:\n1. Yeni veri kaynağı oluşturun\n2. CSV dosyasını seçin\n3. Alanları eşleştirin: type, category, name, size_count, size_list, barcode, year');
+        
+    } catch (error) {
+        console.error('CSV download failed:', error);
+        alert('CSV indirme başarısız: ' + error.message);
+    }
+}
 </script>
 @endpush
 @endsection
