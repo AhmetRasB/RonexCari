@@ -4,6 +4,17 @@
 @section('subTitle', 'Barkod / QR Yazdırma')
 
 @section('content')
+<!-- QZ Tray Script -->
+<script src="https://cdn.jsdelivr.net/npm/qz-tray@3.0.0/dist/qz-tray.js"></script>
+<script>
+    // QZ Tray configuration
+    qz.security.setCertificatePromise(function(resolve, reject) {
+        // For development, you can disable certificate validation
+        // In production, you should use proper certificates
+        resolve();
+    });
+</script>
+
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <h6 class="fw-semibold mb-3">Makineye Yazdır (QZ Tray) / Dışa Aktar</h6>
@@ -46,11 +57,55 @@
             </div>
         </div>
         <div class="mt-3 d-flex flex-wrap gap-2">
-            <button type="button" class="btn btn-success" onclick="printAllViaQz()">Hepsini Makineye Yazdır</button>
-            <button type="button" class="btn btn-outline-dark" onclick="previewAllZpl()">Önizleme</button>
-            <a class="btn btn-outline-primary" href="#" onclick="downloadAllJScript(event)">JScript Dosyası İndir</a>
-            <a class="btn btn-outline-secondary" href="#" onclick="downloadAllCsv(event)">CSV indir</a>
-            <button type="button" class="btn btn-outline-warning" onclick="showBartenderFields()">Bartender Data Fields</button>
+            <button type="button" class="btn btn-success" onclick="printAllViaQz()" id="printBtn">
+                <span class="btn-text">Hepsini Makineye Yazdır</span>
+                <span class="btn-loading" style="display: none;">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Yazdırılıyor...
+                </span>
+            </button>
+            <button type="button" class="btn btn-outline-dark" onclick="previewAllZpl()" id="previewBtn">
+                <span class="btn-text">Önizleme</span>
+                <span class="btn-loading" style="display: none;">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Yükleniyor...
+                </span>
+            </button>
+            <button type="button" class="btn btn-primary" onclick="exportToPDF()" id="pdfBtn">
+                <span class="btn-text">PDF Olarak İndir</span>
+                <span class="btn-loading" style="display: none;">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Oluşturuluyor...
+                </span>
+            </button>
+            <a class="btn btn-outline-primary" href="#" onclick="downloadAllJScript(event)" id="jscriptBtn">
+                <span class="btn-text">JScript Dosyası İndir</span>
+                <span class="btn-loading" style="display: none;">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    İndiriliyor...
+                </span>
+            </a>
+            <a class="btn btn-outline-secondary" href="#" onclick="downloadAllCsv(event)" id="csvBtn">
+                <span class="btn-text">CSV indir</span>
+                <span class="btn-loading" style="display: none;">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    İndiriliyor...
+                </span>
+            </a>
+            <a class="btn btn-outline-dark" href="#" onclick="downloadAllZpl(event)" id="zplBtn">
+                <span class="btn-text">ZPL indir</span>
+                <span class="btn-loading" style="display: none;">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    İndiriliyor...
+                </span>
+            </a>
+            <button type="button" class="btn btn-outline-warning" onclick="showBartenderFields()" id="bartenderBtn">
+                <span class="btn-text">Bartender Data Fields</span>
+                <span class="btn-loading" style="display: none;">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Yükleniyor...
+                </span>
+            </button>
             <a href="{{ route('barcode.test') }}" class="btn btn-outline-info" target="_blank">Test QR / Barkod</a>
         </div>
         <div class="alert alert-info mt-2 mb-0">
@@ -117,6 +172,25 @@
 </div>
 
 <script>
+// === Helper functions ===
+function showLoading(buttonId) {
+    const btn = document.getElementById(buttonId);
+    if (btn) {
+        btn.querySelector('.btn-text').style.display = 'none';
+        btn.querySelector('.btn-loading').style.display = 'inline-block';
+        btn.disabled = true;
+    }
+}
+
+function hideLoading(buttonId) {
+    const btn = document.getElementById(buttonId);
+    if (btn) {
+        btn.querySelector('.btn-text').style.display = 'inline-block';
+        btn.querySelector('.btn-loading').style.display = 'none';
+        btn.disabled = false;
+    }
+}
+
 // === Multi-row printing ===
 function addPrintRow() {
     const wrapper = document.getElementById('printItems');
@@ -187,8 +261,20 @@ function getAllPrintItems() {
 
 async function printAllViaQz(){
     try {
-        if (!window.qz) { alert('QZ Tray bulunamadı. Lütfen QZ Tray kurun ve tarayıcıya izin verin.'); return; }
+        showLoading('printBtn');
+        
+        // Check if QZ Tray is available
+        if (typeof qz === 'undefined') {
+            alert('QZ Tray bulunamadı. Lütfen QZ Tray kurun ve tarayıcıya izin verin.\n\nQZ Tray\'i şu adresten indirebilirsiniz: https://qz.io/download/');
+            return;
+        }
+        
         const items = getAllPrintItems();
+        if (items.length === 0) {
+            alert('Yazdırılacak öğe bulunamadı!');
+            return;
+        }
+        
         let allZpl = '';
         
         for (const item of items) {
@@ -199,23 +285,40 @@ async function printAllViaQz(){
             u.searchParams.set('count', item.count);
             
             const res = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
             const zpl = await res.text();
             allZpl += zpl;
+        }
+        
+        // Initialize QZ Tray if not already done
+        if (!qz.websocket.isActive()) {
+            await qz.websocket.connect();
         }
         
         const cfg = qz.configs.create(null);
         await qz.print(cfg, [{ type: 'raw', format: 'plain', data: allZpl }]);
         alert('Yazdırma başarılı!');
     } catch (e) {
-        console.error(e);
+        console.error('Print error:', e);
         alert('Yazdırma başarısız: ' + (e.message || e));
+    } finally {
+        hideLoading('printBtn');
     }
 }
 
 async function downloadAllJScript(e){
     e.preventDefault();
     try {
+        showLoading('jscriptBtn');
+        
         const items = getAllPrintItems();
+        if (items.length === 0) {
+            alert('İndirilecek öğe bulunamadı!');
+            return;
+        }
+        
         let allZpl = '';
         
         for (const item of items) {
@@ -226,6 +329,9 @@ async function downloadAllJScript(e){
             u.searchParams.set('count', item.count);
             
             const res = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
             const zpl = await res.text();
             allZpl += zpl;
         }
@@ -237,24 +343,89 @@ async function downloadAllJScript(e){
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        
+        // Clean up the URL object
+        URL.revokeObjectURL(link.href);
+        
     } catch (e) {
-        console.error(e);
+        console.error('JScript download error:', e);
         alert('İndirme başarısız: ' + (e.message || e));
+    } finally {
+        hideLoading('jscriptBtn');
     }
 }
 
 async function downloadAllCsv(e){
     e.preventDefault();
-    const items = getAllPrintItems();
-    if (items.length === 1) {
-        const item = items[0];
-        const u = new URL('{{ route('print.labels.csv') }}', window.location.origin);
-        u.searchParams.set('type', item.type);
-        u.searchParams.set('id', item.id);
-        if (item.type === 'series') u.searchParams.set('mode', item.mode);
-        window.open(u.toString(), '_blank');
-    } else {
-        alert('CSV indirme sadece tek öğe için desteklenmektedir.');
+    try {
+        showLoading('csvBtn');
+        
+        const items = getAllPrintItems();
+        if (items.length === 0) {
+            alert('İndirilecek öğe bulunamadı!');
+            return;
+        }
+        
+        if (items.length === 1) {
+            const item = items[0];
+            const u = new URL('{{ route('print.labels.csv') }}', window.location.origin);
+            u.searchParams.set('type', item.type);
+            u.searchParams.set('id', item.id);
+            if (item.type === 'series') u.searchParams.set('mode', item.mode);
+            
+            // Test the URL first
+            const testRes = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+            if (!testRes.ok) {
+                throw new Error(`HTTP ${testRes.status}: ${testRes.statusText}`);
+            }
+            
+            window.open(u.toString(), '_blank');
+        } else {
+            alert('CSV indirme sadece tek öğe için desteklenmektedir.');
+        }
+    } catch (error) {
+        console.error('CSV download error:', error);
+        alert('CSV indirme başarısız: ' + error.message);
+    } finally {
+        hideLoading('csvBtn');
+    }
+}
+
+async function downloadAllZpl(e){
+    e.preventDefault();
+    try {
+        showLoading('zplBtn');
+        const items = getAllPrintItems();
+        if (items.length === 0) {
+            alert('İndirilecek öğe bulunamadı!');
+            return;
+        }
+
+        let allZpl = '';
+        for (const item of items) {
+            const u = new URL('{{ route('print.labels.zpl') }}', window.location.origin);
+            u.searchParams.set('type', item.type);
+            u.searchParams.set('id', item.id);
+            if (item.type === 'series') u.searchParams.set('mode', item.mode);
+            u.searchParams.set('count', item.count);
+            const res = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            allZpl += await res.text();
+        }
+
+        const blob = new Blob([allZpl], { type: 'text/plain' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'etiketler.zpl';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    } catch (e) {
+        console.error('ZPL download error:', e);
+        alert('ZPL indirme başarısız: ' + (e.message || e));
+    } finally {
+        hideLoading('zplBtn');
     }
 }
 
@@ -262,25 +433,31 @@ async function downloadAllCsv(e){
 let currentBartenderItem = null;
 
 async function showBartenderFields(){
-    const items = getAllPrintItems();
-    if (items.length === 0) {
-        alert('Lütfen en az bir öğe seçin.');
-        return;
+    try {
+        showLoading('bartenderBtn');
+        
+        const items = getAllPrintItems();
+        if (items.length === 0) {
+            alert('Lütfen en az bir öğe seçin.');
+            return;
+        }
+        
+        if (items.length > 1) {
+            alert('Bartender Data Fields sadece tek öğe için desteklenmektedir.');
+            return;
+        }
+        
+        currentBartenderItem = items[0];
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('bartenderFieldsModal'));
+        modal.show();
+        
+        // Load data fields
+        await loadBartenderFields();
+    } finally {
+        hideLoading('bartenderBtn');
     }
-    
-    if (items.length > 1) {
-        alert('Bartender Data Fields sadece tek öğe için desteklenmektedir.');
-        return;
-    }
-    
-    currentBartenderItem = items[0];
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('bartenderFieldsModal'));
-    modal.show();
-    
-    // Load data fields
-    await loadBartenderFields();
 }
 
 async function loadBartenderFields(){
@@ -405,10 +582,64 @@ async function downloadBartenderCsv(){
     }
 }
 
+// PDF Export fonksiyonu
+async function exportToPDF() {
+    try {
+        showLoading('pdfBtn');
+        
+        const items = getAllPrintItems();
+        if (items.length === 0) {
+            alert('Yazdırılacak öğe bulunamadı!');
+            return;
+        }
+        
+        // PDF oluşturmak için backend'e istek gönder
+        const response = await fetch('{{ route("print.labels.pdf") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ items: items })
+        });
+        
+        if (!response.ok) {
+            throw new Error('PDF oluşturma başarısız');
+        }
+        
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        
+        // PDF'i indir
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `barkod_etiketleri_${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        URL.revokeObjectURL(url);
+        
+        alert('PDF başarıyla oluşturuldu ve indirildi!');
+        
+    } catch (error) {
+        console.error('PDF export failed:', error);
+        alert('PDF oluşturma başarısız: ' + error.message);
+    } finally {
+        hideLoading('pdfBtn');
+    }
+}
+
 async function previewAllZpl(){
     try {
+        showLoading('previewBtn');
+        
         const items = getAllPrintItems();
-        if (items.length === 0) return;
+        if (items.length === 0) {
+            alert('Önizlenecek öğe bulunamadı!');
+            return;
+        }
         
         const item = items[0]; // İlk öğeyi önizle
         const u = new URL('{{ route('print.labels.preview') }}', window.location.origin);
@@ -417,7 +648,10 @@ async function previewAllZpl(){
         if (item.type === 'series') u.searchParams.set('mode', item.mode);
         
         const imgRes = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
-        if (!imgRes.ok) throw new Error('Labelary render failed');
+        if (!imgRes.ok) {
+            throw new Error(`HTTP ${imgRes.status}: ${imgRes.statusText}`);
+        }
+        
         const blob = await imgRes.blob();
         const urlObj = URL.createObjectURL(blob);
         const w = window.open('about:blank');
@@ -425,8 +659,10 @@ async function previewAllZpl(){
         w.document.write('<img style="max-width:100%;image-rendering: pixelated;" src="'+urlObj+'" />');
         w.document.close();
     } catch (e) {
-        console.error(e);
+        console.error('Preview error:', e);
         alert('Önizleme oluşturulamadı: ' + (e.message || e));
+    } finally {
+        hideLoading('previewBtn');
     }
 }
 </script>

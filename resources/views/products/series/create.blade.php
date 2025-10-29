@@ -276,21 +276,21 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '<div class="row g-2">';
         
         clothingSizes.forEach(function(size) {
-            html += `
+                    html += `
                 <div class="col-4 col-md-3">
                     <div class="form-check form-check-custom">
                         <input class="form-check-input size-checkbox" type="checkbox" name="selected_sizes[]" value="${size}" id="size_${size}">
                         <label class="form-check-label fw-semibold" for="size_${size}">${size}</label>
                     </div>
                 </div>
-            `;
-        });
-        
+                    `;
+                });
+                
         html += '</div>';
         html += '</div>';
         html += '</div>';
-        html += '</div>';
-        
+                html += '</div>';
+                
         html += '<div class="col-md-6">';
         html += '<div class="card border-0 shadow-sm">';
         html += '<div class="card-header bg-info text-white">';
@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '<div class="row g-2">';
         
         pantsSizes.forEach(function(size) {
-            html += `
+        html += `
                 <div class="col-4 col-md-3">
                     <div class="form-check form-check-custom">
                         <input class="form-check-input size-checkbox" type="checkbox" name="selected_sizes[]" value="${size}" id="size_${size}">
@@ -426,9 +426,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Barkod otomatik oluştur (sadece boşsa)
         if (!$('#seriesBarcode').val()) {
-            const timestamp = Date.now().toString().slice(-4); // Son 4 hane
-            const barcode = 'S' + timestamp;
-            $('#seriesBarcode').val(barcode);
+        const timestamp = Date.now().toString().slice(-4); // Son 4 hane
+        const barcode = 'S' + timestamp;
+        $('#seriesBarcode').val(barcode);
         }
     }
 

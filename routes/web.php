@@ -120,6 +120,8 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     Route::get('/print/labels/csv', [\App\Http\Controllers\PrintLabelController::class, 'csv'])->name('print.labels.csv');
     Route::get('/print/labels/btxml', [\App\Http\Controllers\PrintLabelController::class, 'btxml'])->name('print.labels.btxml');
     Route::get('/print/labels/preview', [\App\Http\Controllers\PrintLabelController::class, 'previewPng'])->name('print.labels.preview');
+    Route::post('/print/labels/pdf', [\App\Http\Controllers\PrintLabelController::class, 'exportPdf'])->name('print.labels.pdf');
+    Route::get('/print/labels/qr', [\App\Http\Controllers\PrintLabelController::class, 'generateQr'])->name('print.labels.qr');
     
     // Barcode Section
     Route::get('/barcodes', [BarcodeController::class, 'index'])->name('barcode.index');

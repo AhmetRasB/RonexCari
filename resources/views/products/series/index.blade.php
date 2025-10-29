@@ -50,13 +50,13 @@
 
                 @if($series->count() > 0)
                     <div class="table-responsive">
-                        <table class="table bordered-table mb-0 responsive-table" id="seriesTable">
+                        <table class="table bordered-table mb-0 responsive-table" id="seriesTable" data-page-length='10'>
                             <thead>
                                 <tr>
-                                    <th>
+                                    <th style="width: 50px;">
                                         <div class="form-check">
                                             <input class="form-check-input" type="checkbox" id="selectAll">
-                                            <label class="form-check-label" for="selectAll">Tümünü Seç</label>
+                                            <label class="form-check-label" for="selectAll" style="font-size: 0.8rem;">Tümü</label>
                                         </div>
                                     </th>
                                     <th>Seri Adı</th>
@@ -73,7 +73,7 @@
                             <tbody>
                                 @foreach($series as $serie)
                                     <tr>
-                                        <td>
+                                        <td style="width: 50px;">
                                             <div class="form-check">
                                                 <input class="form-check-input row-checkbox" type="checkbox" value="{{ $serie->id }}" data-id="{{ $serie->id }}">
                                             </div>
@@ -97,9 +97,7 @@
                                                 </div>
                                             </div>
                                         </td>
-                                        <td>
-                                            <span class="badge bg-secondary">{{ $serie->sku ?? 'SKU Yok' }}</span>
-                                        </td>
+                                        <td>{{ $serie->sku ?? 'SKU Yok' }}</td>
                                         <td>
                                             <div class="d-flex flex-column">
                                                 <span class="badge bg-primary mb-1">{{ $serie->series_size }}'li Seri</span>
@@ -143,11 +141,9 @@
                                             @endif
                                         </td>
                                         <td>
-                                            @if($serie->is_active)
-                                                <span class="badge bg-success">Aktif</span>
-                                            @else
-                                                <span class="badge bg-secondary">Pasif</span>
-                                            @endif
+                                            <span class="bg-{{ $serie->is_active ? 'success' : 'danger' }}-focus text-{{ $serie->is_active ? 'success' : 'danger' }}-main px-24 py-4 rounded-pill fw-medium text-sm">
+                                                {{ $serie->is_active ? 'Aktif' : 'Pasif' }}
+                                            </span>
                                         </td>
                                         <td class="text-center">
                                             <div class="dropdown">
@@ -215,20 +211,154 @@
 </div>
 @endsection
 
+<style>
+/* Checkbox alanı için kompakt tasarım */
+#seriesTable th:first-child,
+#seriesTable td:first-child {
+    width: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+    padding: 8px 4px !important;
+}
+
+#seriesTable th:first-child .form-check-label {
+    font-size: 0.7rem !important;
+    white-space: nowrap;
+}
+
+/* Seri sayfası için hoş tasarım */
+#seriesTable th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+    padding: 15px 12px;
+}
+
+#seriesTable td {
+    padding: 15px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+#seriesTable tbody tr:hover {
+    background-color: #f8f9fa;
+    transition: background-color 0.2s ease;
+}
+
+/* Seri adı için daha büyük font */
+#seriesTable td:nth-child(2) h6 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #212529;
+}
+
+#seriesTable td:nth-child(2) small {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+/* Badge'ler için daha hoş görünüm */
+#seriesTable .badge {
+    font-size: 0.75rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+/* SKU için daha küçük badge */
+#seriesTable td:nth-child(3) .badge {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+}
+
+/* Seri boyutu için daha büyük badge */
+#seriesTable td:nth-child(4) .badge {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+}
+
+/* Beden badge'leri için daha küçük */
+#seriesTable td:nth-child(4) .badge.bg-info {
+    font-size: 0.7rem;
+    padding: 3px 6px;
+    margin: 1px;
+}
+
+/* Stok ve renk sayısı için daha büyük font */
+#seriesTable td:nth-child(5),
+#seriesTable td:nth-child(6) {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+#seriesTable td:nth-child(5) small,
+#seriesTable td:nth-child(6) small {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+/* Fiyat alanları için daha büyük font */
+#seriesTable td:nth-child(7),
+#seriesTable td:nth-child(8) {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Durum badge'i için daha büyük */
+#seriesTable td:nth-child(9) .badge {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+}
+
+/* İşlemler butonu için daha büyük */
+#seriesTable td:nth-child(10) .btn {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+}
+
+/* Responsive için */
+@media (max-width: 768px) {
+    #seriesTable th,
+    #seriesTable td {
+        padding: 10px 8px;
+        font-size: 0.9rem;
+    }
+    
+    #seriesTable td:nth-child(2) h6 {
+        font-size: 0.9rem;
+    }
+    
+    #seriesTable .badge {
+        font-size: 0.7rem;
+        padding: 4px 6px;
+    }
+    
+    #seriesTable td:nth-child(5),
+    #seriesTable td:nth-child(6) {
+        font-size: 1rem;
+    }
+    
+    /* Checkbox alanını mobilde daha da küçült */
+    #seriesTable th:first-child,
+    #seriesTable td:first-child {
+        width: 40px !important;
+        min-width: 40px !important;
+        max-width: 40px !important;
+        padding: 6px 2px !important;
+    }
+    
+    #seriesTable th:first-child .form-check-label {
+        font-size: 0.6rem !important;
+    }
+}
+</style>
+
 @push('scripts')
 <script>
 $(document).ready(function() {
-    // DataTable initialization
-    $('#seriesTable').DataTable({
-        responsive: true,
-        pageLength: 15,
-        language: {
-            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json'
-        },
-        columnDefs: [
-            { orderable: false, targets: [0, 9] }
-        ]
-    });
+    // DataTable initialization (same style as products page)
+    let table = new DataTable('#seriesTable');
 
     // Select All functionality
     $('#selectAll').on('change', function() {

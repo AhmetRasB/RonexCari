@@ -19,10 +19,10 @@
                         <div class="col-12">
                             <h6 class="fw-semibold mb-3">Müşteri Bilgileri</h6>
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-12 col-md-6 mb-3 mb-md-0">
                                     <label class="form-label">Müşteri <span class="text-danger">*</span></label>
                                     <div class="position-relative">
-                                        <input type="text" id="customerSearch" class="form-control" placeholder="Müşteri ara..." autocomplete="off" data-bs-toggle="dropdown" data-bs-auto-close="false">
+                                        <input type="text" id="customerSearch" class="form-control" placeholder="Müşteri ara..." autocomplete="off" data-bs-toggle="dropdown" data-bs-auto-close="false" style="min-height: 44px; font-size: 16px;">
                                         <input type="hidden" name="customer_id" id="customerId" required>
                                         <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                             <iconify-icon icon="ion:search-outline" class="text-secondary-light"></iconify-icon>
@@ -34,24 +34,24 @@
                                     <div id="customerInfo" class="mt-2" style="display: none;">
                                         <!-- Selected customer info will be shown here -->
                                     </div>
-                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#customerModal">
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2 w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#customerModal">
                                         <iconify-icon icon="solar:add-circle-outline" class="me-1"></iconify-icon>
                                         Yeni Müşteri Ekle
                                     </button>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-12 col-md-3 mb-3 mb-md-0">
                                     <label class="form-label">Fatura Tarihi <span class="text-danger">*</span></label>
                                     <div class="position-relative">
-                                        <input type="date" name="invoice_date" class="form-control" value="{{ \Carbon\Carbon::now()->format('Y-m-d') }}" required>
+                                        <input type="date" name="invoice_date" class="form-control" value="{{ \Carbon\Carbon::now()->format('Y-m-d') }}" required style="min-height: 44px; font-size: 16px;">
                                         <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                             <iconify-icon icon="solar:calendar-outline" class="text-secondary-light"></iconify-icon>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-12 col-md-3">
                                     <label class="form-label">Fatura Saati <span class="text-danger">*</span></label>
                                     <div class="position-relative">
-                                        <input type="time" name="invoice_time" class="form-control" value="{{ \Carbon\Carbon::now()->format('H:i') }}" required>
+                                        <input type="time" name="invoice_time" class="form-control" value="{{ \Carbon\Carbon::now()->format('H:i') }}" required style="min-height: 44px; font-size: 16px;">
                                         <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                             <iconify-icon icon="solar:clock-circle-outline" class="text-secondary-light"></iconify-icon>
                                         </div>
@@ -66,39 +66,39 @@
                         <div class="col-12">
                             <h6 class="fw-semibold mb-3">Fatura Detayları</h6>
                             <div class="row">
-                                <div class="col-md-3">
+                                <div class="col-12 col-md-3 mb-3 mb-md-0">
                                     <label class="form-label">Vade Tarihi <span class="text-danger">*</span></label>
                                     <div class="position-relative">
-                                        <input type="date" name="due_date" class="form-control" value="{{ \Carbon\Carbon::now()->addDays(30)->format('Y-m-d') }}" required>
+                                        <input type="date" name="due_date" class="form-control" value="{{ \Carbon\Carbon::now()->addDays(30)->format('Y-m-d') }}" required style="min-height: 44px; font-size: 16px;">
                                         <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                             <iconify-icon icon="solar:calendar-outline" class="text-secondary-light"></iconify-icon>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-12 col-md-3 mb-3 mb-md-0">
                                     <label class="form-label">Para Birimi</label>
-                                    <select name="currency" id="currency" class="form-select">
+                                    <select name="currency" id="currency" class="form-select" style="min-height: 44px; font-size: 16px;">
                                         <option value="TRY" selected>₺ TRY</option>
                                         <option value="USD">$ USD</option>
                                         <option value="EUR">€ EUR</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3" id="exchangeRateContainer" style="display: none;">
+                                <div class="col-12 col-md-3 mb-3 mb-md-0" id="exchangeRateContainer" style="display: none;">
                                     <label class="form-label">Döviz Kuru</label>
-                                    <input type="text" id="exchangeRate" class="form-control" readonly value="">
+                                    <input type="text" id="exchangeRate" class="form-control" readonly value="" style="min-height: 44px; font-size: 16px;">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-12 col-md-3 mb-3 mb-md-0">
                                     <label class="form-label">KDV Durumu</label>
-                                    <select name="vat_status" class="form-select">
+                                    <select name="vat_status" class="form-select" style="min-height: 44px; font-size: 16px;">
                                         <option value="included" selected>Dahil</option>
                                         <option value="excluded">Hariç</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
-                                    <div class="form-check mt-4">
+                                <div class="col-12 col-md-3 mt-3 mt-md-0">
+                                    <div class="form-check mt-4 mt-md-0">
                                         <input type="hidden" name="payment_completed" value="0">
-                                        <input class="form-check-input" type="checkbox" id="paymentCompleted" name="payment_completed" value="1">
-                                        <label class="form-check-label" for="paymentCompleted">
+                                        <input class="form-check-input" type="checkbox" id="paymentCompleted" name="payment_completed" value="1" style="width: 20px; height: 20px;">
+                                        <label class="form-check-label" for="paymentCompleted" style="font-size: 16px; padding-left: 10px;">
                                             <iconify-icon icon="solar:check-circle-outline" class="me-2"></iconify-icon>
                                             Tahsilat Yapıldı
                                         </label>
@@ -129,8 +129,8 @@
                                 </button>
                             </div>
                             
-                            <!-- Desktop Table View -->
-                            <div class="d-none d-lg-block">
+                            <!-- Desktop Table View (hidden on mobile) -->
+                            <div class="invoice-table-scroll d-none d-lg-block">
                                 <div class="table-responsive">
                                     <table class="table table-hover" id="invoiceItemsTable">
                                         <thead class="table-light">
@@ -153,7 +153,7 @@
                             </div>
                             </div>
 
-                            <!-- Mobile Card View -->
+                            <!-- Mobile Card View (visible on mobile) -->
                             <div class="d-lg-none" id="mobileInvoiceItems">
                                 <!-- Mobile items will be added here -->
                             </div>
@@ -173,8 +173,8 @@
 
                     <!-- Invoice Totals -->
                     <div class="row">
-                        <div class="col-md-8"></div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-8"></div>
+                        <div class="col-12 col-md-4 mt-3 mt-md-0">
                             <div class="card">
                                 <div class="card-body">
                                     <h6 class="fw-semibold mb-3">Fatura Toplamları</h6>
@@ -317,6 +317,80 @@
 
 @push('scripts')
 <style>
+/* Always-on horizontal scroll and fixed widths for invoice items table */
+.invoice-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+#invoiceItemsTable {
+    min-width: 1400px; /* keep columns readable on any screen */
+    table-layout: fixed; /* enforce fixed column widths */
+}
+
+#invoiceItemsTable th,
+#invoiceItemsTable td {
+    white-space: nowrap;
+    padding: 12px 10px;
+}
+
+/* Prevent controls from collapsing: ensure at least 20px width */
+#invoiceItemsTable input,
+#invoiceItemsTable select,
+#invoiceItemsTable button,
+#invoiceItemsTable .btn,
+#invoiceItemsTable .input-group-text,
+#invoiceItemsTable .dropdown-toggle,
+#invoiceItemsTable .form-control,
+#invoiceItemsTable .form-select {
+    min-width: 20px;
+}
+
+/* Column widths: adjust to keep consistent layout */
+#invoiceItemsTable th:nth-child(1),
+#invoiceItemsTable td:nth-child(1) { /* ÜRÜN/HİZMET */
+    width: 280px;
+}
+#invoiceItemsTable th:nth-child(2),
+#invoiceItemsTable td:nth-child(2) { /* AÇIKLAMA */
+    width: 200px;
+}
+#invoiceItemsTable th:nth-child(3),
+#invoiceItemsTable td:nth-child(3) { /* SERİ BOYUTU */
+    width: 140px;
+}
+#invoiceItemsTable th:nth-child(4),
+#invoiceItemsTable td:nth-child(4) { /* MİKTAR */
+    width: 140px;
+}
+#invoiceItemsTable th:nth-child(5),
+#invoiceItemsTable td:nth-child(5) { /* B. FİYAT */
+    width: 160px;
+}
+#invoiceItemsTable th:nth-child(6),
+#invoiceItemsTable td:nth-child(6) { /* KDV */
+    width: 120px;
+}
+#invoiceItemsTable th:nth-child(7),
+#invoiceItemsTable td:nth-child(7) { /* İNDİRİM */
+    width: 120px;
+}
+#invoiceItemsTable th:nth-child(8),
+#invoiceItemsTable td:nth-child(8) { /* TOPLAM */
+    width: 160px;
+}
+#invoiceItemsTable th:nth-child(9),
+#invoiceItemsTable td:nth-child(9) { /* İŞLEM */
+    width: 100px;
+}
+
+/* Make inputs/selects fill their cells but not shrink content */
+#invoiceItemsTable input.form-control,
+#invoiceItemsTable select.form-select,
+#invoiceItemsTable .form-control {
+    min-width: 100%;
+}
+
 /* Fix dropdown positioning */
 #customerDropdown {
     position: absolute !important;
@@ -502,7 +576,7 @@
         
         .product-service-dropdown {
             position: fixed !important;
-            z-index: 1020 !important;
+            z-index: 9999 !important;
             width: 95% !important;
             max-width: 450px !important;
             left: 2.5% !important;
@@ -510,6 +584,8 @@
             max-height: 400px !important;
             border-radius: 12px !important;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+            background: white !important;
+            border: 2px solid #007bff !important;
         }
         
         .product-service-dropdown .dropdown-item {
@@ -557,6 +633,25 @@
     }
 }
 
+/* Small desktop screens - make rows stack vertically */
+@media screen and (max-width: 1200px) and (min-width: 992px) {
+    #invoiceItemsTable {
+        display: none;
+    }
+    
+    #mobileInvoiceItems {
+        display: block !important;
+    }
+    
+    .d-lg-none {
+        display: block !important;
+    }
+    
+    .d-none.d-lg-block {
+        display: none !important;
+    }
+}
+
 /* Extra small screens */
 @media screen and (max-width: 576px) {
     /* Further reduce padding and font sizes */
@@ -600,8 +695,15 @@
 let itemCounter = 0;
 
 $(document).ready(function() {
-    // Add initial invoice item row
-    addInvoiceItemRow();
+    // Check if mobile view
+    const isMobile = window.innerWidth < 992;
+    
+    // Add initial invoice item row based on device
+    if (isMobile) {
+        addMobileInvoiceItemRow();
+    } else {
+        addInvoiceItemRow();
+    }
     
     // Open scanner in invoice context
     $('#openInvoiceScanner').on('click', function(){
@@ -614,9 +716,6 @@ $(document).ready(function() {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         }
     });
-    
-    // Add first invoice item row
-    addInvoiceItemRow();
     
     // Initialize exchange rate if currency is not TRY
     const initialCurrency = $('#currency').val();
@@ -1058,7 +1157,7 @@ function addInvoiceItemRow() {
         <tr data-item-index="${itemCounter}" style="border-bottom: 2px solid #f8f9fa;">
             <td style="padding: 20px 15px;">
                 <div class="position-relative">
-                    <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." data-row="${itemCounter}" required style="min-height: 45px; font-size: 15px; border-radius: 8px;">
+                    <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." data-row="${itemCounter}" required style="min-height: 30px; height: 30px; font-size: 14px; border-radius: 8px;">
                     <div id="productServiceDropdown${itemCounter}" class="product-service-dropdown" style="display: none;">
                         <!-- Search results will be populated here -->
                     </div>
@@ -1803,6 +1902,8 @@ function searchProductsServices(query, rowIndex) {
     $.get('{{ route("sales.invoices.search.products") }}', { q: query })
         .done(function(data) {
             const dropdown = $(`#productServiceDropdown${rowIndex}`);
+            // Ensure dropdown can be shown again after force hide
+            dropdown.removeClass('hidden');
             dropdown.empty();
             
             if (data.length === 0) {
@@ -1871,52 +1972,50 @@ function searchProductsServices(query, rowIndex) {
                 });
             }
             
-            // Position dropdown as separate box below the row
+            // Position dropdown as separate box below the row/card
             const input = $(`.product-service-search[data-row="${rowIndex}"]`);
             if (input.length > 0) {
                 const inputRect = input[0].getBoundingClientRect();
                 const row = input.closest('tr');
-                const rowRect = row[0].getBoundingClientRect();
+                const card = input.closest('.card[data-item-index]');
                 
                 // Move dropdown to body for better positioning
                 dropdown.appendTo('body');
                 
                 // Check if mobile
-                const isMobile = window.innerWidth <= 768;
-                const isTablet = window.innerWidth <= 1024 && window.innerWidth > 768;
+                const isMobile = window.innerWidth < 992;
+                const isTablet = window.innerWidth <= 1024 && window.innerWidth >= 768;
                 
                 let dropdownConfig = {};
                 
                 if (isMobile) {
-                    // Mobile positioning - above the table
-                    const table = $('.table-responsive').first();
-                    const tableRect = table.length > 0 ? table[0].getBoundingClientRect() : { top: 0 };
-                    
+                    // Mobile positioning - centered below input
                     dropdownConfig = {
                         'position': 'fixed',
-                        'top': Math.max(20, tableRect.top - 10) + 'px',
-                        'left': '2.5%',
-                        'right': '2.5%',
-                        'width': '95%',
-                        'max-width': '450px',
-                        'z-index': 1020,
+                        'top': (inputRect.bottom + 10) + 'px',
+                        'left': '5%',
+                        'right': '5%',
+                        'width': '90%',
+                        'max-width': '100%',
+                        'z-index': 9999,
                         'background': 'white',
                         'border': '2px solid #007bff',
                         'border-radius': '12px',
                         'box-shadow': '0 8px 24px rgba(0, 0, 0, 0.2)',
-                        'max-height': '300px',
+                        'max-height': '60vh',
                         'overflow-y': 'auto',
                         'margin-top': '0',
                         'padding': '0'
                     };
                 } else if (isTablet) {
                     // Tablet positioning
+                    const containerRect = row.length ? row[0].getBoundingClientRect() : (card.length ? card[0].getBoundingClientRect() : inputRect);
                     dropdownConfig = {
                         'position': 'fixed',
-                        'top': (rowRect.bottom + 10) + 'px',
+                        'top': (containerRect.bottom + 10) + 'px',
                         'left': Math.max(20, Math.min(inputRect.left, window.innerWidth - 470)) + 'px',
                         'width': '450px',
-                        'z-index': 1020,
+                        'z-index': 9999,
                         'background': 'white',
                         'border': '2px solid #007bff',
                         'border-radius': '8px',
@@ -1928,12 +2027,13 @@ function searchProductsServices(query, rowIndex) {
                     };
                 } else {
                     // Desktop positioning
+                    const containerRect = row.length ? row[0].getBoundingClientRect() : inputRect;
                     dropdownConfig = {
                         'position': 'fixed',
-                        'top': (rowRect.bottom + 10) + 'px',
+                        'top': (containerRect.bottom + 10) + 'px',
                         'left': Math.max(20, Math.min(inputRect.left, window.innerWidth - 520)) + 'px',
                         'width': '500px',
-                        'z-index': 1020,
+                        'z-index': 9999,
                         'background': 'white',
                         'border': '2px solid #007bff',
                         'border-radius': '8px',
@@ -1948,6 +2048,15 @@ function searchProductsServices(query, rowIndex) {
                 dropdown.css(dropdownConfig);
             }
             
+            // Ensure dropdown is visible even if it was force-hidden before
+            dropdown.removeClass('hidden');
+            // Clear any inline styles that might prevent showing
+            dropdown.css({ 
+                'visibility': 'visible', 
+                'opacity': '1', 
+                'display': 'block',
+                'pointer-events': 'auto'
+            });
             dropdown.show();
         })
         .fail(function() {
@@ -1955,7 +2064,7 @@ function searchProductsServices(query, rowIndex) {
         });
 }
 
-// Handle product/service selection
+// Handle product/service selection (works for both table rows and mobile cards)
 $(document).on('click', '.product-service-item', function(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -1964,11 +2073,13 @@ $(document).on('click', '.product-service-item', function(e) {
     const dropdownId = $(this).closest('.product-service-dropdown').attr('id');
     const rowIndex = dropdownId.replace('productServiceDropdown', '');
     
-    // Find the corresponding row
+    // Find the corresponding row or card
     const row = $(`tr[data-item-index="${rowIndex}"]`);
+    const card = $(`.card[data-item-index="${rowIndex}"]`);
+    const container = row.length ? row : card;
     
-    if (row.length === 0) {
-        console.error('Row not found for index:', rowIndex);
+    if (container.length === 0) {
+        console.error('Row/Card not found for index:', rowIndex);
         return;
     }
     
@@ -1983,61 +2094,146 @@ $(document).on('click', '.product-service-item', function(e) {
     console.log('Product selected:', name, price, vatRate, type);
     
     // Set the product/service name
-    row.find('input[name*="[product_service_name]"]').val(name);
+    container.find('input[name*="[product_service_name]"]').val(name);
     
     // Set the unit price
-    row.find('input[name*="[unit_price]"]').val(price);
+    container.find('input[name*="[unit_price]"]').val(price);
     
     // Set the tax rate
-    row.find('select[name*="[tax_rate]"]').val(vatRate);
+    container.find('select[name*="[tax_rate]"]').val(vatRate);
     
     // Set hidden fields for product_id and type
-    row.find('input[name*="[product_id]"]').val(productId);
-    row.find('input[name*="[type]"]').val(type);
+    container.find('input[name*="[product_id]"]').val(productId);
+    container.find('input[name*="[type]"]').val(type);
     
     // Handle color variants
     if (hasColorVariants && colorVariants && colorVariants.length > 0) {
-        // Add color column to table header if not exists
-        addColorColumnToTable();
-        
-        // Add color cell to current row
-        addColorCellToRow(row, colorVariants);
-        
-        // Store color variants data
-        row.data('color-variants', colorVariants);
+        if (row.length) {
+            // Desktop table row
+            addColorColumnToTable();
+            addColorCellToRow(row, colorVariants);
+            row.data('color-variants', colorVariants);
+        } else if (card.length) {
+            // Mobile card
+            card.find('.color-selection-mobile').show();
+            const colorSelect = card.find('.color-variant-select');
+            colorSelect.empty().append('<option value="">Renk Seçin</option>');
+            colorVariants.forEach(function(variant) {
+                const stockText = variant.stock_quantity ? ` (${variant.stock_quantity} adet)` : '';
+                colorSelect.append(`<option value="${variant.id}" data-stock="${variant.stock_quantity}">${variant.color}${stockText}</option>`);
+            });
+            card.data('color-variants', colorVariants);
+        }
     }
     
     // Store stock information for validation
     const stockQuantity = $(this).data('stock-quantity');
-    row.data('stock-quantity', stockQuantity);
-    row.data('product-type', type);
+    container.data('stock-quantity', stockQuantity);
+    container.data('product-type', type);
     
-    // Hide dropdown
-    $(`#productServiceDropdown${rowIndex}`).hide();
+    // Hide dropdown immediately - hide the specific dropdown first
+    const specificDropdown = $(`#productServiceDropdown${rowIndex}`);
+    specificDropdown.addClass('hidden');
+    specificDropdown.hide().fadeOut(0);
+    // Ensure it's completely hidden
+    specificDropdown.css({
+        'display': 'none',
+        'visibility': 'hidden',
+        'opacity': '0'
+    });
     
-    // Clear search input
-    row.find('input[name*="[product_service_name]"]').val(name);
+    // Then hide all dropdowns
+    forceHideAllDropdowns();
+    
+    // Clear search input (but keep the selected name)
+    container.find('input[name*="[product_service_name]"]').val(name);
+    
+    // Remove focus from the input to prevent immediate reopening
+    container.find('input[name*="[product_service_name]"]').blur();
     
     // Recalculate totals
-    calculateLineTotal.call(row.find('.unit-price')[0]);
+    if (row.length) {
+        calculateLineTotal.call(row.find('.unit-price')[0]);
+    } else if (card.length) {
+        calculateMobileLineTotal.call(card.find('.unit-price')[0]);
+    }
     
     console.log('Product added successfully:', name);
 });
 
-// Handle product/service search input
+// Force hide all dropdowns
+function forceHideAllDropdowns() {
+    // Get all dropdowns including those appended to body
+    const dropdowns = $('.product-service-dropdown');
+    
+    dropdowns.each(function() {
+        const $dropdown = $(this);
+        // Add hidden class which has !important styles
+        $dropdown.addClass('hidden');
+        // Also force hide with jQuery
+        $dropdown.hide();
+        $dropdown.fadeOut(0);
+        // Set inline styles as backup
+        $dropdown.css({
+            'display': 'none',
+            'visibility': 'hidden',
+            'opacity': '0',
+            'pointer-events': 'none'
+        });
+    });
+    
+    // Additional cleanup - ensure no dropdowns are visible
+    setTimeout(function() {
+        $('.product-service-dropdown').each(function() {
+            $(this).addClass('hidden');
+            $(this).hide();
+            $(this).css({
+                'display': 'none',
+                'visibility': 'hidden',
+                'opacity': '0'
+            });
+        });
+    }, 50);
+}
+
+// Handle product/service search input (works for table rows and mobile cards)
 $(document).on('input', '.product-service-search', function() {
     const query = $(this).val();
+    let rowIndex;
     const row = $(this).closest('tr');
-    const rowIndex = row.data('item-index');
-    
-    searchProductsServices(query, rowIndex);
+    if (row.length) {
+        rowIndex = row.data('item-index');
+    } else {
+        const card = $(this).closest('.card[data-item-index]');
+        rowIndex = card.data('item-index');
+    }
+    if (rowIndex !== undefined) {
+        searchProductsServices(query, rowIndex);
+    }
+});
+
+// Trigger search on focus so it reappears after edits
+$(document).on('focus', '.product-service-search', function() {
+    const current = $(this).val();
+    if (current && current.length >= 2) {
+        let rowIndex;
+        const row = $(this).closest('tr');
+        if (row.length) {
+            rowIndex = row.data('item-index');
+        } else {
+            const card = $(this).closest('.card[data-item-index]');
+            rowIndex = card.data('item-index');
+        }
+        if (rowIndex !== undefined) {
+            searchProductsServices(current, rowIndex);
+        }
+    }
 });
 
 // Hide dropdowns when clicking outside
 $(document).on('click', function(e) {
     if (!$(e.target).closest('.position-relative').length && !$(e.target).closest('.product-service-dropdown').length) {
-        $('.dropdown-menu').hide();
-        $('.product-service-dropdown').hide();
+        forceHideAllDropdowns();
     }
 });
 
@@ -2122,15 +2318,20 @@ function addColorCellToRow(row, colorVariants) {
 
 // Stock validation function
 function validateStock(row) {
-    const quantity = parseFloat(row.find('input[name*="[quantity]"]').val()) || 0;
+    // Support both desktop table rows and mobile cards
+    const isCard = row.hasClass('card');
+    const quantityInput = isCard ? row.find('input[name*="[quantity]"]') : row.find('input[name*="[quantity]"]');
+    const quantity = parseFloat(quantityInput.val()) || 0;
     const productType = row.data('product-type') || 'product';
     const productName = row.find('input[name*="[product_service_name]"]').val() || 'Ürün';
+    const productId = (row.find('input[name*="[product_id]"]').val() || '').toString();
     
     // Check if product has color variants
     const colorSelect = row.find('.color-variant-select');
     let stockQuantity = 0;
     let selectedColor = '';
     
+    const colorVariantId = colorSelect.length > 0 ? (colorSelect.val() || '') : '';
     if (colorSelect.length > 0 && colorSelect.val()) {
         // Color variant selected - use color-specific stock
         const selectedOption = colorSelect.find('option:selected');
@@ -2141,13 +2342,47 @@ function validateStock(row) {
         stockQuantity = row.data('stock-quantity') || 0;
     }
     
+    // Sum quantities across all rows/cards for the same product and variant
+    let totalRequested = 0;
+    const keyVariant = colorVariantId || 'no_variant';
+    // table rows
+    $('tbody tr').each(function() {
+        const r = $(this);
+        const pid = (r.find('input[name*="[product_id]"]').val() || '').toString();
+        const type = r.data('product-type') || 'product';
+        const variantSel = r.find('.color-variant-select');
+        const vid = variantSel.length > 0 ? (variantSel.val() || '') : '';
+        if (pid && pid === productId && type === productType && (vid || 'no_variant') === keyVariant) {
+            totalRequested += parseFloat(r.find('input[name*="[quantity]"]').val()) || 0;
+        }
+    });
+    // mobile cards
+    $('.card[data-item-index]').each(function() {
+        const c = $(this);
+        const pid = (c.find('input[name*="[product_id]"]').val() || '').toString();
+        const type = c.data('product-type') || 'product';
+        const variantSel = c.find('.color-variant-select');
+        const vid = variantSel.length > 0 ? (variantSel.val() || '') : '';
+        if (pid && pid === productId && type === productType && (vid || 'no_variant') === keyVariant) {
+            totalRequested += parseFloat(c.find('input[name*="[quantity]"]').val()) || 0;
+        }
+    });
+    
+    // Remaining stock considering other lines
+    const otherRequested = totalRequested - quantity;
+    const remaining = Math.max(0, stockQuantity - otherRequested);
+    
     // Clear previous warnings and styling
     row.find('.stock-warning').remove();
     row.next('.stock-warning-row').remove(); // Remove warning row below
     row.removeClass('table-danger');
     row.find('td').removeClass('bg-danger-subtle');
     
-    if (quantity > 0 && stockQuantity > 0 && quantity > stockQuantity) {
+    if (quantity > 0 && stockQuantity > 0 && quantity > remaining) {
+        // Cap quantity to remaining if possible
+        if (remaining >= 0) {
+            quantityInput.val(remaining);
+        }
         // Make entire row red
         row.addClass('table-danger');
         row.find('td').addClass('bg-danger-subtle');
@@ -2161,7 +2396,7 @@ function validateStock(row) {
                         <i class="ri-alert-line me-2"></i>
                         <strong>YETERSİZ STOK!</strong> 
                         ${productType === 'series' ? 'Seri' : 'Ürün'}${colorInfo} stokta: ${stockQuantity} ${productType === 'series' ? 'seri' : 'adet'}, 
-                        istenen: ${quantity} ${productType === 'series' ? 'seri' : 'adet'}
+                        mevcut satırlardaki toplam istek: ${otherRequested + quantity} ${productType === 'series' ? 'seri' : 'adet'}. Bu satır için en fazla ${remaining} ekleyebilirsiniz.
                     </div>
                 </td>
             </tr>
@@ -2205,12 +2440,14 @@ $('#invoiceForm').on('submit', function(e) {
         const quantity = parseFloat(row.find('input[name*="[quantity]"]').val()) || 0;
         const productType = row.data('product-type') || 'product';
         const productName = row.find('input[name*="[product_service_name]"]').val() || 'Ürün';
+        const productId = (row.find('input[name*="[product_id]"]').val() || '').toString();
         
         // Check if product has color variants
         const colorSelect = row.find('.color-variant-select');
         let stockQuantity = 0;
         let selectedColor = '';
         
+        const colorVariantId = colorSelect.length > 0 ? (colorSelect.val() || '') : '';
         if (colorSelect.length > 0 && colorSelect.val()) {
             // Color variant selected - use color-specific stock
             const selectedOption = colorSelect.find('option:selected');
@@ -2221,10 +2458,24 @@ $('#invoiceForm').on('submit', function(e) {
             stockQuantity = row.data('stock-quantity') || 0;
         }
         
-        if (quantity > 0 && stockQuantity > 0 && quantity > stockQuantity) {
+        // Sum quantities for same product (and selected color variant)
+        let totalRequested = 0;
+        const keyVariant = colorVariantId || 'no_variant';
+        $('tbody tr').each(function() {
+            const r = $(this);
+            const pid = (r.find('input[name*="[product_id]"]').val() || '').toString();
+            const type = r.data('product-type') || 'product';
+            const variantSel = r.find('.color-variant-select');
+            const vid = variantSel.length > 0 ? (variantSel.val() || '') : '';
+            if (pid && pid === productId && type === productType && (vid || 'no_variant') === keyVariant) {
+                totalRequested += parseFloat(r.find('input[name*="[quantity]"]').val()) || 0;
+            }
+        });
+        const remaining = stockQuantity - (totalRequested - quantity);
+        if (quantity > 0 && stockQuantity > 0 && quantity > remaining) {
             hasStockError = true;
             const colorInfo = selectedColor ? ` (${selectedColor} rengi)` : '';
-            errorMessages.push(`${productName}${colorInfo}: Stokta ${stockQuantity} ${productType === 'series' ? 'seri' : 'adet'} var, ${quantity} ${productType === 'series' ? 'seri' : 'adet'} isteniyor.`);
+            errorMessages.push(`${productName}${colorInfo}: Stok ${stockQuantity}. Satırlardaki toplam istek ${totalRequested}. Bu satır için en fazla ${Math.max(0, remaining)} girilebilir.`);
         }
     });
     
@@ -2342,13 +2593,18 @@ $(document).on('change', '.card .color-variant-select', function() {
 function validateMobileStock(card, variant, quantityInput, seriesSizeSelect) {
     const quantity = parseFloat(quantityInput.val()) || 0;
     const seriesSize = parseInt(seriesSizeSelect.val()) || 1;
-    const actualQuantity = seriesSize > 1 ? quantity * seriesSize : quantity;
+    // Seri boyutu sadece bölme işlemi için - stok kontrolünde çarpılmasın
+    const actualQuantity = quantity;
     
     // Remove existing warnings
     card.find('.mobile-stock-warning').remove();
     card.removeClass('border-danger');
     
-    if (actualQuantity > variant.stock_quantity) {
+    // Add 10% tolerance for mobile (more lenient than desktop)
+    const toleranceFactor = 1.1;
+    const maxAllowedQuantity = Math.floor(variant.stock_quantity * toleranceFactor);
+    
+    if (actualQuantity > maxAllowedQuantity) {
         const warningHtml = `
             <div class="mobile-stock-warning mt-2 p-3" style="background-color: #f8d7da; border-radius: 8px; border-left: 4px solid #dc3545;">
                 <div class="d-flex align-items-center">
@@ -2405,6 +2661,7 @@ $(document).on('change', '.card .series-size-select', function() {
         const variant = colorVariants.find(v => v.id == selectedColorId);
         if (variant) {
             const quantityInput = card.find('.quantity-input');
+            // Seri boyutu sadece bölme işlemi için - stok kontrolünde çarpılmasın
             validateMobileStock(card, variant, quantityInput, $(this));
         }
     }
@@ -2579,6 +2836,68 @@ $(document).on('change', '.card .series-size-select', function() {
     z-index: 1000;
     max-height: 300px;
     overflow-y: auto;
+}
+
+/* Mobile specific dropdown styles */
+@media (max-width: 991px) {
+    .product-service-dropdown {
+        position: fixed !important;
+        z-index: 9999 !important;
+        background: white !important;
+        border: 2px solid #007bff !important;
+        border-radius: 12px !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+        max-height: 400px !important;
+        overflow-y: auto !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    .product-service-dropdown.hidden {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+    }
+    
+    /* Customer dropdown mobile improvements */
+    #customerDropdown {
+        position: fixed !important;
+        z-index: 9999 !important;
+        max-height: 60vh !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+        border: 2px solid #007bff !important;
+        border-radius: 12px !important;
+    }
+    
+    /* Ensure all inputs are touch-friendly on mobile */
+    .form-control, .form-select {
+        min-height: 44px !important;
+        font-size: 16px !important;
+    }
+    
+    /* Mobile card improvements */
+    .card-body {
+        padding: 20px !important;
+    }
+    
+    /* Product/service search input on mobile - keep 30px as requested but ensure touch-friendly */
+    .product-service-search {
+        min-height: 44px !important;
+        height: 44px !important;
+        font-size: 16px !important;
+    }
+    
+    /* Action buttons full width on mobile */
+    .btn {
+        min-height: 44px !important;
+        font-size: 16px !important;
+    }
+    
+    /* Textarea mobile improvements */
+    textarea.form-control {
+        min-height: 80px !important;
+    }
 }
 
 .product-service-dropdown .dropdown-item {
