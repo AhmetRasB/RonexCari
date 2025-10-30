@@ -189,14 +189,7 @@
                     </div>
                     <div id="foreignCurrencyTotals" style="display: none;">
                         <hr>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Döviz Kuru:</span>
-                            <span id="exchangeRateDisplay">-</span>
-                        </div>
-                        <div class="d-flex justify-content-between fw-bold">
-                            <span>Toplam (TL):</span>
-                            <span id="totalAmountTRY">0,00 ₺</span>
-                        </div>
+                    <!-- TL eşdeğeri ve kur gösterimi kaldırıldı -->
                     </div>
                                 </div>
                             </div>
@@ -638,8 +631,8 @@ $(document).ready(function() {
             </td>
             <td>
                 <div class="input-group">
-                    <input type="number" name="items[{{ $index }}][discount_rate]" class="form-control discount-rate" value="{{ $item->discount_rate ?? 0 }}" min="0" max="100" step="0.01" style="min-height: 50px; font-size: 16px;">
-                    <span class="input-group-text" style="min-height: 50px; font-size: 14px;">%</span>
+                    <input type="number" name="items[{{ $index }}][discount_rate]" class="form-control discount-rate" value="{{ $item->discount_rate ?? 0 }}" min="0" step="0.01" style="min-height: 50px; font-size: 16px;">
+                    <span class="input-group-text discount-currency-symbol" style="min-height: 50px; font-size: 14px;">{{ $invoice->currency == 'USD' ? '$' : ($invoice->currency == 'EUR' ? '€' : '₺') }}</span>
                 </div>
             </td>
             <td>
@@ -1102,8 +1095,8 @@ $(document).on('click', '.customer-option', function() {
             </td>
             <td>
                 <div class="input-group">
-                    <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" max="100" step="0.01" style="min-height: 50px; font-size: 16px;">
-                    <span class="input-group-text" style="min-height: 50px; font-size: 14px;">%</span>
+                    <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" step="0.01" style="min-height: 50px; font-size: 16px;">
+                    <span class="input-group-text discount-currency-symbol" style="min-height: 50px; font-size: 14px;">{{ $invoice->currency == 'USD' ? '$' : ($invoice->currency == 'EUR' ? '€' : '₺') }}</span>
                 </div>
             </td>
             <td>
@@ -1151,7 +1144,7 @@ function calculateLineTotal() {
     }
     
     const lineTotal = quantity * unitPrice;
-    const discountAmount = lineTotal * (discountRate / 100);
+    const discountAmount = Math.max(0, Math.min(discountRate, lineTotal));
     const lineTotalAfterDiscount = lineTotal - discountAmount;
     
     row.find('.line-total').val(lineTotalAfterDiscount.toFixed(2).replace('.', ','));
@@ -1166,19 +1159,16 @@ function calculateTotals() {
     
     $('#invoiceItemsBody tr').each(function() {
         const lineTotal = parseFloat($(this).find('.line-total').val().replace(',', '.')) || 0;
-        const discountRate = parseFloat($(this).find('.discount-rate').val()) || 0;
+        const discountFixed = parseFloat($(this).find('.discount-rate').val()) || 0;
         const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
-        console.log('rowTotals:', { lineTotal, discountRate, taxRate });
+        console.log('rowTotals:', { lineTotal, discountFixed, taxRate });
         
-        // Line total is already in invoice currency
-        const discountAmount = lineTotal * (discountRate / 100);
-        const lineTotalAfterDiscount = lineTotal - discountAmount;
-        
-        subtotal += lineTotalAfterDiscount;
-        totalDiscount += discountAmount;
+        // Line total already includes discount
+        subtotal += lineTotal;
+        totalDiscount += discountFixed;
         
         if ($('select[name="vat_status"]').val() === 'included') {
-            totalVat += lineTotalAfterDiscount * (taxRate / 100);
+            totalVat += lineTotal * (taxRate / 100);
         }
     });
     

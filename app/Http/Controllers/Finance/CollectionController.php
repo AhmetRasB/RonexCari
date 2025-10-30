@@ -255,7 +255,16 @@ class CollectionController extends Controller
         // Convert amount to words (Turkish)
         $amountInWords = $this->numberToWords($collection->amount);
         
-        return view('finance.collections.print', compact('collection', 'amountInWords'));
+        // Remaining customer balance in the same currency
+        $remainingBalance = null;
+        if ($collection->customer) {
+            $currencyField = 'balance_' . strtolower($collection->currency);
+            if (in_array($currencyField, ['balance_try', 'balance_usd', 'balance_eur'])) {
+                $remainingBalance = $collection->customer->$currencyField;
+            }
+        }
+        
+        return view('finance.collections.print', compact('collection', 'amountInWords', 'remainingBalance'));
     }
 
     /**

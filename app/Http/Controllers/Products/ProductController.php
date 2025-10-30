@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Products;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\ProductCategory;
 use Illuminate\Http\Request;
 use App\Services\QrBarcodeService;
 
@@ -611,18 +612,14 @@ class ProductController extends Controller
      */
     private function getAllowedCategoriesForAccount($accountId): array
     {
-        try {
-            $code = \App\Models\Account::find($accountId)?->code;
-        } catch (\Throwable $e) {
-            $code = null;
+        if (!$accountId) {
+            return [];
         }
-        if ($code === 'RONEX1') {
-            return ['Gömlek'];
-        }
-        if ($code === 'RONEX2') {
-            return ['Ceket', 'Takım Elbise', 'Pantalon'];
-        }
-        return [];
+        return ProductCategory::where('account_id', $accountId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
     }
 
     /**

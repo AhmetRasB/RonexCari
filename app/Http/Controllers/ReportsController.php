@@ -54,9 +54,22 @@ class ReportsController extends Controller
         // Get current exchange rates (fresh)
         $exchangeRates = $this->currencyService->getExchangeRates();
         $exchangeRates['TRY'] = 1; // Add TRY as base currency
+        // Precompute numeric rates for raw SQL usage
+        $usdRate = (float) ($exchangeRates['USD'] ?? 1);
+        $eurRate = (float) ($exchangeRates['EUR'] ?? 1);
         
-        // Get test rates for all API versions
-        $testRates = $this->currencyService->getTestRates();
+        // Get test rates for all API versions (tolerate API issues)
+        try {
+            $testRates = $this->currencyService->getTestRates();
+            if (!is_array($testRates)) {
+                $testRates = [];
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Currency test rates unavailable', [
+                'error' => $e->getMessage()
+            ]);
+            $testRates = [];
+        }
 
         // === SALES ANALYTICS ===
         
@@ -143,16 +156,37 @@ class ReportsController extends Controller
             })->whereBetween('created_at', [$startOf6Months, Carbon::now()])->count();
 
         // === TOP 10 MOST SOLD PRODUCTS (ONLY FROM APPROVED INVOICES) ===
-        $topSellingProducts = InvoiceItem::select('product_service_name')
-            ->selectRaw('SUM(quantity) as total_quantity')
-            ->selectRaw('SUM(line_total) as total_revenue')
+        $topSellingProducts = InvoiceItem::select('invoice_items.product_service_name')
+            ->leftJoin('products', 'invoice_items.product_id', '=', 'products.id')
+            ->leftJoin('product_series', 'invoice_items.product_id', '=', 'product_series.id')
+            ->selectRaw('SUM(invoice_items.quantity) as total_quantity')
+            ->selectRaw('SUM(invoice_items.line_total) as total_revenue')
+            ->selectRaw('SUM(COALESCE(
+                products.cost,
+                product_series.cost,
+                (SELECT p.cost FROM products p WHERE p.name = invoice_items.product_service_name LIMIT 1),
+                (SELECT ps.cost FROM product_series ps WHERE ps.name = invoice_items.product_service_name LIMIT 1),
+                (
+                SELECT COALESCE(pii.unit_price * (
+                    CASE WHEN pii.unit_currency = "USD" THEN '.$usdRate.' 
+                         WHEN pii.unit_currency = "EUR" THEN '.$eurRate.' 
+                         ELSE 1 END
+                ), 0)
+                FROM purchase_invoice_items pii
+                JOIN purchase_invoices pi ON pi.id = pii.purchase_invoice_id
+                WHERE (pii.product_id = invoice_items.product_id OR pii.product_service_name = invoice_items.product_service_name)
+                ORDER BY pi.created_at DESC
+                LIMIT 1
+                ),
+                0
+            ) * COALESCE(invoice_items.quantity, 0)) as total_cost')
             ->selectRaw('COUNT(*) as sale_count')
             ->whereHas('invoice', function($query) use ($accountId) {
                 $query->when($accountId !== null, function($q) use ($accountId) {
                     return $q->where('account_id', $accountId);
                 });
             })
-            ->groupBy('product_service_name')
+            ->groupBy('invoice_items.product_service_name')
             ->orderByDesc('total_quantity')
             ->limit(10)
             ->get();
@@ -169,14 +203,39 @@ class ReportsController extends Controller
             $exchangeRates
         );
         
-        $monthlyPurchases = $this->calculateTotalInTRY(
-            PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
-                return $query->where('account_id', $accountId);
-            })->when($accountId === null, function($query) {
-                return $query;
-            })->whereBetween('created_at', [$startOfMonth, Carbon::now()])->get(['total_amount', 'currency']),
-            $exchangeRates
-        );
+        // Use COGS (sold quantity * product cost) instead of purchases
+        $usdRate = $exchangeRates['USD'] ?? 1;
+        $eurRate = $exchangeRates['EUR'] ?? 1;
+
+        $monthlyPurchases = DB::table('invoice_items')
+            ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->leftJoin('products', 'invoice_items.product_id', '=', 'products.id')
+            ->leftJoin('product_series', 'invoice_items.product_id', '=', 'product_series.id')
+            ->when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('invoices.account_id', $accountId);
+            })
+            ->whereBetween('invoices.created_at', [$startOfMonth, Carbon::now()])
+            ->sum(DB::raw(
+                'COALESCE(
+                    products.cost,
+                    product_series.cost,
+                    (SELECT p.cost FROM products p WHERE p.name = invoice_items.product_service_name LIMIT 1),
+                    (SELECT ps.cost FROM product_series ps WHERE ps.name = invoice_items.product_service_name LIMIT 1),
+                    (
+                    SELECT COALESCE(pii.unit_price * (
+                        CASE WHEN pii.unit_currency = "USD" THEN '.$usdRate.' 
+                             WHEN pii.unit_currency = "EUR" THEN '.$eurRate.' 
+                             ELSE 1 END
+                    ), 0)
+                    FROM purchase_invoice_items pii
+                    JOIN purchase_invoices pi ON pi.id = pii.purchase_invoice_id
+                    WHERE (pii.product_id = invoice_items.product_id OR pii.product_service_name = invoice_items.product_service_name)
+                    ORDER BY pi.created_at DESC
+                    LIMIT 1
+                    ),
+                    0
+                ) * COALESCE(invoice_items.quantity, 0)'
+            ));
         
         $monthlyExpenses = Expense::when($accountId !== null, function($query) use ($accountId) {
                 return $query->where('account_id', $accountId);
@@ -207,14 +266,35 @@ class ReportsController extends Controller
             $exchangeRates
         );
         
-        $sixMonthPurchases = $this->calculateTotalInTRY(
-            PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
-                return $query->where('account_id', $accountId);
-            })->when($accountId === null, function($query) {
-                return $query;
-            })->whereBetween('created_at', [$startOf6Months, Carbon::now()])->get(['total_amount', 'currency']),
-            $exchangeRates
-        );
+        $sixMonthPurchases = DB::table('invoice_items')
+            ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->leftJoin('products', 'invoice_items.product_id', '=', 'products.id')
+            ->leftJoin('product_series', 'invoice_items.product_id', '=', 'product_series.id')
+            ->when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('invoices.account_id', $accountId);
+            })
+            ->whereBetween('invoices.created_at', [$startOf6Months, Carbon::now()])
+            ->sum(DB::raw(
+                'COALESCE(
+                    products.cost,
+                    product_series.cost,
+                    (SELECT p.cost FROM products p WHERE p.name = invoice_items.product_service_name LIMIT 1),
+                    (SELECT ps.cost FROM product_series ps WHERE ps.name = invoice_items.product_service_name LIMIT 1),
+                    (
+                    SELECT COALESCE(pii.unit_price * (
+                        CASE WHEN pii.unit_currency = "USD" THEN '.$usdRate.' 
+                             WHEN pii.unit_currency = "EUR" THEN '.$eurRate.' 
+                             ELSE 1 END
+                    ), 0)
+                    FROM purchase_invoice_items pii
+                    JOIN purchase_invoices pi ON pi.id = pii.purchase_invoice_id
+                    WHERE (pii.product_id = invoice_items.product_id OR pii.product_service_name = invoice_items.product_service_name)
+                    ORDER BY pi.created_at DESC
+                    LIMIT 1
+                    ),
+                    0
+                ) * COALESCE(invoice_items.quantity, 0)'
+            ));
         
         $sixMonthExpenses = Expense::when($accountId !== null, function($query) use ($accountId) {
                 return $query->where('account_id', $accountId);
@@ -269,21 +349,10 @@ class ReportsController extends Controller
         $customerDebtUsd = Customer::sum('balance_usd');
         $customerDebtEur = Customer::sum('balance_eur');
         
-        $supplierDebtTry = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
-                return $query->where('account_id', $accountId);
-            })->when($accountId === null, function($query) {
-                return $query;
-            })->where('currency', 'TRY')->where('payment_completed', false)->sum('total_amount');
-        $supplierDebtUsd = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
-                return $query->where('account_id', $accountId);
-            })->when($accountId === null, function($query) {
-                return $query;
-            })->where('currency', 'USD')->where('payment_completed', false)->sum('total_amount');
-        $supplierDebtEur = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
-                return $query->where('account_id', $accountId);
-            })->when($accountId === null, function($query) {
-                return $query;
-            })->where('currency', 'EUR')->where('payment_completed', false)->sum('total_amount');
+        // Exclude supplier debts from the reports per business requirement
+        $supplierDebtTry = 0;
+        $supplierDebtUsd = 0;
+        $supplierDebtEur = 0;
 
         // === CHARTS DATA ===
         
@@ -465,6 +534,8 @@ class ReportsController extends Controller
      */
     private function getBranchStatistics($startOfMonth, $exchangeRates)
     {
+        $usdRate = (float) ($exchangeRates['USD'] ?? 1);
+        $eurRate = (float) ($exchangeRates['EUR'] ?? 1);
         $branches = \App\Models\Account::where('is_active', true)->get();
         $branchStats = [];
 
@@ -478,12 +549,34 @@ class ReportsController extends Controller
             $branchSalesByCurrency = $this->getSalesByCurrency($branchSales);
             $branchSalesCount = $branchSales->count();
 
-            // Purchases for this branch
-            $branchPurchases = PurchaseInvoice::where('account_id', $branch->id)
-                ->whereBetween('created_at', [$startOfMonth, Carbon::now()])
-                ->get(['total_amount', 'currency']);
-            
-            $branchPurchasesTRY = $this->calculateTotalInTRY($branchPurchases, $exchangeRates);
+            // COGS for this branch (sold quantity * product cost)
+            $branchPurchasesTRY = DB::table('invoice_items')
+                ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+                ->leftJoin('products', 'invoice_items.product_id', '=', 'products.id')
+                ->leftJoin('product_series', 'invoice_items.product_id', '=', 'product_series.id')
+                ->where('invoices.account_id', $branch->id)
+                ->whereBetween('invoices.created_at', [$startOfMonth, Carbon::now()])
+                ->sum(DB::raw(
+                    'COALESCE(
+                        products.cost,
+                        product_series.cost,
+                        (SELECT p.cost FROM products p WHERE p.name = invoice_items.product_service_name LIMIT 1),
+                        (SELECT ps.cost FROM product_series ps WHERE ps.name = invoice_items.product_service_name LIMIT 1),
+                        (
+                        SELECT COALESCE(pii.unit_price * (
+                            CASE WHEN pii.unit_currency = "USD" THEN '.$usdRate.' 
+                                 WHEN pii.unit_currency = "EUR" THEN '.$eurRate.' 
+                                 ELSE 1 END
+                        ), 0)
+                        FROM purchase_invoice_items pii
+                        JOIN purchase_invoices pi ON pi.id = pii.purchase_invoice_id
+                        WHERE (pii.product_id = invoice_items.product_id OR pii.product_service_name = invoice_items.product_service_name)
+                        ORDER BY pi.created_at DESC
+                        LIMIT 1
+                        ),
+                        0
+                    ) * COALESCE(invoice_items.quantity, 0)'
+                ));
 
             // Expenses for this branch
             $branchExpenses = Expense::where('account_id', $branch->id)

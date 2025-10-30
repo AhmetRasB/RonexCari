@@ -35,7 +35,8 @@
                 </ul>
             </li>
 
-            <!-- ALIŞLAR (PURCHASES) -->
+            <!-- ALIŞLAR (PURCHASES) - Admin/GodMode Only -->
+            @if(auth()->user() && auth()->user()->isAdmin())
             <li class="dropdown">
                 <a href="javascript:void(0)">
                     <iconify-icon icon="solar:cart-large-2-outline" class="menu-icon"></iconify-icon>
@@ -50,10 +51,11 @@
                         <a href="{{ route('purchases.invoices.index') }}"><i class="ri-circle-fill circle-icon text-warning-main w-auto"></i> Faturalar</a>
                     </li>
                     <li>
-                        <a href="{{ route('finance.supplier-payments.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Tedarikçi Ödemeleri</a>
+                        <a href="{{ route('finance.supplier-payments.index') }}"><i class="ri-circle-fill circle-icon text成功 w-auto"></i> Tedarikçi Ödemeleri</a>
                     </li>
                 </ul>
             </li>
+            @endif
 
             <!-- GİDERLER (EXPENSES) -->
             @if(auth()->user() && auth()->user()->role && auth()->user()->canAccess('expenses'))
@@ -82,6 +84,9 @@
                     </li>
                     <li>
                         <a href="{{ route('services.index') }}"><i class="ri-circle-fill circle-icon text-warning-main w-auto"></i> Hizmetler</a>
+                    </li>
+                    <li>
+                        <a href="{{ route('products.categories.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Kategoriler</a>
                     </li>
                     <li>
                         <a href="{{ route('barcode.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Barkod Bölümü</a>

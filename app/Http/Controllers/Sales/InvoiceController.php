@@ -34,7 +34,7 @@ class InvoiceController extends Controller
                 ->paginate(10);
         } else {
             $invoices = Invoice::with(['customer', 'account', 'user'])
-                ->where('account_id', $currentAccountId)
+                ->  ('account_id', $currentAccountId)
                 ->latest()
                 ->paginate(10);
         }

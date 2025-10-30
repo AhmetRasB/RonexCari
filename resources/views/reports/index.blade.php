@@ -42,21 +42,23 @@
                                 </div>
                             </div>
 
-                            <!-- Purchases -->
+                            <!-- Cost of Goods Sold (Admin Only) -->
+                            @if(auth()->user()->isAdmin())
                             <div class="col-md-3">
                                 <div class="p-3 bg-info-50 rounded-3 border-start border-info border-3">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div>
-                                            <div class="text-secondary-light text-sm mb-1">Alışlar</div>
+                                            <div class="text-secondary-light text-sm mb-1">Maliyet (COGS)</div>
                                             <div class="h5 mb-1 fw-semibold text-info">₺{{ number_format($branchData['purchases']['total_try'], 2) }}</div>
-                                            <div class="text-xs text-muted">Maliyet</div>
+                                            <div class="text-xs text-muted">Satılan malların maliyeti</div>
                                         </div>
                                         <div class="text-info">
-                                            <i class="ri-shopping-cart-line fs-20"></i>
+                                            <i class="ri-calculator-line fs-20"></i>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                            @endif
 
                             <!-- Expenses -->
                             <div class="col-md-3">
@@ -486,6 +488,8 @@
                                 <th class="border-0 text-center">Toplam Miktar</th>
                                 <th class="border-0 text-center">Satış Sayısı</th>
                                 <th class="border-0 text-end">Toplam Gelir</th>
+                                <th class="border-0 text-end">Toplam Maliyet</th>
+                                <th class="border-0 text-end">Kar</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -505,6 +509,10 @@
                                         <span class="badge bg-success-subtle text-success">{{ $product->sale_count }}</span>
                                     </td>
                                     <td class="text-end fw-semibold">{{ number_format($product->total_revenue, 2) }} TRY</td>
+                                    <td class="text-end fw-semibold text-danger">{{ number_format($product->total_cost ?? 0, 2) }} TRY</td>
+                                    <td class="text-end fw-bold {{ ($product->total_revenue - ($product->total_cost ?? 0)) >= 0 ? 'text-success' : 'text-danger' }}">
+                                        {{ number_format($product->total_revenue - ($product->total_cost ?? 0), 2) }} TRY
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
@@ -610,12 +618,7 @@
                             <div class="h6 mb-0 fw-semibold {{ $customerDebtEur >= 0 ? 'text-danger' : 'text-success' }}">{{ number_format($customerDebtEur, 2) }}</div>
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <div class="p-3 bg-neutral-50 rounded-3 text-center">
-                            <div class="text-secondary-light text-sm">Tedarikçi Borcu</div>
-                            <div class="h6 mb-0 fw-semibold">{{ number_format($supplierDebtTry + $supplierDebtUsd + $supplierDebtEur, 2) }}</div>
-                        </div>
-                    </div>
+                    
                 </div>
             </div>
         </div>

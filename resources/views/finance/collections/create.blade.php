@@ -80,6 +80,7 @@
                                                 <option value="kredi_karti" {{ old('collection_type') == 'kredi_karti' ? 'selected' : '' }}>Kredi Kartı</option>
                                                 <option value="havale" {{ old('collection_type') == 'havale' ? 'selected' : '' }}>Havale</option>
                                                 <option value="eft" {{ old('collection_type') == 'eft' ? 'selected' : '' }}>EFT</option>
+                                                <option value="cek" {{ old('collection_type') == 'cek' ? 'selected' : '' }}>Çek</option>
                                             </select>
                                             @error('collection_type')
                                                 <div class="invalid-feedback">{{ $message }}</div>

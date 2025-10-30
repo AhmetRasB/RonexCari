@@ -109,33 +109,95 @@ class DashboardController extends Controller
                 ->get(['id','product_series_id','color','stock_quantity','critical_stock']);
         }
 
-        // Yaklaşan vadeli tahsilatlar (7 gün içinde)
-        $now = Carbon::today();
-        $in7 = Carbon::today()->addDays(7);
+        // Yaklaşan ve vadesi geçmiş tahsilatlar (TR saatiyle bugün dahil + 7 gün ileri)
+        $todayTr = Carbon::now('Europe/Istanbul')->startOfDay();
+        $in7Tr = Carbon::now('Europe/Istanbul')->addDays(7)->endOfDay();
         
         $accountId = $this->getCurrentAccountId();
         
-        $dueSales = Invoice::when($accountId !== null, function($query) use ($accountId) {
+        // Satış faturaları: vadesi geçmiş TÜM faturalar + önümüzdeki 7 gün
+        $dueAndOverdueSales = Invoice::when($accountId !== null, function($query) use ($accountId) {
                 return $query->where('account_id', $accountId);
             })
             ->whereNotNull('due_date')
-            ->whereBetween('due_date', [$now, $in7])
-            ->where('payment_completed', false)
+            ->where(function($q) {
+                $q->where('payment_completed', false)
+                  ->orWhereNull('payment_completed');
+            })
+            ->when(\Schema::hasColumn('invoices', 'status'), function($q) {
+                $q->where(function($w) {
+                    $w->whereNull('status')
+                      ->orWhere('status', '!=', 'paid');
+                });
+            })
+            ->where('due_date', '<=', $in7Tr)
             ->with('customer')
             ->orderBy('due_date')
-            ->limit(10)
+            ->limit(50)
             ->get();
 
         $duePurchases = PurchaseInvoice::when($accountId !== null, function($query) use ($accountId) {
                 return $query->where('account_id', $accountId);
             })
             ->whereNotNull('due_date')
-            ->whereBetween('due_date', [$now, $in7])
+            ->whereBetween('due_date', [$todayTr, $in7Tr])
             ->where('payment_completed', false)
             ->with('supplier')
             ->orderBy('due_date')
             ->limit(10)
             ->get();
+
+        // Tahsilat yapılması gereken müşteriler (vadesi yaklaşan veya geçmiş ve bakiyesi olan)
+        $dueOrOverdueCustomerIds = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->where(function($q) {
+                $q->where('payment_completed', false)
+                  ->orWhereNull('payment_completed');
+            })
+            ->when(\Schema::hasColumn('invoices', 'status'), function($q) {
+                $q->where(function($w) {
+                    $w->whereNull('status')
+                      ->orWhere('status', '!=', 'paid');
+                });
+            })
+            ->whereNotNull('due_date')
+            ->where(function($q) use ($todayTr, $in7Tr) {
+                $q->whereBetween('due_date', [$todayTr, $in7Tr])
+                  ->orWhere('due_date', '<', $todayTr);
+            })
+            ->pluck('customer_id')
+            ->unique()
+            ->values();
+
+        // En yakın vade tarihini müşteri bazında almak için harita oluştur
+        $nearestDuePerCustomer = Invoice::when($accountId !== null, function($query) use ($accountId) {
+                return $query->where('account_id', $accountId);
+            })
+            ->where('payment_completed', false)
+            ->whereNotNull('due_date')
+            ->whereIn('customer_id', $dueOrOverdueCustomerIds)
+            ->select('customer_id', 'due_date')
+            ->orderBy('due_date')
+            ->get()
+            ->groupBy('customer_id')
+            ->map(function($group) {
+                return $group->min('due_date');
+            });
+
+        $customersToCollect = \App\Models\Customer::whereIn('id', $dueOrOverdueCustomerIds)
+            ->where(function($q) {
+                $q->where('balance_try', '>', 0)
+                  ->orWhere('balance_usd', '>', 0)
+                  ->orWhere('balance_eur', '>', 0);
+            })
+            ->orderBy('name')
+            ->limit(10)
+            ->get()
+            ->map(function($customer) use ($nearestDuePerCustomer) {
+                $customer->nearest_due_date = $nearestDuePerCustomer->get($customer->id);
+                return $customer;
+            });
 
         // Son faturalar
         $recentInvoices = Invoice::when($accountId !== null, function($query) use ($accountId) {
@@ -185,8 +247,8 @@ class DashboardController extends Controller
         });
 
         return view('dashboard.index', compact(
-            'stats', 'lowStockProducts', 'lowStockColorVariants', 'lowStockSeries', 'lowStockSeriesColorVariants', 'dueSales', 'duePurchases', 
-            'recentInvoices', 'topProducts'
+            'stats', 'lowStockProducts', 'lowStockColorVariants', 'lowStockSeries', 'lowStockSeriesColorVariants', 'dueAndOverdueSales', 'duePurchases', 
+            'recentInvoices', 'topProducts', 'customersToCollect'
         ));
     }
 

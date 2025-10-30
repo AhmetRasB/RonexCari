@@ -254,7 +254,7 @@
                                                     @if($invoice->currency !== 'TRY')
                                                     <tr>
                                                         <td class="pe-64">
-                                                            <span class="text-secondary-light">Toplam (TL):</span>
+                                        <!-- TL eşdeğeri kaldırıldı -->
                                                         </td>
                                                         <td class="pe-16">
                                                             <span class="text-secondary-light" id="totalAmountTRY">-</span>

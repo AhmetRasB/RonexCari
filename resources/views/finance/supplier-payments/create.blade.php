@@ -80,6 +80,7 @@
                                                 <option value="kredi_karti" {{ old('payment_type') == 'kredi_karti' ? 'selected' : '' }}>Kredi Kartı</option>
                                                 <option value="havale" {{ old('payment_type') == 'havale' ? 'selected' : '' }}>Havale</option>
                                                 <option value="eft" {{ old('payment_type') == 'eft' ? 'selected' : '' }}>EFT</option>
+                                                <option value="cek" {{ old('payment_type') == 'cek' ? 'selected' : '' }}>Çek</option>
                                             </select>
                                             @error('payment_type')
                                                 <div class="invalid-feedback">{{ $message }}</div>

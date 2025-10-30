@@ -137,7 +137,6 @@
                                         <tr id="invoiceTableHeader">
                                                 <th style="min-width: 280px; padding: 15px;">ÜRÜN/HİZMET</th>
                                                 <th style="min-width: 200px; padding: 15px;">AÇIKLAMA</th>
-                                                <th style="min-width: 140px; padding: 15px;">SERİ BOYUTU</th>
                                                 <th style="min-width: 140px; padding: 15px;">MİKTAR</th>
                                                 <th style="min-width: 160px; padding: 15px;">B. FİYAT</th>
                                                 <th style="min-width: 120px; padding: 15px;">KDV</th>
@@ -199,17 +198,7 @@
                         <span>Genel Toplam:</span>
                         <span id="totalAmount">0,00 ₺</span>
                     </div>
-                    <div id="foreignCurrencyTotals" style="display: none;">
-                        <hr>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Döviz Kuru:</span>
-                            <span id="exchangeRateDisplay">-</span>
-                        </div>
-                        <div class="d-flex justify-content-between fw-bold">
-                            <span>Toplam (TL):</span>
-                            <span id="totalAmountTRY">0,00 ₺</span>
-                        </div>
-                    </div>
+                    <!-- TL eşdeğeri ve kur gösterimi kaldırıldı -->
                                 </div>
                             </div>
                         </div>
@@ -817,23 +806,17 @@ $(document).ready(function() {
     $('#currency').on('change', function() {
         const selectedCurrency = $(this).val();
         const exchangeRateContainer = $('#exchangeRateContainer');
-        const foreignCurrencyTotals = $('#foreignCurrencyTotals');
-        
+        // Show only exchange rate (no TL totals)
         if (selectedCurrency === 'TRY') {
             exchangeRateContainer.hide();
-            foreignCurrencyTotals.hide();
-            updateCurrencySymbols('₺');
         } else {
             exchangeRateContainer.show();
-            foreignCurrencyTotals.show();
-            updateCurrencySymbols(selectedCurrency === 'USD' ? '$' : '€');
             updateExchangeRate(selectedCurrency);
         }
-        
-        // Wait a bit for exchange rate to update, then calculate totals
-        setTimeout(function() {
-            calculateTotals();
-        }, 500);
+        // Keep TL totals hidden
+        $('#foreignCurrencyTotals').hide();
+        updateCurrencySymbols(selectedCurrency === 'USD' ? '$' : (selectedCurrency === 'EUR' ? '€' : '₺'));
+        calculateTotals();
     });
     
     // Form validation
@@ -1166,17 +1149,6 @@ function addInvoiceItemRow() {
             <td style="padding: 20px 15px;">
                 <textarea name="items[${itemCounter}][description]" class="form-control" rows="2" placeholder="Açıklama" style="min-height: 45px; font-size: 14px; border-radius: 8px; resize: vertical;"></textarea>
             </td>
-            <td class="series-size-cell" style="padding: 20px 15px;">
-                <select name="items[${itemCounter}][series_size]" class="form-select series-size-select" style="min-height: 45px; font-size: 14px; border-radius: 8px;">
-                    <option value="">Seri Boyutu</option>
-                    <option value="5">5'li</option>
-                    <option value="6">6'lı</option>
-                    <option value="7">7'li</option>
-                    <option value="8">8'li</option>
-                    <option value="10">10'lu</option>
-                    <option value="12">12'li</option>
-                </select>
-            </td>
             ${hasColorColumn ? `
             <td class="color-cell" style="padding: 20px 15px;">
                 <select name="items[${itemCounter}][color_variant_id]" class="form-select color-variant-select" style="min-height: 45px; font-size: 14px; border-radius: 8px;">
@@ -1190,7 +1162,7 @@ function addInvoiceItemRow() {
                     <input type="number" name="items[${itemCounter}][quantity]" class="form-control quantity-input" value="1" min="0.01" step="0.01" required style="min-height: 45px; font-size: 15px; border-radius: 8px 0 0 8px;">
                     <span class="input-group-text quantity-unit" style="min-height: 45px; font-size: 14px; border-radius: 0 8px 8px 0;">Adet</span>
                 </div>
-                <small class="text-muted calculated-series" style="display: none; font-size: 12px;"></small>
+                <small class="text-danger stock-zero" style="display:none; font-size: 12px;">0 Adet</small>
             </td>
             <td style="padding: 20px 15px;">
                 <div class="input-group">
@@ -1212,8 +1184,8 @@ function addInvoiceItemRow() {
             </td>
             <td style="padding: 20px 15px;">
                 <div class="input-group">
-                    <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" max="100" step="0.01" style="min-height: 45px; font-size: 15px; border-radius: 8px 0 0 8px;">
-                    <span class="input-group-text" style="min-height: 45px; font-size: 14px; border-radius: 0 8px 8px 0;">%</span>
+                    <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" step="0.01" style="min-height: 45px; font-size: 15px; border-radius: 8px 0 0 8px;">
+                    <span class="input-group-text discount-currency-symbol" style="min-height: 45px; font-size: 14px; border-radius: 0 8px 8px 0;">${$('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺'}</span>
                 </div>
             </td>
             <td style="padding: 20px 15px;">
@@ -1272,19 +1244,7 @@ function addMobileInvoiceItemRow() {
                     <textarea name="items[${itemCounter}][description]" class="form-control" rows="2" placeholder="Açıklama" style="min-height: 50px; font-size: 14px; border-radius: 10px; resize: vertical;"></textarea>
                 </div>
                 
-                <!-- Series Size -->
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Seri Boyutu</label>
-                    <select name="items[${itemCounter}][series_size]" class="form-select series-size-select" style="min-height: 50px; font-size: 14px; border-radius: 10px;">
-                        <option value="">Seri Boyutu</option>
-                        <option value="5">5'li</option>
-                        <option value="6">6'lı</option>
-                        <option value="7">7'li</option>
-                        <option value="8">8'li</option>
-                        <option value="10">10'lu</option>
-                        <option value="12">12'li</option>
-                    </select>
-                </div>
+                
                 
                 <!-- Color Selection (will be added dynamically) -->
                 <div class="mb-3 color-selection-mobile" style="display: none;">
@@ -1302,7 +1262,7 @@ function addMobileInvoiceItemRow() {
                         <input type="number" name="items[${itemCounter}][quantity]" class="form-control quantity-input" value="1" min="0.01" step="0.01" required style="min-height: 50px; font-size: 16px; border-radius: 10px 0 0 10px;">
                         <span class="input-group-text quantity-unit" style="min-height: 50px; font-size: 14px; border-radius: 0 10px 10px 0;">Adet</span>
                     </div>
-                    <small class="text-muted calculated-series" style="display: none; font-size: 12px;"></small>
+                    <small class="text-danger stock-zero" style="display:none; font-size: 12px;">0 Adet</small>
                 </div>
                 
                 <div class="mb-3">
@@ -1329,10 +1289,10 @@ function addMobileInvoiceItemRow() {
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">İndirim</label>
+                    <label class="form-label fw-semibold">İndirim (Tutar)</label>
                     <div class="input-group">
-                        <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" max="100" step="0.01" style="min-height: 50px; font-size: 16px; border-radius: 10px 0 0 10px;">
-                        <span class="input-group-text" style="min-height: 50px; font-size: 14px; border-radius: 0 10px 10px 0;">%</span>
+                        <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" step="0.01" style="min-height: 50px; font-size: 16px; border-radius: 10px 0 0 10px;">
+                        <span class="input-group-text discount-currency-symbol" style="min-height: 50px; font-size: 14px; border-radius: 0 10px 10px 0;">${$('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺'}</span>
                     </div>
                 </div>
                 
@@ -1369,14 +1329,20 @@ function calculateMobileLineTotal() {
     const unitCurrency = card.find('.unit-currency').val();
     const taxRate = parseFloat(card.find('.tax-rate').val()) || 0;
     
-    // Currency conversion if needed
+    // Currency conversion if needed (use displayed exchange rate)
     if (unitCurrency !== $('#currency').val()) {
         const exchangeRate = parseFloat($('#exchangeRate').val()) || 1;
-        unitPrice = unitPrice * exchangeRate;
+        unitPrice = unitPrice / (unitCurrency === 'USD' || unitCurrency === 'EUR' ? 1 : 1); // keep raw
+        // Convert entered unit price to invoice currency via TRY pivot
+        // unit price assumed in its own currency; convert to TRY then to invoice currency using API rates
+        const invoiceCurrency = $('#currency').val();
+        const rates = getExchangeRates();
+        const priceInTRY = unitCurrency === 'TRY' ? unitPrice : (unitPrice * rates[unitCurrency]);
+        unitPrice = invoiceCurrency === 'TRY' ? priceInTRY : (priceInTRY / rates[invoiceCurrency]);
     }
     
-    // Calculate discount
-    const discountAmount = (unitPrice * quantity * discountRate) / 100;
+    // Calculate discount (fixed amount)
+    const discountAmount = Math.max(0, Math.min(discountRate, unitPrice * quantity));
     const subtotal = (unitPrice * quantity) - discountAmount;
     
     // Calculate tax
@@ -1395,6 +1361,8 @@ function calculateMobileLineTotal() {
 
 function calculateLineTotal() {
     const row = $(this).closest('tr');
+    // Re-validate stock first; if invalid, zero the line and totals
+    const valid = validateStock(row);
     const quantity = parseFloat(row.find('input[name*="[quantity]"]').val()) || 0;
     let unitPrice = parseFloat(row.find('.unit-price').val()) || 0;
     const discountRate = parseFloat(row.find('.discount-rate').val()) || 0;
@@ -1405,15 +1373,18 @@ function calculateLineTotal() {
     // Convert unit price from unit currency to invoice currency
     if (unitCurrency !== invoiceCurrency) {
         const exchangeRates = getExchangeRates();
-        
-        // Convert: unitPrice (in unit currency) -> TL -> invoice currency
-        const priceInTL = unitPrice * exchangeRates[unitCurrency];
-        unitPrice = priceInTL / exchangeRates[invoiceCurrency];
+        // Convert: unitPrice (in unit currency) -> TRY -> invoice currency
+        const priceInTL = unitPrice * (exchangeRates[unitCurrency] || 1);
+        unitPrice = priceInTL / (exchangeRates[invoiceCurrency] || 1);
     }
     
-    const lineTotal = quantity * unitPrice;
-    const discountAmount = lineTotal * (discountRate / 100);
-    const lineTotalAfterDiscount = lineTotal - discountAmount;
+    let lineTotal = quantity * unitPrice;
+    const discountAmount = Math.max(0, Math.min(discountRate, lineTotal));
+    let lineTotalAfterDiscount = lineTotal - discountAmount;
+    
+    if (!valid || row.data('invalid-stock')) {
+        lineTotalAfterDiscount = 0;
+    }
     
     row.find('.line-total').val(lineTotalAfterDiscount.toFixed(2).replace('.', ','));
     
@@ -1428,37 +1399,31 @@ function calculateTotals() {
     // Calculate from desktop table rows
     $('#invoiceItemsBody tr').each(function() {
         const lineTotal = parseFloat($(this).find('.line-total').val().replace(',', '.')) || 0;
-        const discountRate = parseFloat($(this).find('.discount-rate').val()) || 0;
+        const discountFixed = parseFloat($(this).find('.discount-rate').val()) || 0;
         const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
-        console.log('rowTotals:', { lineTotal, discountRate, taxRate });
+        console.log('rowTotals:', { lineTotal, discountFixed, taxRate });
         
-        // Line total is already in invoice currency
-        const discountAmount = lineTotal * (discountRate / 100);
-        const lineTotalAfterDiscount = lineTotal - discountAmount;
-        
-        subtotal += lineTotalAfterDiscount;
-        totalDiscount += discountAmount;
+        // Line total already includes discount
+        subtotal += lineTotal;
+        totalDiscount += discountFixed;
         
         if ($('select[name="vat_status"]').val() === 'included') {
-            totalVat += lineTotalAfterDiscount * (taxRate / 100);
+            totalVat += lineTotal * (taxRate / 100);
         }
     });
     
     // Calculate from mobile cards
     $('#mobileInvoiceItems .card').each(function() {
         const lineTotal = parseFloat($(this).find('.line-total').val().replace(',', '.')) || 0;
-        const discountRate = parseFloat($(this).find('.discount-rate').val()) || 0;
+        const discountFixed = parseFloat($(this).find('.discount-rate').val()) || 0;
         const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
-        
-        // Line total is already in invoice currency
-        const discountAmount = lineTotal * (discountRate / 100);
-        const lineTotalAfterDiscount = lineTotal - discountAmount;
-        
-        subtotal += lineTotalAfterDiscount;
-        totalDiscount += discountAmount;
+        console.log('rowTotalsMobile:', { lineTotal, discountFixed, taxRate });
+        // Line total already includes discount
+        subtotal += lineTotal;
+        totalDiscount += discountFixed;
         
         if ($('select[name="vat_status"]').val() === 'included') {
-            totalVat += lineTotalAfterDiscount * (taxRate / 100);
+            totalVat += lineTotal * (taxRate / 100);
         }
     });
     
@@ -1474,18 +1439,16 @@ function calculateTotals() {
     $('#vatAmount').text(totalVat.toFixed(2).replace('.', ',') + ' ' + currencySymbol);
     $('#totalAmount').text(totalAmount.toFixed(2).replace('.', ',') + ' ' + currencySymbol);
     
-    // Show TL equivalent if foreign currency is selected
-    if (selectedCurrency !== 'TRY') {
-        const exchangeRate = parseFloat($('#exchangeRate').val()) || 1;
-        const totalAmountTRY = totalAmount * exchangeRate;
-        $('#totalAmountTRY').text(totalAmountTRY.toFixed(2).replace('.', ',') + ' ₺');
-        $('#exchangeRateDisplay').text(exchangeRate.toFixed(4));
-    }
+    // Do not show TL equivalent; totals are always shown in selected currency.
 }
 
 function updateCurrencySymbols(symbol) {
     // Update invoice currency symbols in totals
     $('.invoice-currency-symbol').each(function() {
+        $(this).text(symbol);
+    });
+    // Update discount suffix symbols
+    $('.discount-currency-symbol').each(function(){
         $(this).text(symbol);
     });
 }
@@ -2130,6 +2093,23 @@ $(document).on('click', '.product-service-item', function(e) {
     const stockQuantity = $(this).data('stock-quantity');
     container.data('stock-quantity', stockQuantity);
     container.data('product-type', type);
+
+    // Show zero stock indicator if needed
+    const parentRow = container.closest('tr');
+    const parentCard = container.closest('.card');
+    if (stockQuantity <= 0) {
+        if (parentRow.length) {
+            parentRow.find('.stock-zero').show();
+        } else if (parentCard.length) {
+            parentCard.find('.stock-zero').show();
+        }
+    } else {
+        if (parentRow.length) {
+            parentRow.find('.stock-zero').hide();
+        } else if (parentCard.length) {
+            parentCard.find('.stock-zero').hide();
+        }
+    }
     
     // Hide dropdown immediately - hide the specific dropdown first
     const specificDropdown = $(`#productServiceDropdown${rowIndex}`);
@@ -2245,15 +2225,15 @@ function addColorColumnToTable() {
         // Insert color column after description column
         header.find('th:nth-child(2)').after('<th style="min-width: 150px; width: 8%;">RENK</th>');
         
-        // Adjust other column widths and update table min-width
-        header.find('th:nth-child(1)').attr('style', 'min-width: 200px; width: 18%;'); // ÜRÜN/HİZMET
-        header.find('th:nth-child(2)').attr('style', 'min-width: 150px; width: 12%;'); // AÇIKLAMA
-        header.find('th:nth-child(4)').attr('style', 'min-width: 140px; width: 10%;');  // MİKTAR
-        header.find('th:nth-child(5)').attr('style', 'min-width: 160px; width: 12%;'); // B. FİYAT
-        header.find('th:nth-child(6)').attr('style', 'min-width: 120px; width: 8%;');  // KDV
-        header.find('th:nth-child(7)').attr('style', 'min-width: 120px; width: 8%;');  // İNDİRİM
-        header.find('th:nth-child(8)').attr('style', 'min-width: 160px; width: 10%;'); // TOPLAM
-        header.find('th:nth-child(9)').attr('style', 'min-width: 80px; width: 5%;');   // İŞLEM
+        // Adjust other column widths using header text instead of fixed indexes
+        header.find('th:contains("ÜRÜN/HİZMET")').attr('style', 'min-width: 200px; width: 18%;');
+        header.find('th:contains("AÇIKLAMA")').attr('style', 'min-width: 150px; width: 12%;');
+        header.find('th:contains("MİKTAR")').attr('style', 'min-width: 140px; width: 10%;');
+        header.find('th:contains("B. FİYAT")').attr('style', 'min-width: 160px; width: 12%;');
+        header.find('th:contains("KDV")').attr('style', 'min-width: 120px; width: 8%;');
+        header.find('th:contains("İNDİRİM")').attr('style', 'min-width: 120px; width: 8%;');
+        header.find('th:contains("TOPLAM")').attr('style', 'min-width: 160px; width: 10%;');
+        header.find('th:contains("İŞLEM")').attr('style', 'min-width: 80px; width: 5%;');
         
         // Update table min-width when color column is added
         $('#invoiceItemsTable').css('min-width', '1700px');
@@ -2377,15 +2357,37 @@ function validateStock(row) {
     row.next('.stock-warning-row').remove(); // Remove warning row below
     row.removeClass('table-danger');
     row.find('td').removeClass('bg-danger-subtle');
-    
-    if (quantity > 0 && stockQuantity > 0 && quantity > remaining) {
-        // Cap quantity to remaining if possible
-        if (remaining >= 0) {
-            quantityInput.val(remaining);
-        }
-        // Make entire row red
+    row.find('.stock-zero').hide();
+    row.removeData('invalid-stock');
+
+    if (stockQuantity <= 0) {
+        // Show zero stock indicator and mark invalid (line total forced to 0)
+        row.find('.stock-zero').show();
         row.addClass('table-danger');
         row.find('td').addClass('bg-danger-subtle');
+        row.data('invalid-stock', true);
+        const warningHtml = `
+            <tr class="stock-warning-row">
+                <td colspan="8" class="p-0">
+                    <div class="stock-warning alert alert-danger alert-sm m-2" style="padding: 8px 12px; font-size: 0.875rem; border: none; border-radius: 6px;">
+                        <i class="ri-alert-line me-2"></i>
+                        <strong>STOK YOK!</strong> Bu ürün${selectedColor ? ' (' + selectedColor + ')' : ''} için stok bulunmamaktadır.
+                    </div>
+                </td>
+            </tr>
+        `;
+        row.after(warningHtml);
+        // Force line total to 0 and refresh totals
+        row.find('.line-total').val('0,00');
+        calculateTotals();
+        return false;
+    }
+    
+    if (quantity > 0 && stockQuantity > 0 && quantity > remaining) {
+        // Mark as invalid instead of capping quantity; force line total to 0
+        row.addClass('table-danger');
+        row.find('td').addClass('bg-danger-subtle');
+        row.data('invalid-stock', true);
         
         // Add warning message below the row
         const colorInfo = selectedColor ? ` (${selectedColor} rengi)` : '';
@@ -2406,6 +2408,9 @@ function validateStock(row) {
         row.next('.stock-warning-row').remove();
         // Add warning row after current row
         row.after(warningHtml);
+        // Force line total to 0 and refresh totals
+        row.find('.line-total').val('0,00');
+        calculateTotals();
         return false;
     }
     
@@ -2437,6 +2442,9 @@ $('#invoiceForm').on('submit', function(e) {
     
     $('tbody tr').each(function() {
         const row = $(this);
+        if (row.data('invalid-stock')) {
+            hasStockError = true;
+        }
         const quantity = parseFloat(row.find('input[name*="[quantity]"]').val()) || 0;
         const productType = row.data('product-type') || 'product';
         const productName = row.find('input[name*="[product_service_name]"]').val() || 'Ürün';
@@ -2488,61 +2496,7 @@ $('#invoiceForm').on('submit', function(e) {
 </script>
 
 <script>
-// Seri hesaplama sistemi - Desktop
-$(document).on('change', '.series-size-select, .quantity-input', function() {
-    const row = $(this).closest('tr');
-    const seriesSize = row.find('.series-size-select').val();
-    const quantity = parseFloat(row.find('.quantity-input').val()) || 0;
-    const calculatedSeries = row.find('.calculated-series');
-    
-    if (seriesSize && quantity > 0) {
-        const seriesCount = Math.floor(quantity / seriesSize);
-        calculatedSeries.text(`= ${seriesCount} adet`).show();
-    } else {
-        calculatedSeries.hide();
-    }
-});
-
-// Seri hesaplama sistemi - Mobile
-$(document).on('change', '.card .series-size-select, .card .quantity-input', function() {
-    const card = $(this).closest('.card');
-    const seriesSize = card.find('.series-size-select').val();
-    const quantity = parseFloat(card.find('.quantity-input').val()) || 0;
-    const calculatedSeries = card.find('.calculated-series');
-    
-    if (seriesSize && quantity > 0) {
-        const seriesCount = Math.floor(quantity / seriesSize);
-        calculatedSeries.text(`= ${seriesCount} adet`).show();
-    } else {
-        calculatedSeries.hide();
-    }
-});
-
-// Seri boyutu seçildiğinde miktar birimini güncelle - Desktop
-$(document).on('change', '.series-size-select', function() {
-    const row = $(this).closest('tr');
-    const seriesSize = $(this).val();
-    const quantityUnit = row.find('.quantity-unit');
-    
-    if (seriesSize) {
-        quantityUnit.text('Adet');
-    } else {
-        quantityUnit.text('Adet');
-    }
-});
-
-// Seri boyutu seçildiğinde miktar birimini güncelle - Mobile
-$(document).on('change', '.card .series-size-select', function() {
-    const card = $(this).closest('.card');
-    const seriesSize = $(this).val();
-    const quantityUnit = card.find('.quantity-unit');
-    
-    if (seriesSize) {
-        quantityUnit.text('Adet');
-    } else {
-        quantityUnit.text('Adet');
-    }
-});
+// Seri boyutu alanı kaldırıldı; hesaplamalar ve event'ler devre dışı bırakıldı
 
 // Mobile color selection with stock validation
 $(document).on('change', '.card .color-variant-select', function() {
@@ -2589,11 +2543,9 @@ $(document).on('change', '.card .color-variant-select', function() {
     }
 });
 
-// Mobile stock validation function
-function validateMobileStock(card, variant, quantityInput, seriesSizeSelect) {
+// Mobile stock validation function (series size removed)
+function validateMobileStock(card, variant, quantityInput) {
     const quantity = parseFloat(quantityInput.val()) || 0;
-    const seriesSize = parseInt(seriesSizeSelect.val()) || 1;
-    // Seri boyutu sadece bölme işlemi için - stok kontrolünde çarpılmasın
     const actualQuantity = quantity;
     
     // Remove existing warnings
@@ -2619,14 +2571,14 @@ function validateMobileStock(card, variant, quantityInput, seriesSizeSelect) {
         
         card.find('.mobile-stock-info').after(warningHtml);
         card.addClass('border-danger');
-    } else if (actualQuantity > variant.critical_stock) {
+    } else if (variant.critical_stock && actualQuantity > variant.critical_stock) {
         const warningHtml = `
             <div class="mobile-stock-warning mt-2 p-3" style="background-color: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
                 <div class="d-flex align-items-center">
                     <iconify-icon icon="solar:warning-outline" class="text-warning me-2" style="font-size: 20px;"></iconify-icon>
                     <div>
                         <strong class="text-warning d-block">Kritik Stok!</strong>
-                        <small class="text-muted">Kritik seviye: ${variant.critical_stock} Adet</small>
+                        <small class="text-muted">Kritik seviye: ${variant.critical_stock ?? 0} Adet</small>
                     </div>
                 </div>
             </div>
@@ -2645,8 +2597,7 @@ $(document).on('input', '.card .quantity-input', function() {
     if (selectedColorId && colorVariants) {
         const variant = colorVariants.find(v => v.id == selectedColorId);
         if (variant) {
-            const seriesSizeSelect = card.find('.series-size-select');
-            validateMobileStock(card, variant, $(this), seriesSizeSelect);
+            validateMobileStock(card, variant, $(this));
         }
     }
 });
@@ -2661,8 +2612,7 @@ $(document).on('change', '.card .series-size-select', function() {
         const variant = colorVariants.find(v => v.id == selectedColorId);
         if (variant) {
             const quantityInput = card.find('.quantity-input');
-            // Seri boyutu sadece bölme işlemi için - stok kontrolünde çarpılmasın
-            validateMobileStock(card, variant, quantityInput, $(this));
+            validateMobileStock(card, variant, quantityInput);
         }
     }
 });

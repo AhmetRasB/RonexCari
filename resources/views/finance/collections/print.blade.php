@@ -299,6 +299,12 @@
             <div class="amount-words">
                 <strong>Yazıyla:</strong> {{ $amountInWords }}
             </div>
+            @if(isset($remainingBalance))
+            <div class="amount-row" style="margin-top: 12px;">
+                <span class="amount-label">Kalan Bakiye:</span>
+                <span class="amount-value" style="color:#dc2626;">{{ number_format($remainingBalance, 2) }} {{ $collection->currency }}</span>
+            </div>
+            @endif
         </div>
         
         <!-- Signature Section -->

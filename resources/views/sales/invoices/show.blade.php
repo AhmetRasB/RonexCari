@@ -152,7 +152,7 @@
                                         <th>Miktar</th>
                                         <th>Birim Fiyat</th>
                                         <th>KDV Oranı</th>
-                                        <th>İndirim Oranı</th>
+                                        <th>İndirim</th>
                                         <th>Toplam</th>
                                     </tr>
                                 </thead>
@@ -182,7 +182,16 @@
                                             @endif
                                         </td>
                                         <td>%{{ $item->tax_rate }}</td>
-                                        <td>%{{ $item->discount_rate }}</td>
+                                        <td>
+                                            {{ number_format($item->discount_rate, 2) }}
+                                            @if($invoice->currency === 'USD')
+                                                $
+                                            @elseif($invoice->currency === 'EUR')
+                                                €
+                                            @else
+                                                ₺
+                                            @endif
+                                        </td>
                                         <td>
                                             {{ number_format($item->line_total, 2) }}
                                             @if($invoice->currency === 'USD')
@@ -247,17 +256,7 @@
                                         @endif
                                     </span>
                                 </div>
-                                @if($invoice->currency !== 'TRY')
-                                <hr>
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span>Döviz Kuru:</span>
-                                    <span id="exchangeRateDisplay">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between fw-bold">
-                                    <span>Toplam (TL):</span>
-                                    <span id="totalAmountTRY">-</span>
-                                </div>
-                                @endif
+                                <!-- TL eşdeğeri ve kur gösterimi kaldırıldı -->
                             </div>
                         </div>
                     </div>
@@ -269,65 +268,7 @@
 
 @push('scripts')
 <script>
-// Calculate TL equivalent for foreign currency invoices
-@if($invoice->currency !== 'TRY')
-$(document).ready(function() {
-    const invoiceCurrency = '{{ $invoice->currency }}';
-    const totalAmount = {{ $invoice->total_amount }};
-    
-    // Get unit prices for TL conversion
-    const unitPrices = [
-        @foreach($invoice->items as $index => $item)
-            {{ $item->unit_price }}{{ $index < count($invoice->items) - 1 ? ',' : '' }}
-        @endforeach
-    ];
-    
-    // Get exchange rates
-    $.get('{{ route("sales.invoices.currency.rates") }}')
-        .done(function(response) {
-            let exchangeRate;
-            if (response.success && response.rates[invoiceCurrency]) {
-                exchangeRate = response.rates[invoiceCurrency];
-            } else {
-                // Fallback rates
-                const fallbackRates = {
-                    'USD': 41.29,
-                    'EUR': 48.55
-                };
-                exchangeRate = fallbackRates[invoiceCurrency] || 1;
-            }
-            
-            // Calculate total amount in TL
-            const totalAmountTRY = totalAmount * exchangeRate;
-            $('#exchangeRateDisplay').text(exchangeRate.toFixed(4));
-            $('#totalAmountTRY').text(totalAmountTRY.toFixed(2).replace('.', ',') + ' ₺');
-            
-            // Calculate unit prices in TL
-            unitPrices.forEach((unitPrice, index) => {
-                const unitPriceTRY = unitPrice * exchangeRate;
-                $('#unitPriceTRY_' + index).text('(' + unitPriceTRY.toFixed(2).replace('.', ',') + ' ₺)');
-            });
-        })
-        .fail(function() {
-            // Fallback rates if API fails
-            const fallbackRates = {
-                'USD': 41.29,
-                'EUR': 48.55
-            };
-            const exchangeRate = fallbackRates[invoiceCurrency] || 1;
-            const totalAmountTRY = totalAmount * exchangeRate;
-            
-            $('#exchangeRateDisplay').text(exchangeRate.toFixed(4));
-            $('#totalAmountTRY').text(totalAmountTRY.toFixed(2).replace('.', ',') + ' ₺');
-            
-            // Calculate unit prices in TL with fallback rates
-            unitPrices.forEach((unitPrice, index) => {
-                const unitPriceTRY = unitPrice * exchangeRate;
-                $('#unitPriceTRY_' + index).text('(' + unitPriceTRY.toFixed(2).replace('.', ',') + ' ₺)');
-            });
-        });
-});
-@endif
+// TL eşdeğeri hesaplaması kaldırıldı; herhangi bir script çalıştırılmıyor.
 </script>
 @endpush
 @endsection

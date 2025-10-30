@@ -320,7 +320,7 @@
                     <th class="text-center">Miktar</th>
                     <th class="text-right">Birim Fiyat</th>
                     <th class="text-center">KDV %</th>
-                    <th class="text-center">İndirim %</th>
+                    <th class="text-center">İndirim</th>
                     <th class="text-right">Toplam</th>
                 </tr>
             </thead>
@@ -340,12 +340,18 @@
                         @else
                             ₺
                         @endif
-                        @if($invoice->currency !== 'TRY')
-                            <br><small class="text-muted" id="unitPriceTRY_{{ $index }}">-</small>
-                        @endif
                     </td>
                     <td class="text-center">%{{ $item->tax_rate }}</td>
-                    <td class="text-center">%{{ $item->discount_rate }}</td>
+                    <td class="text-center">
+                        {{ number_format($item->discount_rate, 2) }}
+                        @if($invoice->currency === 'USD')
+                            $
+                        @elseif($invoice->currency === 'EUR')
+                            €
+                        @else
+                            ₺
+                        @endif
+                    </td>
                     <td class="text-right">
                         {{ number_format($item->line_total, 2) }}
                         @if($invoice->currency === 'USD')
@@ -410,12 +416,7 @@
                             @endif
                         </td>
                     </tr>
-                    @if($invoice->currency !== 'TRY')
-                    <tr class="tl-row">
-                        <td>Toplam (TL):</td>
-                        <td id="totalAmountTRY">-</td>
-                    </tr>
-                    @endif
+                    
                 </table>
             </div>
         </div>
@@ -432,69 +433,7 @@
         </div>
     </div>
 
-    @if($invoice->currency !== 'TRY')
-    <script>
-        // Calculate TL equivalent for foreign currency invoices
-        const invoiceCurrency = '{{ $invoice->currency }}';
-        const totalAmount = {{ $invoice->total_amount }};
-        
-        // Get unit prices for TL conversion
-        const unitPrices = [
-            @foreach($invoice->items as $index => $item)
-                {{ $item->unit_price }}{{ $index < count($invoice->items) - 1 ? ',' : '' }}
-            @endforeach
-        ];
-        
-        // Get exchange rates
-        fetch('{{ route("sales.invoices.currency.rates") }}')
-            .then(response => response.json())
-            .then(data => {
-                let exchangeRate;
-                if (data.success && data.rates[invoiceCurrency]) {
-                    exchangeRate = data.rates[invoiceCurrency];
-                } else {
-                    // Fallback rates
-                    const fallbackRates = {
-                        'USD': 41.29,
-                        'EUR': 48.55
-                    };
-                    exchangeRate = fallbackRates[invoiceCurrency] || 1;
-                }
-                
-                // Calculate total amount in TL
-                const totalAmountTRY = totalAmount * exchangeRate;
-                document.getElementById('totalAmountTRY').textContent = totalAmountTRY.toFixed(2).replace('.', ',') + ' ₺';
-                
-                // Calculate unit prices in TL
-                unitPrices.forEach((unitPrice, index) => {
-                    const unitPriceTRY = unitPrice * exchangeRate;
-                    const element = document.getElementById('unitPriceTRY_' + index);
-                    if (element) {
-                        element.textContent = '(' + unitPriceTRY.toFixed(2).replace('.', ',') + ' ₺)';
-                    }
-                });
-            })
-            .catch(error => {
-                // Fallback rates if API fails
-                const fallbackRates = {
-                    'USD': 41.29,
-                    'EUR': 48.55
-                };
-                const exchangeRate = fallbackRates[invoiceCurrency] || 1;
-                const totalAmountTRY = totalAmount * exchangeRate;
-                document.getElementById('totalAmountTRY').textContent = totalAmountTRY.toFixed(2).replace('.', ',') + ' ₺';
-                
-                // Calculate unit prices in TL with fallback rates
-                unitPrices.forEach((unitPrice, index) => {
-                    const unitPriceTRY = unitPrice * exchangeRate;
-                    const element = document.getElementById('unitPriceTRY_' + index);
-                    if (element) {
-                        element.textContent = '(' + unitPriceTRY.toFixed(2).replace('.', ',') + ' ₺)';
-                    }
-                });
-            });
-    </script>
-    @endif
+    
 
     <script>
         // Auto print when page loads

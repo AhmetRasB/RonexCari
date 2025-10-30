@@ -114,6 +114,17 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     Route::post('products/{product}/quick-stock', [ProductController::class, 'quickStockUpdate'])->name('products.quick-stock');
     Route::post('products/series/{series}/quick-stock', [\App\Http\Controllers\Products\ProductSeriesController::class, 'quickStockUpdate'])->name('products.series.quick-stock');
     Route::get('products/test-critical-stock', [ProductController::class, 'testCriticalStock'])->name('products.test-critical-stock');
+    // Product Categories (per account) - resource under separate prefix
+    Route::resource('product-categories', \App\Http\Controllers\Products\ProductCategoryController::class)
+        ->parameters(['product-categories' => 'productCategory'])
+        ->names([
+            'index' => 'products.categories.index',
+            'create' => 'products.categories.create',
+            'store' => 'products.categories.store',
+            'edit' => 'products.categories.edit',
+            'update' => 'products.categories.update',
+            'destroy' => 'products.categories.destroy',
+        ])->except(['show']);
     
     // Labels & Printing
     Route::get('/print/labels/zpl', [\App\Http\Controllers\PrintLabelController::class, 'zpl'])->name('print.labels.zpl');

@@ -110,15 +110,34 @@
             </div>
                     </div>
                 @endif
+
+                @if(!empty($customersToCollect) && $customersToCollect->count())
+        <div class="alert alert-warning d-flex flex-column flex-md-row align-items-start align-items-md-center mb-3" role="alert">
+            <iconify-icon icon="solar:hand-money-outline" class="text-xl me-2 mb-2 mb-md-0 flex-shrink-0"></iconify-icon>
+                    <div class="flex-grow-1">
+                <strong>💳 Tahsilat Yapılması Gereken Müşteriler ({{ $customersToCollect->count() }} kişi):</strong>
+                <div class="mt-2 d-flex flex-wrap gap-1">
+                        @foreach($customersToCollect as $cust)
+                        <a href="{{ route('sales.customers.show', $cust->id) }}" class="badge bg-warning text-dark text-decoration-none" title="Müşteri detayına git">
+                            {{ Str::limit($cust->name ?? $cust->company_name, 18) }}
+                            @if(($cust->nearest_due_date ?? null))
+                                — {{ \Carbon\Carbon::parse($cust->nearest_due_date)->format('d.m.Y') }}
+                            @endif
+                        </a>
+                        @endforeach
+                </div>
+            </div>
+                    </div>
+                @endif
         
-                @if(!empty($dueSales) && $dueSales->count())
+                @if(!empty($dueAndOverdueSales) && $dueAndOverdueSales->count())
         <div class="alert alert-warning d-flex flex-column flex-md-row align-items-start align-items-md-center mb-3" role="alert">
             <iconify-icon icon="solar:clock-circle-outline" class="text-xl me-2 mb-2 mb-md-0 flex-shrink-0"></iconify-icon>
                     <div class="flex-grow-1">
-                <strong>⏰ Vadesi Yaklaşan Satış Faturaları ({{ $dueSales->count() }} fatura):</strong>
+                <strong>⏰ Vadesi Yaklaşan/Geçmiş Satış Faturaları ({{ $dueAndOverdueSales->count() }} fatura):</strong>
                 <div class="mt-2 d-flex flex-wrap gap-1">
-                        @foreach($dueSales as $inv)
-                        <span class="badge bg-warning text-dark">{{ $inv->invoice_number }} - {{ $inv->due_date->format('d.m.Y') }} - {{ number_format($inv->total_amount,2) }} {{ $inv->currency }}</span>
+                        @foreach($dueAndOverdueSales as $inv)
+                        <a href="{{ route('sales.customers.show', $inv->customer_id) }}" class="badge bg-warning text-dark text-decoration-none">{{ $inv->invoice_number }} - {{ $inv->due_date->format('d.m.Y') }} - {{ number_format($inv->total_amount,2) }} {{ $inv->currency }}</a>
                         @endforeach
                 </div>
             </div>
@@ -534,7 +553,7 @@
                             @forelse($recentInvoices as $invoice)
                                                 <tr>
                                                     <td>
-                                    <h6 class="text-md mb-0 fw-medium">{{ $invoice->invoice_number }}</h6>
+                                    <h6 class="text-md mb-0 fw-medium"><a href="{{ route('sales.customers.show', $invoice->customer_id) }}" class="text-decoration-none">{{ $invoice->invoice_number }}</a></h6>
                                                     </td>
                                 <td>
                                     <span class="text-sm text-secondary-light fw-medium">
@@ -564,15 +583,15 @@
                     <div class="card h-100">
                         <div class="card-body">
                             <div class="d-flex align-items-center flex-wrap gap-2 justify-content-between">
-                    <h6 class="mb-2 fw-bold text-lg mb-0">Yaklaşan Tahsilatlar</h6>
-                    <span class="badge bg-warning text-sm">7 Gün</span>
+                    <h6 class="mb-2 fw-bold text-lg mb-0">Yaklaşan/Geçmiş Tahsilatlar</h6>
+                    <span class="badge bg-warning text-sm">Geçmiş + 7 Gün</span>
                             </div>
 
                             <div class="mt-32">
-                    @forelse($dueSales as $invoice)
+                    @forelse($dueAndOverdueSales as $invoice)
                                 <div class="d-flex align-items-center justify-content-between gap-3 mb-24">
                                         <div class="flex-grow-1">
-                            <h6 class="text-md mb-0 fw-medium">{{ $invoice->invoice_number }}</h6>
+                            <h6 class="text-md mb-0 fw-medium"><a href="{{ route('sales.customers.show', $invoice->customer_id) }}" class="text-decoration-none">{{ $invoice->invoice_number }}</a></h6>
                             <span class="text-sm text-secondary-light fw-medium">{{ $invoice->customer->name ?? 'N/A' }}</span>
                             <div class="text-xs text-warning-main">{{ $invoice->due_date->format('d.m.Y') }}</div>
                                         </div>

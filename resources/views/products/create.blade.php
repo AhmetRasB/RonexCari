@@ -118,11 +118,7 @@
                             <div class="position-relative">
                                 <select name="category" class="form-control" required>
                                     <option value="">Seçiniz</option>
-                                    @php
-                                    $allCategories = ['Gömlek','Ceket','Takım Elbise','Pantalon'];
-                                        $options = isset($allowedCategories) && is_array($allowedCategories) && count($allowedCategories) > 0 ? $allowedCategories : $allCategories;
-                                    @endphp
-                                    @foreach($options as $cat)
+                                    @foreach(($allowedCategories ?? []) as $cat)
                                         <option value="{{ $cat }}" {{ old('category') == $cat ? 'selected' : '' }}>{{ $cat }}</option>
                                     @endforeach
                                 </select>

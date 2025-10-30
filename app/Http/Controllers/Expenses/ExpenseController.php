@@ -14,20 +14,18 @@ class ExpenseController extends Controller
      */
     public function index()
     {
-        $currentAccountId = session('current_account_id');
-        
-        // Admin kullanıcılar tüm hesapları görebilir
-        if (auth()->user()->isAdmin()) {
-            $expenses = Expense::with(['account', 'user'])
-                ->orderBy('expense_date', 'desc')
-                ->paginate(15);
-        } else {
-            $expenses = Expense::with(['account', 'user'])
-                ->where('account_id', $currentAccountId)
-                ->orderBy('expense_date', 'desc')
-                ->paginate(15);
+        // Only admins can list/view history
+        if (!auth()->user()->isAdmin()) {
+            return redirect()->route('expenses.expenses.create')
+                ->with('warning', 'Gider geçmişini görüntüleme yetkiniz yok. Yeni gider ekleyebilirsiniz.');
         }
-        
+        $currentAccountId = session('current_account_id');
+        $expenses = Expense::with(['account', 'user'])
+            ->when(!auth()->user()->isAdmin() && $currentAccountId, function($q) use ($currentAccountId) {
+                return $q->where('account_id', $currentAccountId);
+            })
+            ->orderBy('expense_date', 'desc')
+            ->paginate(15);
         return view('expenses.expenses.index', compact('expenses'));
     }
 
@@ -91,7 +89,7 @@ class ExpenseController extends Controller
 
             Log::info('Expense created successfully', ['expense_id' => $expense->id]);
 
-            return redirect()->route('expenses.expenses.index')
+            return redirect()->route('expenses.expenses.create')
                 ->with('success', 'Gider başarıyla oluşturuldu.');
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -112,6 +110,10 @@ class ExpenseController extends Controller
      */
     public function show(Expense $expense)
     {
+        if (!auth()->user()->isAdmin()) {
+            return redirect()->route('expenses.expenses.create')
+                ->with('warning', 'Gider detaylarını görüntüleme yetkiniz yok.');
+        }
         return view('expenses.expenses.show', compact('expense'));
     }
 
@@ -120,6 +122,10 @@ class ExpenseController extends Controller
      */
     public function edit(Expense $expense)
     {
+        if (!auth()->user()->isAdmin()) {
+            return redirect()->route('expenses.expenses.create')
+                ->with('warning', 'Gider düzenleme yetkiniz yok.');
+        }
         return view('expenses.expenses.edit', compact('expense'));
     }
 
