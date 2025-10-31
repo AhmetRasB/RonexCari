@@ -25,15 +25,16 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
-        // Seed roles first, then users, then sample data
+        // Seed roles first, then accounts, then users, then sample data
         $this->call([
             RoleSeeder::class,
+            AccountSeeder::class, // Ronex1 ve Ronex2 hesapları
             AdminUserSeeder::class,
             EmployeeUserSeeder::class,
             SampleDataSeeder::class,
             CollectionSeeder::class,
             CheckBillSeeder::class,
-            TestProductSeeder::class,
+            TestProductSeeder::class, // AccountSeeder'dan sonra çalışmalı (hesapları kullanıyor)
         ]);
     }
 }

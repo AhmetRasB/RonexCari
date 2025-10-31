@@ -15,13 +15,13 @@ class AccountSeeder extends Seeder
         $accounts = [
             [
                 'name' => 'Ronex1',
-                'code' => 'ronex1',
+                'code' => 'RONEX1',
                 'description' => 'Ronex1 Hesap Tutma Sistemi',
                 'is_active' => true,
             ],
             [
                 'name' => 'Ronex2',
-                'code' => 'ronex2',
+                'code' => 'RONEX2',
                 'description' => 'Ronex2 Hesap Tutma Sistemi',
                 'is_active' => true,
             ],
