@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('invoice_items', function (Blueprint $table) {
+        Schema::table('purchase_invoice_items', function (Blueprint $table) {
             $table->string('selected_color')->nullable()->after('description');
             $table->unsignedBigInteger('product_id')->nullable()->after('selected_color');
             $table->string('product_type')->nullable()->after('product_id'); // 'product', 'series', 'service'
@@ -23,8 +23,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('invoice_items', function (Blueprint $table) {
+        Schema::table('purchase_invoice_items', function (Blueprint $table) {
             $table->dropColumn(['selected_color', 'product_id', 'product_type']);
         });
     }
 };
+
