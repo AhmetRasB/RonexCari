@@ -72,11 +72,7 @@
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Kategori</label>
                             <select class="form-control radius-8 @error('category') is-invalid @enderror" name="category">
                                 <option value="">Kategori seçin</option>
-                                @php
-                                    $allCategories = ['Gömlek','Ceket','Takım Elbise','Pantalon'];
-                                    $options = isset($allowedCategories) && is_array($allowedCategories) && count($allowedCategories) > 0 ? $allowedCategories : $allCategories;
-                                @endphp
-                                @foreach($options as $cat)
+                                @foreach($allowedCategories as $cat)
                                     <option value="{{ $cat }}" {{ old('category', $series->category) == $cat ? 'selected' : '' }}>{{ $cat }}</option>
                                 @endforeach
                             </select>

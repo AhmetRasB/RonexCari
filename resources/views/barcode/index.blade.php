@@ -58,115 +58,33 @@
         </div>
         <div class="mt-3 d-flex flex-wrap gap-2">
             <button type="button" class="btn btn-success" onclick="printAllViaQz()" id="printBtn">
-                <span class="btn-text">Hepsini Makineye Yazdır</span>
+                <span class="btn-text">Hepsini Makineye Yazdır (ZPL)</span>
                 <span class="btn-loading" style="display: none;">
                     <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                     Yazdırılıyor...
                 </span>
             </button>
-            <button type="button" class="btn btn-outline-dark" onclick="previewAllZpl()" id="previewBtn">
-                <span class="btn-text">Önizleme</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    Yükleniyor...
-                </span>
-            </button>
-            <button type="button" class="btn btn-primary" onclick="exportToPDF()" id="pdfBtn">
-                <span class="btn-text">PDF Olarak İndir</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    Oluşturuluyor...
-                </span>
-            </button>
-            <a class="btn btn-outline-primary" href="#" onclick="downloadAllJScript(event)" id="jscriptBtn">
-                <span class="btn-text">JScript Dosyası İndir</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    İndiriliyor...
-                </span>
-            </a>
-            <a class="btn btn-outline-secondary" href="#" onclick="downloadAllCsv(event)" id="csvBtn">
-                <span class="btn-text">CSV indir</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    İndiriliyor...
-                </span>
-            </a>
             <a class="btn btn-outline-dark" href="#" onclick="downloadAllZpl(event)" id="zplBtn">
-                <span class="btn-text">ZPL indir</span>
+                <span class="btn-text">ZPL İndir</span>
                 <span class="btn-loading" style="display: none;">
                     <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                     İndiriliyor...
                 </span>
             </a>
-            <button type="button" class="btn btn-outline-warning" onclick="showBartenderFields()" id="bartenderBtn">
-                <span class="btn-text">Bartender Data Fields</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    Yükleniyor...
-                </span>
-            </button>
-            <a href="{{ route('barcode.test') }}" class="btn btn-outline-info" target="_blank">Test QR / Barkod</a>
         </div>
         <div class="alert alert-info mt-2 mb-0">
-            <strong>Etiket Formatı:</strong>
+            <strong>ZPL Etiket Formatı:</strong>
             <ul class="mb-0 mt-2">
                 <li><strong>QR Kod:</strong> Ürün/Seri detay sayfasına yönlendirir</li>
                 <li><strong>Barkod:</strong> CODE128 formatında yazdırılır</li>
-                <li><strong>Bilgiler:</strong> Ürün adı, beden, stok, kategori (renkler kaldırıldı)</li>
+                <li><strong>Bilgiler:</strong> Ürün adı, beden, stok, kategori</li>
                 <li><strong>Seri Ürünler:</strong> Dış paket + Her beden etiketleri</li>
-                <li><strong>Bartender Veri Kaynağı:</strong> CSV formatında, renkler kaldırılmış, toplam stok</li>
                 <li><strong>Karakter Dönüşümü:</strong> Türkçe karakterler İngilizce'ye çevrilir (ğ→g, ü→u, ş→s, vb.)</li>
             </ul>
         </div>
         <div class="alert alert-warning mt-2 mb-0">
             <strong>Yazdırma:</strong> QZ Tray kurulu olmalı. USB CAB EOS4 yazıcısını QZ Tray'den seçip tarayıcıya izin verin.<br>
-            <strong>USB Bellek:</strong> JScript (CAB) komut dosyasını indirip USB belleğe atabilirsiniz. Yazıcı direkt USB'den okuyabilir.
-        </div>
-        <div class="alert alert-success mt-2 mb-0">
-            <strong>Bartender Entegrasyonu:</strong><br>
-            <strong>1. Veri Kaynağı:</strong> "Bartender Data Fields" butonuna tıklayarak alanları görün<br>
-            <strong>2. Bartender'da:</strong> Yeni veri kaynağı oluşturun ve CSV dosyasını seçin<br>
-            <strong>3. Alan Eşleştirme:</strong> type, category, name, size, barcode, stock alanlarını eşleştirin<br>
-            <strong>4. Tasarım:</strong> Etiket tasarımınızda bu alanları kullanın<br>
-            <strong>5. Yazdırma:</strong> Bartender'dan direkt yazdırın veya BTXML ile entegre edin
-        </div>
-    </div>
-</div>
-
-<!-- Bartender Data Fields Modal -->
-<div class="modal fade" id="bartenderFieldsModal" tabindex="-1" aria-labelledby="bartenderFieldsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="bartenderFieldsModalLabel">
-                    <iconify-icon icon="solar:database-outline" class="me-2"></iconify-icon>
-                    Bartender Data Fields
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-info mb-3">
-                    <iconify-icon icon="solar:info-circle-outline" class="me-2"></iconify-icon>
-                    <strong>Bartender Entegrasyonu:</strong> Aşağıdaki alanları kopyalayıp Bartender'da veri kaynağı olarak kullanabilirsiniz.
-                </div>
-                
-                <div id="bartenderFieldsContent">
-                    <div class="text-center py-4">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Yükleniyor...</span>
-                        </div>
-                        <p class="mt-2 text-muted">Veri alanları yükleniyor...</p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
-                <button type="button" class="btn btn-primary" onclick="downloadBartenderCsv()">
-                    <iconify-icon icon="solar:download-outline" class="me-2"></iconify-icon>
-                    CSV İndir
-                </button>
-            </div>
+            <strong>ZPL Dosyası:</strong> ZPL dosyasını indirip yazıcıya direkt gönderebilirsiniz.
         </div>
     </div>
 </div>
@@ -308,89 +226,6 @@ async function printAllViaQz(){
     }
 }
 
-async function downloadAllJScript(e){
-    e.preventDefault();
-    try {
-        showLoading('jscriptBtn');
-        
-        const items = getAllPrintItems();
-        if (items.length === 0) {
-            alert('İndirilecek öğe bulunamadı!');
-            return;
-        }
-        
-        let allZpl = '';
-        
-        for (const item of items) {
-            const u = new URL('{{ route('print.labels.zpl') }}', window.location.origin);
-            u.searchParams.set('type', item.type);
-            u.searchParams.set('id', item.id);
-            if (item.type === 'series') u.searchParams.set('mode', item.mode);
-            u.searchParams.set('count', item.count);
-            
-            const res = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
-            if (!res.ok) {
-                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-            }
-            const zpl = await res.text();
-            allZpl += zpl;
-        }
-        
-        const blob = new Blob([allZpl], { type: 'text/plain' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'etiketler.txt';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up the URL object
-        URL.revokeObjectURL(link.href);
-        
-    } catch (e) {
-        console.error('JScript download error:', e);
-        alert('İndirme başarısız: ' + (e.message || e));
-    } finally {
-        hideLoading('jscriptBtn');
-    }
-}
-
-async function downloadAllCsv(e){
-    e.preventDefault();
-    try {
-        showLoading('csvBtn');
-        
-        const items = getAllPrintItems();
-        if (items.length === 0) {
-            alert('İndirilecek öğe bulunamadı!');
-            return;
-        }
-        
-        if (items.length === 1) {
-            const item = items[0];
-            const u = new URL('{{ route('print.labels.csv') }}', window.location.origin);
-            u.searchParams.set('type', item.type);
-            u.searchParams.set('id', item.id);
-            if (item.type === 'series') u.searchParams.set('mode', item.mode);
-            
-            // Test the URL first
-            const testRes = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
-            if (!testRes.ok) {
-                throw new Error(`HTTP ${testRes.status}: ${testRes.statusText}`);
-            }
-            
-            window.open(u.toString(), '_blank');
-        } else {
-            alert('CSV indirme sadece tek öğe için desteklenmektedir.');
-        }
-    } catch (error) {
-        console.error('CSV download error:', error);
-        alert('CSV indirme başarısız: ' + error.message);
-    } finally {
-        hideLoading('csvBtn');
-    }
-}
-
 async function downloadAllZpl(e){
     e.preventDefault();
     try {
@@ -429,242 +264,6 @@ async function downloadAllZpl(e){
     }
 }
 
-// Global variable to store current item data
-let currentBartenderItem = null;
-
-async function showBartenderFields(){
-    try {
-        showLoading('bartenderBtn');
-        
-        const items = getAllPrintItems();
-        if (items.length === 0) {
-            alert('Lütfen en az bir öğe seçin.');
-            return;
-        }
-        
-        if (items.length > 1) {
-            alert('Bartender Data Fields sadece tek öğe için desteklenmektedir.');
-            return;
-        }
-        
-        currentBartenderItem = items[0];
-        
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('bartenderFieldsModal'));
-        modal.show();
-        
-        // Load data fields
-        await loadBartenderFields();
-    } finally {
-        hideLoading('bartenderBtn');
-    }
-}
-
-async function loadBartenderFields(){
-    if (!currentBartenderItem) return;
-    
-    try {
-        const u = new URL('{{ route('print.labels.csv') }}', window.location.origin);
-        u.searchParams.set('type', currentBartenderItem.type);
-        u.searchParams.set('id', currentBartenderItem.id);
-        if (currentBartenderItem.type === 'series') u.searchParams.set('mode', currentBartenderItem.mode);
-        
-        const response = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
-        const csvData = await response.text();
-        
-        // Parse CSV data
-        const lines = csvData.split('\n');
-        const headers = lines[0].split(',');
-        const data = lines[1] ? lines[1].split(',') : [];
-        
-        // Create fields display
-        const fieldsHtml = headers.map((header, index) => {
-            const value = data[index] || '';
-            return `
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <label class="form-label fw-semibold text-primary">${header}</label>
-                    </div>
-                    <div class="col-md-7">
-                        <div class="input-group">
-                            <input type="text" class="form-control field-value" value="${value}" readonly>
-                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('${value}')">
-                                <iconify-icon icon="solar:copy-outline"></iconify-icon>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-sm btn-outline-primary w-100" onclick="copyToClipboard('${value}')">
-                            Kopyala
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-        document.getElementById('bartenderFieldsContent').innerHTML = `
-            <div class="mb-3">
-                <h6 class="fw-semibold text-success">
-                    <iconify-icon icon="solar:database-outline" class="me-2"></iconify-icon>
-                    ${currentBartenderItem.type === 'product' ? 'Ürün' : 'Seri'} Veri Alanları
-                </h6>
-                <p class="text-muted mb-3">Aşağıdaki alanları Bartender'da veri kaynağı olarak kullanabilirsiniz.</p>
-            </div>
-            ${fieldsHtml}
-            <div class="alert alert-warning mt-3">
-                <iconify-icon icon="solar:warning-outline" class="me-2"></iconify-icon>
-                <strong>Bartender'da Kullanım:</strong><br>
-                1. Yeni veri kaynağı oluşturun<br>
-                2. CSV dosyasını seçin veya alanları manuel olarak kopyalayın<br>
-                3. Alanları eşleştirin: ${headers.join(', ')}<br>
-                4. Etiket tasarımınızda bu alanları kullanın
-            </div>
-        `;
-        
-    } catch (error) {
-        console.error('Error loading Bartender fields:', error);
-        document.getElementById('bartenderFieldsContent').innerHTML = `
-            <div class="alert alert-danger">
-                <iconify-icon icon="solar:danger-triangle-outline" class="me-2"></iconify-icon>
-                Veri alanları yüklenirken hata oluştu: ${error.message}
-            </div>
-        `;
-    }
-}
-
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        // Show success feedback
-        const btn = event.target.closest('button');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<iconify-icon icon="solar:check-circle-outline"></iconify-icon> Kopyalandı!';
-        btn.classList.remove('btn-outline-secondary', 'btn-outline-primary');
-        btn.classList.add('btn-success');
-        
-        setTimeout(() => {
-            btn.innerHTML = originalText;
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-outline-secondary');
-        }, 2000);
-    }).catch(err => {
-        console.error('Copy failed:', err);
-        alert('Kopyalama başarısız: ' + err.message);
-    });
-}
-
-async function downloadBartenderCsv(){
-    if (!currentBartenderItem) return;
-    
-    try {
-        const u = new URL('{{ route('print.labels.csv') }}', window.location.origin);
-        u.searchParams.set('type', currentBartenderItem.type);
-        u.searchParams.set('id', currentBartenderItem.id);
-        if (currentBartenderItem.type === 'series') u.searchParams.set('mode', currentBartenderItem.mode);
-        
-        const response = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
-        const csvData = await response.text();
-        
-        const fileName = `bartender_${currentBartenderItem.type}_${currentBartenderItem.id}_${currentBartenderItem.mode || 'data'}.csv`;
-        
-        const blob = new Blob([csvData], { type: 'text/csv; charset=UTF-8' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        alert('Bartender CSV dosyası başarıyla indirildi!\n\nDosya adı: ' + fileName);
-        
-    } catch (error) {
-        console.error('CSV download failed:', error);
-        alert('CSV indirme başarısız: ' + error.message);
-    }
-}
-
-// PDF Export fonksiyonu
-async function exportToPDF() {
-    try {
-        showLoading('pdfBtn');
-        
-        const items = getAllPrintItems();
-        if (items.length === 0) {
-            alert('Yazdırılacak öğe bulunamadı!');
-            return;
-        }
-        
-        // PDF oluşturmak için backend'e istek gönder
-        const response = await fetch('{{ route("print.labels.pdf") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ items: items })
-        });
-        
-        if (!response.ok) {
-            throw new Error('PDF oluşturma başarısız');
-        }
-        
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        
-        // PDF'i indir
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `barkod_etiketleri_${new Date().toISOString().split('T')[0]}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        URL.revokeObjectURL(url);
-        
-        alert('PDF başarıyla oluşturuldu ve indirildi!');
-        
-    } catch (error) {
-        console.error('PDF export failed:', error);
-        alert('PDF oluşturma başarısız: ' + error.message);
-    } finally {
-        hideLoading('pdfBtn');
-    }
-}
-
-async function previewAllZpl(){
-    try {
-        showLoading('previewBtn');
-        
-        const items = getAllPrintItems();
-        if (items.length === 0) {
-            alert('Önizlenecek öğe bulunamadı!');
-            return;
-        }
-        
-        const item = items[0]; // İlk öğeyi önizle
-        const u = new URL('{{ route('print.labels.preview') }}', window.location.origin);
-        u.searchParams.set('type', item.type);
-        u.searchParams.set('id', item.id);
-        if (item.type === 'series') u.searchParams.set('mode', item.mode);
-        
-        const imgRes = await fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
-        if (!imgRes.ok) {
-            throw new Error(`HTTP ${imgRes.status}: ${imgRes.statusText}`);
-        }
-        
-        const blob = await imgRes.blob();
-        const urlObj = URL.createObjectURL(blob);
-        const w = window.open('about:blank');
-        w.document.write('<title>Etiket Önizleme</title>');
-        w.document.write('<img style="max-width:100%;image-rendering: pixelated;" src="'+urlObj+'" />');
-        w.document.close();
-    } catch (e) {
-        console.error('Preview error:', e);
-        alert('Önizleme oluşturulamadı: ' + (e.message || e));
-    } finally {
-        hideLoading('previewBtn');
-    }
-}
 </script>
 @endsection
 

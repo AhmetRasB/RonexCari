@@ -14,9 +14,13 @@
                         <iconify-icon icon="lucide:edit" class="text-xl"></iconify-icon>
                         Düzenle
                     </a>
+                    <a href="{{ route('sales.exchanges.create', $invoice) }}" class="btn btn-sm btn-info radius-8 d-inline-flex align-items-center gap-1">
+                        <iconify-icon icon="solar:refresh-outline" class="text-xl"></iconify-icon>
+                        Değişim
+                    </a>
                     <a href="{{ route('sales.invoices.print', $invoice) }}" target="_blank" class="btn btn-sm btn-warning radius-8 d-inline-flex align-items-center gap-1">
                         <iconify-icon icon="basil:printer-outline" class="text-xl"></iconify-icon>
-                        Barkod Yazdır
+                        Fatura Yazdır
                     </a>
                     <a href="{{ route('sales.invoices.index') }}" class="btn btn-sm btn-secondary radius-8 d-inline-flex align-items-center gap-1">
                         <iconify-icon icon="solar:arrow-left-outline" class="text-xl"></iconify-icon>
@@ -141,7 +145,13 @@
 
                 <div class="row mt-4">
                     <div class="col-12">
-                        <h6 class="fw-semibold mb-3">Fatura Kalemleri</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-semibold mb-0">Fatura Kalemleri</h6>
+                            <button type="button" class="btn btn-sm btn-danger radius-8 d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#addReturnModal">
+                                <iconify-icon icon="solar:refresh-outline" class="text-xl"></iconify-icon>
+                                İade Ekle
+                            </button>
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-bordered">
                                 <thead>
@@ -154,14 +164,23 @@
                                         <th>KDV Oranı</th>
                                         <th>İndirim</th>
                                         <th>Toplam</th>
+                                        <th>Durum</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($invoice->items as $index => $item)
-                                    <tr>
+                                    @php
+                                        $isExchange = str_starts_with($item->description ?? '', 'Değişim -');
+                                    @endphp
+                                    <tr class="{{ $item->is_return ? 'table-danger' : ($isExchange ? 'table-info' : '') }}">
                                         <td>{{ $index + 1 }}</td>
                                         <td>
                                             {{ $item->product_service_name }}
+                                            @if($item->is_return)
+                                                <span class="badge bg-danger ms-2" style="font-size: 10px;">İADE</span>
+                                            @elseif($isExchange)
+                                                <span class="badge bg-info ms-2" style="font-size: 10px;">DEĞİŞİM</span>
+                                            @endif
                                             @if($item->selected_color)
                                                 <br><small class="text-muted">Renk: {{ $item->selected_color }}</small>
                                             @endif
@@ -193,13 +212,26 @@
                                             @endif
                                         </td>
                                         <td>
-                                            {{ number_format($item->line_total, 2) }}
+                                            @if($item->is_return)
+                                                <span class="text-danger">-{{ number_format(abs($item->line_total), 2) }}</span>
+                                            @else
+                                                {{ number_format($item->line_total, 2) }}
+                                            @endif
                                             @if($invoice->currency === 'USD')
                                                 $
                                             @elseif($invoice->currency === 'EUR')
                                                 €
                                             @else
                                                 ₺
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($item->is_return)
+                                                <span class="badge bg-danger">İade</span>
+                                            @elseif($isExchange)
+                                                <span class="badge bg-info">Değişim</span>
+                                            @else
+                                                <span class="badge bg-success">Normal</span>
                                             @endif
                                         </td>
                                     </tr>
@@ -216,10 +248,17 @@
                         <div class="card">
                             <div class="card-body">
                                 <h6 class="fw-semibold mb-3">Fatura Toplamları</h6>
+                                @php
+                                    $returnsTotal = $invoice->items()->where('is_return', true)->sum('line_total');
+                                    $normalSubtotal = $invoice->items()->where('is_return', false)->sum('line_total');
+                                    $displaySubtotal = $invoice->subtotal;
+                                    $displayVat = $invoice->vat_amount;
+                                    $displayTotal = $invoice->total_amount;
+                                @endphp
                                 <div class="d-flex justify-content-between mb-2">
                                     <span>Ara Toplam:</span>
                                     <span>
-                                        {{ number_format($invoice->subtotal, 2) }}
+                                        {{ number_format($displaySubtotal, 2) }}
                                         @if($invoice->currency === 'USD')
                                             $
                                         @elseif($invoice->currency === 'EUR')
@@ -229,10 +268,25 @@
                                         @endif
                                     </span>
                                 </div>
+                                @if($returnsTotal < 0)
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-danger">İade Toplamı:</span>
+                                    <span class="text-danger">
+                                        {{ number_format(abs($returnsTotal), 2) }}
+                                        @if($invoice->currency === 'USD')
+                                            $
+                                        @elseif($invoice->currency === 'EUR')
+                                            €
+                                        @else
+                                            ₺
+                                        @endif
+                                    </span>
+                                </div>
+                                @endif
                                 <div class="d-flex justify-content-between mb-2">
                                     <span>KDV:</span>
                                     <span>
-                                        {{ number_format($invoice->vat_amount, 2) }}
+                                        {{ number_format($displayVat, 2) }}
                                         @if($invoice->currency === 'USD')
                                             $
                                         @elseif($invoice->currency === 'EUR')
@@ -246,7 +300,7 @@
                                 <div class="d-flex justify-content-between fw-bold">
                                     <span>Genel Toplam:</span>
                                     <span>
-                                        {{ number_format($invoice->total_amount, 2) }}
+                                        {{ number_format($displayTotal, 2) }}
                                         @if($invoice->currency === 'USD')
                                             $
                                         @elseif($invoice->currency === 'EUR')
@@ -266,9 +320,294 @@
     </div>
 </div>
 
+<!-- İade Ekle Modal -->
+<div class="modal fade" id="addReturnModal" tabindex="-1" aria-labelledby="addReturnModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addReturnModalLabel">
+                    <iconify-icon icon="solar:refresh-outline" class="me-2"></iconify-icon>
+                    İade Ekle
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="returnItemForm" action="{{ route('sales.invoices.add-return', $invoice) }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <iconify-icon icon="solar:info-circle-outline" class="me-2"></iconify-icon>
+                        <strong>Not:</strong> İade edilen ürün fatura toplamından düşecek ve stoğa geri eklenecektir.
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Faturadaki Ürün/Hizmet <span class="text-danger">*</span></label>
+                            <select id="returnProductSelect" class="form-select" required>
+                                <option value="">-- Ürün Seçin --</option>
+                                @foreach($invoice->items()->where('is_return', false)->get() as $item)
+                                    <option value="{{ $item->id }}" 
+                                            data-product-id="{{ $item->product_id }}" 
+                                            data-product-type="{{ $item->product_type }}"
+                                            data-product-name="{{ $item->product_service_name }}"
+                                            data-unit-price="{{ $item->unit_price }}"
+                                            data-tax-rate="{{ $item->tax_rate }}"
+                                            data-discount-rate="{{ $item->discount_rate }}"
+                                            data-quantity="{{ $item->quantity }}"
+                                            data-color="{{ $item->selected_color }}"
+                                            data-color-variant-id="{{ $item->color_variant_id }}"
+                                            data-description="{{ $item->description ?? '' }}">
+                                        {{ $item->product_service_name }}
+                                        @if($item->selected_color)
+                                            - Renk: {{ $item->selected_color }}
+                                        @endif
+                                        (Miktar: {{ $item->quantity }}, Fiyat: {{ number_format($item->unit_price, 2) }} {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            <input type="hidden" id="returnProductId" name="product_id">
+                            <input type="hidden" id="returnProductType" name="type">
+                            <input type="hidden" id="returnInvoiceItemId" name="invoice_item_id">
+                            <small class="text-muted">Faturada bulunan ürünlerden birini seçin</small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">İade Miktarı <span class="text-danger">*</span></label>
+                            <input type="number" name="quantity" id="returnQuantity" class="form-control" step="0.01" min="0.01" max="0" required>
+                            <small class="text-muted" id="returnMaxQuantityHint">Max: <span id="returnMaxQuantity">0</span></small>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <div class="alert alert-light border">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <strong>Birim Fiyat:</strong> <span id="displayUnitPrice">-</span> {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>KDV Oranı:</strong> <span id="displayTaxRate">-</span>%
+                                    </div>
+                                    @if(false)
+                                    <div class="col-md-6">
+                                        <strong>Renk:</strong> <span id="displayColor">-</span>
+                                    </div>
+                                    @endif
+                                </div>
+                            </div>
+                            <input type="hidden" name="unit_price" id="returnUnitPrice">
+                            <input type="hidden" name="tax_rate" id="returnTaxRate">
+                            <input type="hidden" name="discount_rate" id="returnDiscount" value="0">
+                            <input type="hidden" name="selected_color" id="returnSelectedColor">
+                            <input type="hidden" name="color_variant_id" id="returnColorVariantId">
+                            <input type="hidden" name="description" id="returnDescription">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 p-3 bg-light rounded" id="returnItemSummary" style="display: none;">
+                        <h6 class="fw-semibold mb-2">Özet:</h6>
+                        <div id="returnItemSummaryContent"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-danger">
+                        <iconify-icon icon="solar:refresh-outline" class="me-2"></iconify-icon>
+                        İade Ekle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
-// TL eşdeğeri hesaplaması kaldırıldı; herhangi bir script çalıştırılmıyor.
+$(document).ready(function() {
+    const invoiceCurrency = '{{ $invoice->currency }}';
+    const currencySymbol = invoiceCurrency === 'USD' ? '$' : (invoiceCurrency === 'EUR' ? '€' : '₺');
+    
+    let selectedReturnItem = null;
+    
+    // Ürün seçimi (dropdown'dan)
+    $('#returnProductSelect').on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        
+        if (selectedOption.val() === '') {
+            // Seçim temizlendi
+            resetReturnForm();
+            return;
+        }
+        
+        // Seçilen ürün bilgilerini al
+        selectedReturnItem = {
+            invoiceItemId: selectedOption.val(),
+            productId: selectedOption.data('product-id'),
+            productType: selectedOption.data('product-type'),
+            productName: selectedOption.data('product-name'),
+            unitPrice: parseFloat(selectedOption.data('unit-price')) || 0,
+            taxRate: parseFloat(selectedOption.data('tax-rate')) || 20,
+            discountRate: parseFloat(selectedOption.data('discount-rate')) || 0,
+            maxQuantity: parseFloat(selectedOption.data('quantity')) || 0,
+            selectedColor: selectedOption.data('color') || '',
+            colorVariantId: selectedOption.data('color-variant-id') || '',
+            description: selectedOption.data('description') || ''
+        };
+        
+        // Form alanlarını doldur
+        $('#returnInvoiceItemId').val(selectedReturnItem.invoiceItemId);
+        $('#returnProductId').val(selectedReturnItem.productId);
+        $('#returnProductType').val(selectedReturnItem.productType);
+        $('#returnUnitPrice').val(selectedReturnItem.unitPrice);
+        $('#returnTaxRate').val(selectedReturnItem.taxRate);
+        $('#returnDiscount').val(selectedReturnItem.discountRate);
+        $('#returnDescription').val('İade - ' + selectedReturnItem.productName);
+        $('#returnQuantity').attr('max', selectedReturnItem.maxQuantity).attr('placeholder', 'Max: ' + selectedReturnItem.maxQuantity);
+        $('#returnMaxQuantity').text(selectedReturnItem.maxQuantity);
+        
+        // Görüntüleme alanlarını doldur
+        $('#displayUnitPrice').text(selectedReturnItem.unitPrice.toLocaleString('tr-TR', {minimumFractionDigits: 2}));
+        $('#displayTaxRate').text(selectedReturnItem.taxRate);
+        if (selectedReturnItem.selectedColor) {
+            $('#displayColor').text(selectedReturnItem.selectedColor);
+            $('#returnSelectedColor').val(selectedReturnItem.selectedColor);
+            $('#returnColorVariantId').val(selectedReturnItem.colorVariantId);
+        } else {
+            $('#displayColor').text('Yok');
+            $('#returnSelectedColor').val('');
+            $('#returnColorVariantId').val('');
+        }
+        
+        updateReturnSummary();
+    });
+    
+    // Hesaplama
+    $('#returnQuantity').on('input', function() {
+        // Max miktar kontrolü
+        const maxQty = parseFloat($('#returnQuantity').attr('max')) || 0;
+        const enteredQty = parseFloat($('#returnQuantity').val()) || 0;
+        if (enteredQty > maxQty) {
+            $('#returnQuantity').val(maxQty);
+            alert(`Maksimum iade miktarı ${maxQty} adettir.`);
+        }
+        updateReturnSummary();
+    });
+    
+    function resetReturnForm() {
+        selectedReturnItem = null;
+        $('#returnInvoiceItemId').val('');
+        $('#returnProductId').val('');
+        $('#returnProductType').val('');
+        $('#returnUnitPrice').val('');
+        $('#returnTaxRate').val(20);
+        $('#returnDiscount').val(0);
+        $('#returnDescription').val('');
+        $('#returnQuantity').val('').attr('max', 0).attr('placeholder', '');
+        $('#returnMaxQuantity').text(0);
+        $('#returnSelectedColor').val('');
+        $('#returnColorVariantId').val('');
+        $('#displayUnitPrice').text('-');
+        $('#displayTaxRate').text('-');
+        $('#displayColor').text('-');
+        $('#returnItemSummary').hide();
+    }
+    
+    function updateReturnSummary() {
+        const quantity = parseFloat($('#returnQuantity').val()) || 0;
+        const unitPrice = parseFloat($('#returnUnitPrice').val()) || 0;
+        const taxRate = parseFloat($('#returnTaxRate').val()) || 0;
+        const discount = parseFloat($('#returnDiscount').val()) || 0;
+        
+        if (quantity > 0 && unitPrice > 0) {
+            const lineTotal = quantity * unitPrice;
+            const discountAmount = discount;
+            const afterDiscount = Math.max(0, lineTotal - discountAmount);
+            const taxAmount = afterDiscount * (taxRate / 100);
+            const total = afterDiscount + taxAmount;
+            
+            $('#returnItemSummaryContent').html(`
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Ara Toplam:</span>
+                    <span>${lineTotal.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ${currencySymbol}</span>
+                </div>
+                ${discount > 0 ? `<div class="d-flex justify-content-between mb-1"><span>İndirim:</span><span class="text-danger">-${discount.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ${currencySymbol}</span></div>` : ''}
+                <div class="d-flex justify-content-between mb-1">
+                    <span>KDV (${taxRate}%):</span>
+                    <span>${taxAmount.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ${currencySymbol}</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between fw-bold">
+                    <span>İade Tutarı:</span>
+                    <span class="text-danger">-${total.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ${currencySymbol}</span>
+                </div>
+            `);
+            $('#returnItemSummary').show();
+        } else {
+            $('#returnItemSummary').hide();
+        }
+    }
+    
+    // Modal açıldığında formu temizle
+    $('#addReturnModal').on('show.bs.modal', function() {
+        $('#returnItemForm')[0].reset();
+        $('#returnProductSelect').val('').trigger('change');
+        $('#returnItemSummary').hide();
+        selectedReturnItem = null;
+        resetReturnForm();
+    });
+    
+    function updateReturnSummary() {
+        if (!selectedReturnItem) {
+            $('#returnItemSummary').hide();
+            return;
+        }
+        
+        const quantity = parseFloat($('#returnQuantity').val()) || 0;
+        const unitPrice = parseFloat($('#returnUnitPrice').val()) || selectedReturnItem.unitPrice || 0;
+        const taxRate = parseFloat($('#returnTaxRate').val()) || selectedReturnItem.taxRate || 20;
+        const discount = parseFloat($('#returnDiscount').val()) || selectedReturnItem.discountRate || 0;
+        const maxQty = selectedReturnItem.maxQuantity || 0;
+        
+        if (quantity > maxQty) {
+            $('#returnQuantity').val(maxQty);
+            return;
+        }
+        
+        if (quantity > 0 && unitPrice > 0) {
+            const lineTotal = quantity * unitPrice;
+            const discountAmount = discount;
+            const afterDiscount = Math.max(0, lineTotal - discountAmount);
+            const taxAmount = afterDiscount * (taxRate / 100);
+            const total = afterDiscount + taxAmount;
+            
+            $('#returnItemSummaryContent').html(`
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Orijinal Miktar:</span>
+                    <span>${maxQty.toLocaleString('tr-TR', {minimumFractionDigits: 2})} Adet</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span>İade Miktarı:</span>
+                    <span class="text-danger">${quantity.toLocaleString('tr-TR', {minimumFractionDigits: 2})} Adet</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Ara Toplam:</span>
+                    <span>${lineTotal.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ${currencySymbol}</span>
+                </div>
+                ${discount > 0 ? `<div class="d-flex justify-content-between mb-1"><span>İndirim:</span><span class="text-danger">-${discount.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ${currencySymbol}</span></div>` : ''}
+                <div class="d-flex justify-content-between mb-1">
+                    <span>KDV (${taxRate}%):</span>
+                    <span>${taxAmount.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ${currencySymbol}</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between fw-bold">
+                    <span>İade Tutarı:</span>
+                    <span class="text-danger">-${total.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ${currencySymbol}</span>
+                </div>
+            `);
+            $('#returnItemSummary').show();
+        } else {
+            $('#returnItemSummary').hide();
+        }
+    }
+});
 </script>
 @endpush
 @endsection

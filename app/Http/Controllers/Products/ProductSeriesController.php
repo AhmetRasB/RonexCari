@@ -18,16 +18,22 @@ class ProductSeriesController extends Controller
         $currentAccountId = session('current_account_id');
         $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
         
+        // Eğer account'a ait kategori yoksa, hiçbir seri ürün gösterilmemeli
+        if (empty($allowedCategories)) {
+            $series = ProductSeries::where('id', 0)->paginate(15);
+        } else {
         $series = ProductSeries::with('seriesItems')
-            ->when(!empty($allowedCategories), function($q) use ($allowedCategories){
-                $q->whereIn('category', $allowedCategories);
-            })
-            ->when($request->filled('category'), function($q) use ($request) {
+                ->whereIn('category', $allowedCategories)
+                ->when($request->filled('category'), function($q) use ($request, $allowedCategories) {
+                    // Seçilen kategori, allowedCategories içinde olmalı
+                    if (in_array($request->get('category'), $allowedCategories, true)) {
                 $q->where('category', $request->get('category'));
+                    }
             })
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString();
+        }
             
         $selectedCategory = $request->get('category');
         return view('products.series.index', compact('series', 'allowedCategories', 'selectedCategory'));
@@ -51,7 +57,8 @@ class ProductSeriesController extends Controller
         $currentAccountId = session('current_account_id');
         $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
         
-        $validated = $request->validate([
+        try {
+            $validated = $request->validate([
             'name' => 'required|string|max:255',
             'sku' => 'nullable|string|max:255',
             'barcode' => 'nullable|string|max:255',
@@ -79,7 +86,25 @@ class ProductSeriesController extends Controller
             'color_variants.*.color' => 'required|string',
             'color_variants.*.stock_quantity' => 'required|integer|min:0',
             'color_variants.*.critical_stock' => 'nullable|integer|min:0',
+        ], [
+            'name.required' => 'Seri adı zorunludur.',
+            'category.required' => 'Kategori seçimi zorunludur.',
+            'sizes.required' => 'En az bir beden eklemelisiniz.',
+            'sizes.min' => 'En az bir beden eklemelisiniz.',
+            'sizes.*.required' => 'Beden değeri boş olamaz.',
+            'quantities.required' => 'Miktar bilgisi zorunludur.',
+            'quantities.min' => 'En az bir miktar bilgisi gereklidir.',
+            'quantities.*.required' => 'Miktar değeri zorunludur.',
+            'quantities.*.integer' => 'Miktar tam sayı olmalıdır.',
+            'quantities.*.min' => 'Miktar 1\'den küçük olamaz.',
         ]);
+        
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput()
+                ->with('error', 'Seri oluşturulurken validasyon hatası oluştu. Lütfen tüm zorunlu alanları doldurun.');
+        }
         
         // Parse colors_input (comma-separated text) into colors array
         if (!empty($validated['colors_input'])) {

@@ -508,7 +508,6 @@ class PrintLabelController extends Controller
         return str_repeat($one, max(1, $count));
     }
 
-    // Full sequence for series: per package prints [OUTER + each size] in order.
     private function buildSeriesZplFull(int $seriesId, int $packages = 1): ?string
     {
         $series = ProductSeries::with(['seriesItems', 'colorVariants'])->find($seriesId);
@@ -518,13 +517,11 @@ class PrintLabelController extends Controller
         $sizesZpl = $this->buildSeriesZpl($seriesId, 'sizes', 1);
         if ($outer === null || $sizesZpl === null) return null;
 
-        $sequence = $outer . $sizesZpl; // OUTER + all sizes (order preserved)
+        $sequence = $outer . $sizesZpl; 
         return str_repeat($sequence, max(1, $packages));
     }
 
-    /**
-     * PDF Export for barcode labels (A4 landscape, 5x3 grid)
-     */
+   
     public function exportPdf(Request $request)
     {
         $items = $request->input('items', []);

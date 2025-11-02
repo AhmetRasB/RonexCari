@@ -37,19 +37,52 @@ class CollectionController extends Controller
      */
     public function store(Request $request)
     {
+        Log::info('Collection store method called', [
+            'request_all' => $request->all(),
+            'request_method' => $request->method(),
+            'request_url' => $request->fullUrl(),
+            'user_id' => auth()->id(),
+            'session_account_id' => session('current_account_id'),
+        ]);
+        
         try {
+            Log::info('Starting validation');
             $validated = $request->validate([
                 'customer_id' => 'required|exists:customers,id',
-                'collection_type' => 'required|in:nakit,banka,kredi_karti,havale,eft',
+                'collection_type' => 'required|in:nakit,banka,kredi_karti,havale,eft,cek',
                 'transaction_date' => 'required|date',
                 'amount' => 'required|numeric|min:0.01',
+                'discount' => 'nullable|numeric|min:0',
                 'currency' => 'required|in:TRY,USD,EUR',
                 'description' => 'nullable|string|max:1000'
             ]);
+            Log::info('Validation passed', ['validated' => $validated]);
+            
+            // İndirim tutarı - boş string veya null ise 0 yap
+            $discount = $validated['discount'] ?? 0;
+            if ($discount === '' || $discount === null) {
+                $discount = 0;
+            }
+            $discount = (float) $discount;
+            $validated['discount'] = $discount;
+            // amount = ödenen tutar, discount = indirim, toplam borç = amount + discount
+            
+            Log::info('Discount processed', ['discount' => $discount, 'amount' => $validated['amount']]);
+            
+            // Account ID'yi ekle
+            $accountId = session('current_account_id');
+            if (!$accountId) {
+                $account = \App\Models\Account::active()->first();
+                $accountId = $account ? $account->id : 1; // Default to first account
+            }
+            $validated['account_id'] = $accountId;
+            Log::info('Account ID set', ['account_id' => $accountId]);
 
             DB::beginTransaction();
+            Log::info('Database transaction started');
 
             $collection = Collection::create($validated);
+            Log::info('Collection created', ['collection_id' => $collection->id, 'collection_data' => $collection->toArray()]);
 
             // Müşterinin bakiyesini güncelle 
             $customer = Customer::find($validated['customer_id']);
@@ -67,15 +100,23 @@ class CollectionController extends Controller
                         'customer_name' => $customer->name,
                         'currency_field' => $currencyField,
                         'current_balance' => $currentBalance,
-                        'collection_amount' => $validated['amount']
+                        'payment_amount' => $validated['amount'],
+                        'discount' => $discount
                     ]);
                     
                     // Tahsilat yapıldığında borç azalır (bakiye azalır)
-                    $newBalance = $currentBalance - $validated['amount'];
+                    // amount = ödenen tutar, discount = indirim
+                    // Toplam borçtan düşülecek tutar = ödenen tutar + indirim
+                    // Örnek: 90.000 borç, 10.000 indirim, 80.000 ödeme
+                    // Bakiyeden: 80.000 (ödenen) + 10.000 (indirim) = 90.000 düşülmeli
+                    $totalReduction = $validated['amount'] + $discount;
+                    $newBalance = $currentBalance - $totalReduction;
                     $customer->$currencyField = $newBalance;
                     Log::info('Collection made, debt reduced', [
                         'old_balance' => $currentBalance,
-                        'collection_amount' => $validated['amount'],
+                        'payment_amount' => $validated['amount'],
+                        'discount' => $discount,
+                        'total_reduction' => $totalReduction,
                         'new_balance' => $newBalance
                     ]);
                     
@@ -91,6 +132,15 @@ class CollectionController extends Controller
             return redirect()->route('finance.collections.index')
                 ->with('success', 'Tahsilat başarıyla kaydedildi.');
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Collection validation failed', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput()
+                ->with('error', 'Tahsilat oluşturulurken validasyon hatası oluştu. Lütfen tüm zorunlu alanları doldurun.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Collection creation failed', ['error' => $e->getMessage()]);
@@ -187,13 +237,35 @@ class CollectionController extends Controller
         try {
             DB::beginTransaction();
 
-            // Müşterinin bakiyesini geri ekle
+            // Müşterinin bakiyesini geri ekle (tahsilat silinince borç geri gelir)
             $customer = $collection->customer;
             if ($customer) {
                 $currencyField = 'balance_' . strtolower($collection->currency);
-                if (property_exists($customer, $currencyField)) {
-                    $customer->$currencyField += $collection->amount;
+                
+                // Tahsilat yapıldığında: balance -= (amount + discount)
+                // Tahsilat silinince: balance += (amount + discount)
+                $discount = (float) ($collection->discount ?? 0);
+                $totalAmount = $collection->amount + $discount;
+                
+                if (in_array($currencyField, ['balance_try', 'balance_usd', 'balance_eur'])) {
+                    $currentBalance = $customer->$currencyField ?? 0;
+                    $newBalance = $currentBalance + $totalAmount;
+                    $customer->$currencyField = $newBalance;
+                    
+                    // Also update legacy balance field
+                    $customer->balance = ($customer->balance ?? 0) + $totalAmount;
                     $customer->save();
+                    
+                    Log::info('Customer balance updated after collection deletion', [
+                        'customer_id' => $customer->id,
+                        'collection_id' => $collection->id,
+                        'currency' => $collection->currency,
+                        'amount' => $collection->amount,
+                        'discount' => $discount,
+                        'total_added' => $totalAmount,
+                        'old_balance' => $currentBalance,
+                        'new_balance' => $newBalance
+                    ]);
                 }
             }
 
@@ -208,7 +280,11 @@ class CollectionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Collection deletion failed', ['error' => $e->getMessage()]);
+            Log::error('Collection deletion failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'collection_id' => $collection->id ?? 'unknown'
+            ]);
             
             return back()->with('error', 'Tahsilat silinirken bir hata oluştu: ' . $e->getMessage());
         }
@@ -241,6 +317,36 @@ class CollectionController extends Controller
         } catch (\Exception $e) {
             Log::error('Customer search failed', ['error' => $e->getMessage()]);
             return response()->json([], 500);
+        }
+    }
+
+    /**
+     * Get customer balances for AJAX
+     */
+    public function getCustomerBalances(Request $request)
+    {
+        try {
+            $customerId = $request->get('customer_id');
+            
+            if (!$customerId) {
+                return response()->json(['error' => 'Customer ID required'], 400);
+            }
+
+            $customer = Customer::find($customerId);
+            
+            if (!$customer) {
+                return response()->json(['error' => 'Customer not found'], 404);
+            }
+
+            return response()->json([
+                'balance_try' => (float)($customer->balance_try ?? 0),
+                'balance_usd' => (float)($customer->balance_usd ?? 0),
+                'balance_eur' => (float)($customer->balance_eur ?? 0),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Get customer balances failed', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'An error occurred'], 500);
         }
     }
 
@@ -367,15 +473,77 @@ class CollectionController extends Controller
     public function bulkDelete(Request $request)
     {
         try {
+            DB::beginTransaction();
+            
             $ids = json_decode($request->input('ids'), true);
             if (empty($ids) || !is_array($ids)) {
+                DB::rollBack();
                 return redirect()->back()->with('error', 'Geçersiz seçim');
             }
-            $deletedCount = \App\Models\Collection::whereIn('id', $ids)->delete();
-            return redirect()->route('finance.collections.index')->with('success', $deletedCount . ' tahsilat başarıyla silindi');
+            
+            Log::info('Bulk delete collections started', [
+                'ids' => $ids,
+                'count' => count($ids)
+            ]);
+            
+            // Get collections with their customers before deletion
+            $collections = Collection::with('customer')->whereIn('id', $ids)->get();
+            
+            // Update customer balances before deleting
+            foreach ($collections as $collection) {
+                $customer = $collection->customer;
+                if ($customer) {
+                    $currencyField = 'balance_' . strtolower($collection->currency);
+                    
+                    // Tahsilat yapıldığında: balance -= (amount + discount)
+                    // Tahsilat silinince: balance += (amount + discount)
+                    $discount = (float) ($collection->discount ?? 0);
+                    $totalAmount = $collection->amount + $discount;
+                    
+                    if (in_array($currencyField, ['balance_try', 'balance_usd', 'balance_eur'])) {
+                        $currentBalance = $customer->$currencyField ?? 0;
+                        $newBalance = $currentBalance + $totalAmount;
+                        $customer->$currencyField = $newBalance;
+                        
+                        // Also update legacy balance field
+                        $customer->balance = ($customer->balance ?? 0) + $totalAmount;
+                        $customer->save();
+                        
+                        Log::info('Customer balance updated during bulk delete', [
+                            'customer_id' => $customer->id,
+                            'collection_id' => $collection->id,
+                            'currency' => $collection->currency,
+                            'amount' => $collection->amount,
+                            'discount' => $discount,
+                            'total_added' => $totalAmount,
+                            'old_balance' => $currentBalance,
+                            'new_balance' => $newBalance
+                        ]);
+                    }
+                }
+            }
+            
+            // Delete collections
+            $deletedCount = Collection::whereIn('id', $ids)->delete();
+            
+            DB::commit();
+            
+            Log::info('Bulk delete collections completed', [
+                'deleted_count' => $deletedCount,
+                'requested_ids' => count($ids)
+            ]);
+            
+            return redirect()->route('finance.collections.index')
+                ->with('success', $deletedCount . ' tahsilat başarıyla silindi');
+                
         } catch (\Exception $e) {
-            \Log::error('Bulk delete error: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+            DB::rollBack();
+            Log::error('Bulk delete error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'ids' => $request->input('ids')
+            ]);
+            return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu: ' . $e->getMessage());
         }
     }
 }

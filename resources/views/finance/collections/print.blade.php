@@ -292,15 +292,32 @@
         
         <!-- Amount Section -->
         <div class="amount-section">
+            @if($collection->discount > 0)
+            <div class="amount-row" style="margin-bottom: 12px;">
+                <span class="amount-label">Toplam Borç:</span>
+                <span class="amount-value" style="color:#374151;">{{ number_format($collection->amount + $collection->discount, 2) }} {{ $collection->currency }}</span>
+            </div>
+            <div class="amount-row" style="margin-bottom: 12px;">
+                <span class="amount-label">Yapılan İndirim:</span>
+                <span class="amount-value" style="color:#dc2626; font-weight: bold;">-{{ number_format($collection->discount, 2) }} {{ $collection->currency }}</span>
+            </div>
+            <div style="border-top: 2px solid #333; margin: 15px 0; padding-top: 12px;">
+                <div class="amount-row">
+                    <span class="amount-label">Tahsil Edilen Tutar:</span>
+                    <span class="amount-value" style="color:#059669; font-weight: bold;">{{ number_format($collection->amount, 2) }} {{ $collection->currency }}</span>
+                </div>
+            </div>
+            @else
             <div class="amount-row">
                 <span class="amount-label">Tahsil Edilen Tutar:</span>
                 <span class="amount-value">{{ number_format($collection->amount, 2) }} {{ $collection->currency }}</span>
             </div>
+            @endif
             <div class="amount-words">
                 <strong>Yazıyla:</strong> {{ $amountInWords }}
             </div>
             @if(isset($remainingBalance))
-            <div class="amount-row" style="margin-top: 12px;">
+            <div class="amount-row" style="margin-top: 15px; padding-top: 12px; border-top: 1px solid #d1d5db;">
                 <span class="amount-label">Kalan Bakiye:</span>
                 <span class="amount-value" style="color:#dc2626;">{{ number_format($remainingBalance, 2) }} {{ $collection->currency }}</span>
             </div>

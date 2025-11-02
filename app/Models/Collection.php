@@ -13,6 +13,7 @@ class Collection extends Model
         'collection_type',
         'transaction_date',
         'amount',
+        'discount',
         'currency',
         'description',
         'is_active'
@@ -21,6 +22,7 @@ class Collection extends Model
     protected $casts = [
         'transaction_date' => 'date',
         'amount' => 'decimal:2',
+        'discount' => 'decimal:2',
         'is_active' => 'boolean'
     ];
 

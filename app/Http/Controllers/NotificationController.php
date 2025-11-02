@@ -13,25 +13,9 @@ class NotificationController extends Controller
     {
         $notifications = [];
         
-        // Kritik stok uyarıları
-        $lowStockProducts = Product::whereNotNull('critical_stock')
-            ->where('critical_stock', '>', 0)
-            ->whereColumn('initial_stock', '<=', 'critical_stock')
-            ->orderBy('initial_stock')
-            ->limit(3)
-            ->get(['id','name','initial_stock','critical_stock']);
-
-        foreach ($lowStockProducts as $product) {
-            $notifications[] = [
-                'type' => 'critical_stock',
-                'title' => 'Kritik Stok Uyarısı',
-                'message' => "{$product->name} stok seviyesi kritik ({$product->initial_stock}/{$product->critical_stock})",
-                'icon' => 'solar:danger-triangle-outline',
-                'color' => 'danger',
-                'time' => 'Şimdi',
-                'link' => route('products.edit', $product->id) . '?focus=stock'
-            ];
-        }
+        // Kritik stok uyarıları - Product tablosu artık kullanılmıyor, bu yüzden atlanıyor
+        // Single products kaldırıldı, sadece ProductSeries kullanılıyor
+        // Bu bildirimler DashboardController'da zaten gösteriliyor
 
         // Vadesi yaklaşan alış faturaları (7 gün içinde)
         $now = Carbon::today();

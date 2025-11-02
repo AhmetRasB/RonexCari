@@ -325,11 +325,24 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($invoice->items as $index => $item)
-                <tr>
-                    <td class="text-center">{{ $index + 1 }}</td>
-                    <td>{{ $item->product_service_name }}</td>
-                    <td>{{ $item->description ?? '-' }}</td>
+            @foreach($invoice->items as $index => $item)
+            @php
+                $isExchange = str_starts_with($item->description ?? '', 'Değişim -');
+            @endphp
+            <tr class="{{ $item->is_return ? 'table-danger' : ($isExchange ? 'table-info' : '') }}" style="{{ $item->is_return ? 'background-color: #fee; border-left: 3px solid #dc2626;' : ($isExchange ? 'background-color: #e6f3ff; border-left: 3px solid #0dcaf0;' : '') }}">
+                <td class="text-center">{{ $index + 1 }}</td>
+                <td>
+                    {{ $item->product_service_name }}
+                    @if($item->is_return)
+                        <span class="badge bg-danger ms-2" style="font-size: 10px;">İADE</span>
+                    @elseif($isExchange)
+                        <span class="badge bg-info ms-2" style="font-size: 10px;">DEĞİŞİM</span>
+                    @endif
+                    @if($item->selected_color)
+                        <br><small class="text-muted">Renk: {{ $item->selected_color }}</small>
+                    @endif
+                </td>
+                <td>{{ $item->description ?? ($item->is_return ? 'İade' : ($isExchange ? 'Değişim' : '-')) }}</td>
                     <td class="text-center">{{ $item->quantity }}</td>
                     <td class="text-right">
                         {{ number_format($item->unit_price, 2) }}
@@ -352,8 +365,12 @@
                             ₺
                         @endif
                     </td>
-                    <td class="text-right">
+                    <td class="text-right {{ $item->is_return ? 'text-danger fw-bold' : '' }}">
+                        @if($item->is_return)
+                            -{{ number_format(abs($item->line_total), 2) }}
+                        @else
                         {{ number_format($item->line_total, 2) }}
+                        @endif
                         @if($invoice->currency === 'USD')
                             $
                         @elseif($invoice->currency === 'EUR')

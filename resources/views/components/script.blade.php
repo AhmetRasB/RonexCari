@@ -8,6 +8,57 @@
     <script src="{{ asset('assets/js/lib/dataTables.min.js') }}"></script>
     <!-- DataTables Responsive js -->
     <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <!-- DataTables: Disable all warnings and alerts -->
+    <script>
+        // Disable DataTables warnings and console errors
+        $.fn.dataTable.ext.errMode = 'none';
+        
+        // Suppress all DataTables console warnings
+        if (window.console && window.console.warn) {
+            var originalWarn = console.warn;
+            console.warn = function() {
+                if (arguments[0] && typeof arguments[0] === 'string' && arguments[0].includes('DataTables')) {
+                    return; // Suppress DataTables warnings
+                }
+                originalWarn.apply(console, arguments);
+            };
+        }
+        
+        // Suppress DataTables alert/confirm dialogs
+        window.alert = (function(originalAlert) {
+            return function() {
+                if (arguments[0] && typeof arguments[0] === 'string' && (
+                    arguments[0].includes('DataTables') || 
+                    arguments[0].includes('i18n') ||
+                    arguments[0].includes('unknown parameter')
+                )) {
+                    return; // Suppress DataTables alerts
+                }
+                return originalAlert.apply(window, arguments);
+            };
+        })(window.alert);
+        
+        // Set default language settings to suppress empty table messages
+        $.extend(true, $.fn.dataTable.defaults, {
+            language: {
+                emptyTable: "",
+                zeroRecords: "",
+                info: "",
+                infoEmpty: "",
+                infoFiltered: "",
+                loadingRecords: "",
+                processing: "",
+                search: "",
+                lengthMenu: "",
+                paginate: {
+                    first: "",
+                    last: "",
+                    next: "",
+                    previous: ""
+                }
+            }
+        });
+    </script>
     <!-- Iconify Font js -->
     <script src="{{ asset('assets/js/lib/iconify-icon.min.js') }}"></script>
     <!-- jQuery UI js -->

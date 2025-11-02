@@ -158,7 +158,21 @@ $(document).ready(function() {
         paging: true,
         pageLength: 10,
         language: {
-            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json'
+            emptyTable: "",
+            zeroRecords: "",
+            info: "",
+            infoEmpty: "",
+            infoFiltered: "",
+            loadingRecords: "",
+            processing: "",
+            search: "",
+            lengthMenu: "",
+            paginate: {
+                first: "",
+                last: "",
+                next: "",
+                previous: ""
+            }
         },
         columnDefs: [
             { "orderable": false, "targets": 0 }, // Checkbox column

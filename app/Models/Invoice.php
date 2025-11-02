@@ -57,4 +57,14 @@ class Invoice extends Model
     {
         return $this->hasMany(InvoiceItem::class)->orderBy('sort_order');
     }
+
+    public function exchangesAsOriginal(): HasMany
+    {
+        return $this->hasMany(Exchange::class, 'original_invoice_id');
+    }
+
+    public function exchangesAsNew(): HasMany
+    {
+        return $this->hasMany(Exchange::class, 'new_invoice_id');
+    }
 }

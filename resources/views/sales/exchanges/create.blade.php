@@ -1,43 +1,79 @@
 @extends('layout.layout')
 
-@section('title', 'Yeni Fatura')
-@section('subTitle', 'Satış Faturası Oluştur')
+@section('title', 'Ürün Değişimi')
+@section('subTitle', 'Fatura #' . $invoice->invoice_number . ' - Değişim İşlemi')
 
 @section('content')
+@if(session('error'))
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <iconify-icon icon="solar:danger-triangle-outline" class="me-2"></iconify-icon>
+            <strong>Hata!</strong> {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+@endif
+
+@if ($errors->any())
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <iconify-icon icon="solar:danger-triangle-outline" class="me-2"></iconify-icon>
+            <strong>Hata!</strong> Lütfen formu kontrol edin:
+            <ul class="mb-0 mt-2">
+                @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+@endif
+
 <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title mb-0">Yeni Satış Faturası</h5>
+                <h5 class="card-title mb-0">
+                    <iconify-icon icon="solar:refresh-outline" class="me-2"></iconify-icon>
+                    Ürün Değişimi - Fatura #{{ $invoice->invoice_number }}
+                </h5>
             </div>
             <div class="card-body">
-                <form action="{{ route('sales.invoices.store') }}" method="POST" id="invoiceForm">
+                <!-- Original Invoice Info -->
+                <div class="alert alert-info mb-4">
+                    <h6 class="fw-semibold mb-2">
+                        <iconify-icon icon="solar:document-outline" class="me-2"></iconify-icon>
+                        Orijinal Fatura Bilgileri
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Müşteri:</strong> {{ $invoice->customer->name ?? 'Müşteri Silinmiş' }}</p>
+                            <p class="mb-1"><strong>Fatura No:</strong> {{ $invoice->invoice_number }}</p>
+                            <p class="mb-1"><strong>Tarih:</strong> {{ $invoice->invoice_date->format('d.m.Y') }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Para Birimi:</strong> {{ $invoice->currency }}</p>
+                            <p class="mb-1"><strong>Toplam:</strong> {{ number_format($invoice->total_amount, 2) }} {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form action="{{ route('sales.exchanges.store', $invoice) }}" method="POST" id="exchangeForm">
                     @csrf
                     
-                    <!-- Customer Section -->
+                    <!-- Customer Section (read-only, from original invoice) -->
                     <div class="row mb-4">
                         <div class="col-12">
                             <h6 class="fw-semibold mb-3">Müşteri Bilgileri</h6>
                             <div class="row">
                                 <div class="col-12 col-md-6 mb-3 mb-md-0">
-                                    <label class="form-label">Müşteri <span class="text-danger">*</span></label>
-                                    <div class="position-relative">
-                                        <input type="text" id="customerSearch" class="form-control" placeholder="Müşteri ara..." autocomplete="off" data-bs-toggle="dropdown" data-bs-auto-close="false" style="min-height: 44px; font-size: 16px;">
-                                        <input type="hidden" name="customer_id" id="customerId" required>
-                                        <div class="position-absolute top-50 end-0 translate-middle-y me-3">
-                                            <iconify-icon icon="ion:search-outline" class="text-secondary-light"></iconify-icon>
-                                        </div>
-                                        <div id="customerDropdown" class="dropdown-menu w-100" style="display: none; max-height: 300px; overflow-y: auto; position: absolute; top: 100%; left: 0; z-index: 1020; background: white; border: 1px solid #dee2e6; border-radius: 0.375rem; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15); transform: none !important;">
-                                            <!-- Customer search results will be populated here -->
-                                        </div>
-                                    </div>
-                                    <div id="customerInfo" class="mt-2" style="display: none;">
-                                        <!-- Selected customer info will be shown here -->
-                                    </div>
-                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2 w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#customerModal">
-                                        <iconify-icon icon="solar:add-circle-outline" class="me-1"></iconify-icon>
-                                        Yeni Müşteri Ekle
-                                    </button>
+                                    <label class="form-label">Müşteri</label>
+                                    <input type="text" class="form-control" value="{{ $invoice->customer->name ?? 'Müşteri Silinmiş' }}" readonly style="min-height: 44px; font-size: 16px; background-color: #f8f9fa;">
+                                    <input type="hidden" name="customer_id" value="{{ $invoice->customer_id }}">
                                 </div>
                                 <div class="col-12 col-md-3 mb-3 mb-md-0">
                                     <label class="form-label">Fatura Tarihi <span class="text-danger">*</span></label>
@@ -118,11 +154,80 @@
                         </div>
                     </div>
 
-                    <!-- Invoice Items -->
+                    <!-- Exchange Items Selection -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="fw-semibold mb-3">Değiştirilecek Ürünler</h6>
+                            <div class="card border-primary mb-4">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0">
+                                        <iconify-icon icon="solar:box-outline" class="me-2"></iconify-icon>
+                                        Orijinal Faturadaki Ürünler (Değiştirmek için seçin)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 50px;">Seç</th>
+                                                    <th>Ürün/Hizmet</th>
+                                                    <th>Miktar</th>
+                                                    <th>Birim Fiyat</th>
+                                                    <th>Toplam</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="originalItemsBody">
+                                                @foreach($invoice->items()->where('is_return', false)->get() as $item)
+                                                <tr data-original-item-id="{{ $item->id }}">
+                                                    <td>
+                                                        <input type="checkbox" class="form-check-input exchange-item-checkbox" 
+                                                               value="{{ $item->id }}" 
+                                                               data-item-id="{{ $item->id }}"
+                                                               data-item-name="{{ $item->product_service_name }}"
+                                                               data-item-price="{{ $item->unit_price }}"
+                                                               data-item-quantity="{{ $item->quantity }}"
+                                                               data-item-total="{{ $item->line_total }}"
+                                                               data-item-color="{{ $item->selected_color ?? '' }}"
+                                                               data-item-product-id="{{ $item->product_id }}"
+                                                               data-item-product-type="{{ $item->product_type }}"
+                                                               data-item-color-variant-id="{{ $item->color_variant_id }}">
+                                                    </td>
+                                                    <td>
+                                                        {{ $item->product_service_name }}
+                                                        @if($item->selected_color)
+                                                            <br><small class="text-muted">Renk: {{ $item->selected_color }}</small>
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        <input type="number" 
+                                                               class="form-control exchange-quantity" 
+                                                               value="{{ $item->quantity }}" 
+                                                               min="0.01" 
+                                                               step="0.01" 
+                                                               data-original-quantity="{{ $item->quantity }}"
+                                                               data-unit-price="{{ $item->unit_price }}"
+                                                               style="min-width: 100px; max-width: 120px;">
+                                                    </td>
+                                                    <td>{{ number_format($item->unit_price, 2) }} {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}</td>
+                                                    <td>
+                                                        <span class="exchange-item-total">{{ number_format($item->line_total, 2) }}</span> {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- New Items Section -->
                     <div class="row mb-4">
                         <div class="col-12">
                             <div class="d-flex justify-content-between align-items-center mb-4">
-                                <h6 class="fw-semibold mb-0">Ürün/Hizmet Detayları</h6>
+                                <h6 class="fw-semibold mb-0">Yeni Ürün/Hizmet Detayları</h6>
                                 <button type="button" class="btn btn-outline-success btn-sm" id="openInvoiceScanner">
                                     <iconify-icon icon="solar:qr-code-outline" class="me-1"></iconify-icon>
                                     QR ile Ekle
@@ -170,35 +275,42 @@
                         </div>
                     </div>
 
-                    <!-- Invoice Totals -->
+                    <!-- Exchange Totals -->
                     <div class="row">
                         <div class="col-12 col-md-8"></div>
                         <div class="col-12 col-md-4 mt-3 mt-md-0">
-                            <div class="card">
+                            <div class="card border-info">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Değişim Özeti</h6>
+                                </div>
                                 <div class="card-body">
-                                    <h6 class="fw-semibold mb-3">Fatura Toplamları</h6>
                     <div class="d-flex justify-content-between mb-2">
-                        <span>Ara Toplam:</span>
-                        <span id="subtotal">0,00 ₺</span>
+                                        <span>Orijinal Toplam:</span>
+                                        <span id="originalTotal">0,00 {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}</span>
                     </div>
                     <div class="d-flex justify-content-between mb-2">
-                        <span>İndirim:</span>
-                        <span id="discount">0,00 ₺</span>
+                                        <span>Yeni Ara Toplam:</span>
+                                        <span id="subtotal">0,00 {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}</span>
                     </div>
                     <div class="d-flex justify-content-between mb-2">
-                        <span>Ek İndirim:</span>
-                        <span id="additionalDiscount">0,00 ₺</span>
+                                        <span>İndirim:</span>
+                                        <span id="discount">0,00 {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}</span>
                     </div>
                     <div class="d-flex justify-content-between mb-2">
                         <span>KDV:</span>
-                        <span id="vatAmount">0,00 ₺</span>
+                                        <span id="vatAmount">0,00 {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}</span>
                     </div>
                     <hr>
-                    <div class="d-flex justify-content-between fw-bold">
-                        <span>Genel Toplam:</span>
-                        <span id="totalAmount">0,00 ₺</span>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Yeni Toplam:</span>
+                                        <span id="newTotal" class="fw-bold">0,00 {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}</span>
                     </div>
-                    <!-- TL eşdeğeri ve kur gösterimi kaldırıldı -->
+                                    <hr>
+                                    <div class="d-flex justify-content-between fw-bold {{ $invoice->currency === 'USD' ? 'text-success' : ($invoice->currency === 'EUR' ? 'text-success' : 'text-primary') }}">
+                                        <span>Fark Tutarı:</span>
+                                        <span id="exchangeDifference">0,00 {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}</span>
+                                    </div>
+                                    <small class="text-muted" id="differenceNote"></small>
                                 </div>
                             </div>
                         </div>
@@ -715,7 +827,6 @@ $(document).ready(function() {
     // Customer search functionality
     $('#customerSearch').on('input', function() {
         const query = $(this).val();
-        console.log('Customer search input:', query);
         if (query.length >= 2) {
             searchCustomers(query);
         } else {
@@ -740,13 +851,11 @@ $(document).ready(function() {
     
     // Add new item row button
     $('#addInvoiceItem').on('click', function() {
-        console.log('Add invoice item button clicked');
         addInvoiceItemRow();
     });
     
     // Add new mobile item button
     $('#addInvoiceItemMobile').on('click', function() {
-        console.log('Add mobile invoice item button clicked');
         addMobileInvoiceItemRow();
     });
 
@@ -783,22 +892,17 @@ $(document).ready(function() {
     
     // Save new customer
     $('#saveNewCustomer').on('click', function() {
-        console.log('Save new customer button clicked');
         saveNewCustomer();
     });
     
     // Ensure modal is properly initialized
     $('#customerModal').on('shown.bs.modal', function() {
-        console.log('Customer modal shown');
-        console.log('Modal footer exists:', $('#customerModal .modal-footer').length > 0);
-        console.log('Save button exists:', $('#saveNewCustomer').length > 0);
         // Focus on first input
         $('#newCustomerName').focus();
     });
     
     // Clear form when modal is hidden
     $('#customerModal').on('hidden.bs.modal', function() {
-        console.log('Customer modal hidden');
         $('#newCustomerForm')[0].reset();
     });
     
@@ -816,32 +920,202 @@ $(document).ready(function() {
         // Keep TL totals hidden
         $('#foreignCurrencyTotals').hide();
         updateCurrencySymbols(selectedCurrency === 'USD' ? '$' : (selectedCurrency === 'EUR' ? '€' : '₺'));
-            calculateTotals();
+        calculateTotals();
     });
     
-    // Form validation
-    $('#invoiceForm').on('submit', function(e) {
-        console.log('Form submit triggered');
-        console.log('Customer ID:', $('#customerId').val());
-        console.log('Invoice items count:', $('#invoiceItemsBody tr').length);
-        
-        if ($('#customerId').val() === '') {
-            e.preventDefault();
-            alert('Lütfen bir müşteri seçin.');
-            return false;
-        }
-        
-        if ($('#invoiceItemsBody tr').length === 0) {
-            e.preventDefault();
-            alert('En az bir ürün/hizmet eklemelisiniz.');
-            return false;
-        }
-        
-        // Update form with calculated values before submit
-        updateFormWithCalculatedValues();
-        
-        console.log('Form validation passed, submitting...');
+    // Exchange item checkbox change handler
+    $(document).on('change', '.exchange-item-checkbox', function() {
+        calculateExchangeTotals();
     });
+    
+    // Exchange quantity change handler
+    $(document).on('input change', '.exchange-quantity', function() {
+        const $input = $(this);
+        const quantity = parseFloat($input.val()) || 0;
+        const originalQuantity = parseFloat($input.data('original-quantity')) || 0;
+        const unitPrice = parseFloat($input.data('unit-price')) || 0;
+        
+        // Don't allow quantity greater than original
+        if (quantity > originalQuantity) {
+            $input.val(originalQuantity);
+            alert('Miktar orijinal miktardan (' + originalQuantity + ') fazla olamaz!');
+            return;
+        }
+        
+        // Update line total
+        const lineTotal = quantity * unitPrice;
+        const $row = $input.closest('tr');
+        $row.find('.exchange-item-total').text(lineTotal.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+        
+        // Update checkbox data attributes
+        const $checkbox = $row.find('.exchange-item-checkbox');
+        $checkbox.data('item-quantity', quantity);
+        $checkbox.data('item-total', lineTotal);
+        
+        // Recalculate totals
+        calculateExchangeTotals();
+    });
+    
+    // Form validation and preparation for exchange
+    $('#exchangeForm').on('submit', function(e) {
+        // Remove required attribute from empty rows to prevent validation errors
+        $('#invoiceItemsBody tr').each(function() {
+            const row = $(this);
+            const productName = row.find('input[name*="[product_service_name]"]').val();
+            if (!productName || productName.trim() === '') {
+                // Remove required from empty rows
+                row.find('input[required], select[required], textarea[required]').removeAttr('required');
+                // Disable empty rows so they won't be submitted
+                row.find('input, select, textarea').prop('disabled', true);
+            }
+        });
+        
+        // Do the same for mobile cards
+        $('#mobileInvoiceItems .card').each(function() {
+            const card = $(this);
+            const productName = card.find('input[name*="[product_service_name]"]').val();
+            if (!productName || productName.trim() === '') {
+                // Remove required from empty cards
+                card.find('input[required], select[required], textarea[required]').removeAttr('required');
+                // Disable empty cards so they won't be submitted
+                card.find('input, select, textarea').prop('disabled', true);
+            }
+        });
+        
+        // Collect selected exchange items with updated quantities
+        const selectedExchangeItems = [];
+        $('.exchange-item-checkbox:checked').each(function() {
+            const $checkbox = $(this);
+            const $row = $checkbox.closest('tr');
+            const originalItemId = $checkbox.data('item-id');
+            const $quantityInput = $row.find('.exchange-quantity');
+            
+            // Get updated quantity from input
+            const exchangeQuantity = $quantityInput.length > 0 ? parseFloat($quantityInput.val()) || 0 : parseFloat($checkbox.data('item-quantity')) || 0;
+            
+            selectedExchangeItems.push({
+                original_item_id: originalItemId,
+                exchange_quantity: exchangeQuantity, // Updated quantity for exchange
+                new_item: null // Will be filled if there's a matching new item
+            });
+        });
+        
+        if (selectedExchangeItems.length === 0) {
+            e.preventDefault();
+            alert('Lütfen en az bir ürün seçin!');
+            return false;
+        }
+        
+        // Collect new items
+        const newItems = [];
+        $('#invoiceItemsBody tr').each(function() {
+            const row = $(this);
+            const productName = row.find('input[name*="[product_service_name]"]').val();
+            if (productName && productName.trim() !== '') {
+                const quantity = parseFloat(row.find('input[name*="[quantity]"]').val()) || 0;
+                const unitPrice = parseFloat(row.find('.unit-price').val()) || 0;
+                const discountRate = parseFloat(row.find('.discount-rate').val()) || 0;
+                const taxRate = parseFloat(row.find('.tax-rate').val()) || 0;
+                const productId = row.find('input[name*="[product_id]"]').val();
+                const type = row.find('input[name*="[type]"]').val() || 'series';
+                const description = row.find('textarea[name*="[description]"]').val() || '';
+                const colorVariantId = row.find('.color-variant-select').val() || null;
+                const selectedColor = row.find('input[name*="[selected_color]"]').val() || null;
+                
+                if (quantity > 0 && unitPrice > 0) {
+                    newItems.push({
+                        product_service_name: productName,
+                        quantity: quantity,
+                        unit_price: unitPrice,
+                        discount_rate: discountRate,
+                        tax_rate: taxRate,
+                        product_id: productId ? (type === 'series' ? 'series_' : (type === 'service' ? 'service_' : 'product_')) + productId : null,
+                        type: type,
+                        description: description,
+                        color_variant_id: colorVariantId,
+                        selected_color: selectedColor
+                    });
+                }
+            }
+        });
+        
+        // Mobile items
+        $('#mobileInvoiceItems .card').each(function() {
+            const card = $(this);
+            const productName = card.find('input[name*="[product_service_name]"]').val();
+            if (productName && productName.trim() !== '') {
+                const quantity = parseFloat(card.find('input[name*="[quantity]"]').val()) || 0;
+                const unitPrice = parseFloat(card.find('.unit-price').val()) || 0;
+                const discountRate = parseFloat(card.find('.discount-rate').val()) || 0;
+                const taxRate = parseFloat(card.find('.tax-rate').val()) || 0;
+                const productId = card.find('input[name*="[product_id]"]').val();
+                const type = card.find('input[name*="[type]"]').val() || 'series';
+                const description = card.find('textarea[name*="[description]"]').val() || '';
+                const colorVariantId = card.find('.color-variant-select').val() || null;
+                const selectedColor = card.find('input[name*="[selected_color]"]').val() || null;
+                
+                if (quantity > 0 && unitPrice > 0) {
+                    newItems.push({
+                        product_service_name: productName,
+                        quantity: quantity,
+                        unit_price: unitPrice,
+                        discount_rate: discountRate,
+                        tax_rate: taxRate,
+                        product_id: productId ? (type === 'series' ? 'series_' : (type === 'service' ? 'service_' : 'product_')) + productId : null,
+                        type: type,
+                        description: description,
+                        color_variant_id: colorVariantId,
+                        selected_color: selectedColor
+                    });
+                }
+            }
+        });
+        
+        // Remove existing exchange_items inputs to avoid duplicates
+        $('input[name^="exchange_items"]').remove();
+        
+        // Add hidden inputs for exchange_items
+        selectedExchangeItems.forEach(function(item, index) {
+            $('<input>').attr({
+                type: 'hidden',
+                name: 'exchange_items[' + index + '][original_item_id]',
+                value: item.original_item_id
+            }).appendTo('#exchangeForm');
+            
+            // Add exchange_quantity if provided
+            if (item.exchange_quantity !== undefined && item.exchange_quantity !== null) {
+                $('<input>').attr({
+                    type: 'hidden',
+                    name: 'exchange_items[' + index + '][exchange_quantity]',
+                    value: item.exchange_quantity
+                }).appendTo('#exchangeForm');
+            }
+        });
+        
+        // Remove existing new_items inputs to avoid duplicates
+        $('input[name^="new_items"]').remove();
+        
+        // Add hidden inputs for new_items
+        if (newItems.length > 0) {
+            newItems.forEach(function(item, index) {
+                Object.keys(item).forEach(function(key) {
+                    if (item[key] !== null && item[key] !== undefined && item[key] !== '') {
+                        $('<input>').attr({
+                            type: 'hidden',
+                            name: 'new_items[' + index + '][' + key + ']',
+                            value: item[key]
+                        }).appendTo('#exchangeForm');
+                    }
+                });
+            });
+        }
+        
+        
+        // Form will submit normally (no preventDefault)
+    });
+    
+    // Initialize exchange totals calculation on page load
+    calculateExchangeTotals();
 });
 // Functions to be called by global scanner
 window.addScannedProductById = function(id){
@@ -1060,12 +1334,8 @@ function appendInvoiceItemFromResult(item){
 }
 
 function searchCustomers(query) {
-    console.log('Searching customers with query:', query);
-    console.log('Search URL:', '{{ route("sales.invoices.search.customers") }}');
-    
     $.get('{{ route("sales.invoices.search.customers") }}', { q: query })
         .done(function(customers) {
-            console.log('Customers found:', customers);
             let html = '';
             if (customers.length > 0) {
                 customers.forEach(function(customer) {
@@ -1089,10 +1359,8 @@ function searchCustomers(query) {
                 'transform': 'none',
                 'margin-top': '0'
             });
-            console.log('Dropdown shown with HTML:', html);
         })
         .fail(function(xhr, status, error) {
-            console.error('Customer search failed:', xhr.responseText, status, error);
             $('#customerDropdown').html('<div class="dropdown-item text-danger" style="padding: 8px 16px;">Arama sırasında hata oluştu</div>').show();
             // Ensure dropdown is positioned correctly
             $('#customerDropdown').css({
@@ -1107,14 +1375,11 @@ function searchCustomers(query) {
 }
 
 $(document).on('click', '.customer-option', function() {
-    console.log('Customer option clicked');
     const customerId = $(this).data('customer-id');
     const customerName = $(this).data('customer-name');
     const customerCompany = $(this).data('customer-company');
     const customerEmail = $(this).data('customer-email');
     const customerPhone = $(this).data('customer-phone');
-    
-    console.log('Selected customer:', { customerId, customerName, customerCompany, customerEmail, customerPhone });
     
     $('#customerId').val(customerId);
     $('#customerSearch').val(customerName);
@@ -1126,12 +1391,9 @@ $(document).on('click', '.customer-option', function() {
     if (customerEmail) infoHtml += ` (${customerEmail})`;
     infoHtml += `</div>`;
     $('#customerInfo').html(infoHtml).show();
-    
-    console.log('Customer selected and info shown');
 });
 
 function addInvoiceItemRow() {
-    console.log('Adding invoice item row, current counter:', itemCounter);
     
     // Check if color column exists in table header
     const hasColorColumn = $('#invoiceTableHeader th:contains("RENK")').length > 0;
@@ -1140,7 +1402,7 @@ function addInvoiceItemRow() {
         <tr data-item-index="${itemCounter}" style="border-bottom: 2px solid #f8f9fa;">
             <td style="padding: 20px 15px;">
                 <div class="position-relative">
-                    <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." data-row="${itemCounter}" required style="min-height: 30px; height: 30px; font-size: 14px; border-radius: 8px;">
+                    <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." data-row="${itemCounter}" style="min-height: 30px; height: 30px; font-size: 14px; border-radius: 8px;">
                     <div id="productServiceDropdown${itemCounter}" class="product-service-dropdown" style="display: none;">
                         <!-- Search results will be populated here -->
                     </div>
@@ -1215,7 +1477,6 @@ function addInvoiceItemRow() {
 }
 
 function addMobileInvoiceItemRow() {
-    console.log('Adding mobile invoice item row, current counter:', itemCounter);
     
     const mobileCardHtml = `
         <div class="card mb-3" data-item-index="${itemCounter}" style="border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -1231,7 +1492,7 @@ function addMobileInvoiceItemRow() {
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Ürün/Hizmet</label>
                     <div class="position-relative">
-                        <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." data-row="${itemCounter}" required style="min-height: 50px; font-size: 16px; border-radius: 10px;">
+                        <input type="text" name="items[${itemCounter}][product_service_name]" class="form-control product-service-search" placeholder="Ürün/Hizmet ara..." data-row="${itemCounter}" style="min-height: 50px; font-size: 16px; border-radius: 10px;">
                         <div id="productServiceDropdown${itemCounter}" class="product-service-dropdown" style="display: none;">
                             <!-- Search results will be populated here -->
                         </div>
@@ -1300,9 +1561,10 @@ function addMobileInvoiceItemRow() {
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Toplam</label>
                     <div class="input-group">
-                        <input type="text" class="form-control line-total" readonly value="0,00" style="min-height: 50px; font-size: 16px; border-radius: 10px 0 0 10px; background-color: #f8f9fa;">
+                        <input type="text" class="form-control line-total line-total-mobile" readonly value="0,00" style="min-height: 50px; font-size: 16px; border-radius: 10px 0 0 10px; background-color: #f8f9fa;">
                         <span class="input-group-text invoice-currency-symbol" style="min-height: 50px; font-size: 14px; border-radius: 0 10px 10px 0; background-color: #f8f9fa;">${$('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺'}</span>
                     </div>
+                    <input type="hidden" class="line-total-mobile-value" value="0">
                 </div>
                 
                 <!-- Hidden fields for product_id and type -->
@@ -1341,19 +1603,43 @@ function calculateMobileLineTotal() {
         unitPrice = invoiceCurrency === 'TRY' ? priceInTRY : (priceInTRY / rates[invoiceCurrency]);
     }
     
+    // Validate stock
+    const quantityInput = card.find('input[name*="[quantity]"]');
+    const colorSelect = card.find('.color-variant-select');
+    let valid = true;
+    
+    if (colorSelect.length > 0 && colorSelect.val()) {
+        const colorVariants = card.data('color-variants');
+        if (colorVariants && colorVariants.length > 0) {
+            const selectedVariant = colorVariants.find(v => v.id == colorSelect.val());
+            if (selectedVariant) {
+                valid = validateMobileStock(card, selectedVariant, quantityInput);
+            }
+        }
+    } else {
+        // No color selected - use general stock validation
+        valid = validateStock(card);
+    }
+    
     // Calculate discount (fixed amount)
-    const discountAmount = Math.max(0, Math.min(discountRate, unitPrice * quantity));
-    const subtotal = (unitPrice * quantity) - discountAmount;
+    let lineTotal = quantity * unitPrice;
+    const discountAmount = Math.max(0, Math.min(discountRate, lineTotal));
+    let lineTotalAfterDiscount = lineTotal - discountAmount;
     
-    // Calculate tax
-    const taxAmount = (subtotal * taxRate) / 100;
-    const total = subtotal + taxAmount;
+    if (!valid || card.data('invalid-stock')) {
+        lineTotalAfterDiscount = 0;
+    }
     
-    // Update line total
-    card.find('.line-total').val(total.toFixed(2).replace('.', ','));
+    // Store in hidden input for easier calculation
+    if (card.find('.line-total-mobile-value').length === 0) {
+        card.find('.line-total').parent().after('<input type="hidden" class="line-total-mobile-value" value="0">');
+    }
+    card.find('.line-total-mobile-value').val(lineTotalAfterDiscount);
     
-    // Update currency symbol
-    card.find('.invoice-currency-symbol').text($('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺');
+    // Update line total display
+    const currencySymbol = $('#currency').val() === 'USD' ? '$' : ($('#currency').val() === 'EUR' ? '€' : '₺');
+    card.find('.line-total').val(lineTotalAfterDiscount.toFixed(2).replace('.', ','));
+    card.find('.invoice-currency-symbol').text(currencySymbol);
     
     // Calculate totals
     calculateTotals();
@@ -1368,7 +1654,6 @@ function calculateLineTotal() {
     const discountRate = parseFloat(row.find('.discount-rate').val()) || 0;
     const unitCurrency = row.find('.unit-currency').val();
     const invoiceCurrency = $('#currency').val();
-    console.log('calcLine:', { quantity, unitPrice, discountRate, unitCurrency, invoiceCurrency });
     
     // Convert unit price from unit currency to invoice currency
     if (unitCurrency !== invoiceCurrency) {
@@ -1391,7 +1676,96 @@ function calculateLineTotal() {
     calculateTotals();
 }
 
+function calculateExchangeTotals() {
+    // Calculate original total (selected items)
+    let originalTotal = 0;
+    $('.exchange-item-checkbox:checked').each(function() {
+        const $checkbox = $(this);
+        const $row = $checkbox.closest('tr');
+        const $quantityInput = $row.find('.exchange-quantity');
+        
+        // Use quantity from input if available, otherwise use checkbox data
+        const quantity = $quantityInput.length > 0 ? parseFloat($quantityInput.val()) || 0 : parseFloat($checkbox.data('item-quantity')) || 0;
+        const unitPrice = parseFloat($checkbox.data('item-price')) || 0;
+        const lineTotal = quantity * unitPrice;
+        
+        originalTotal += Math.abs(lineTotal);
+    });
+    
+    // Calculate new items total
+    let newSubtotal = 0;
+    let totalDiscount = 0;
+    let totalVat = 0;
+    
+    // Calculate from desktop table rows
+    $('#invoiceItemsBody tr').each(function() {
+        const lineTotal = parseFloat($(this).find('.line-total').val().replace(',', '.')) || 0;
+        const discountFixed = parseFloat($(this).find('.discount-rate').val()) || 0;
+        const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
+        
+        // Line total already includes discount
+        newSubtotal += lineTotal;
+        totalDiscount += discountFixed;
+        
+        if ($('select[name="vat_status"]').val() === 'included') {
+            totalVat += lineTotal * (taxRate / 100);
+        }
+    });
+    
+    // Calculate from mobile cards
+    $('#mobileInvoiceItems .card').each(function() {
+        const lineTotal = parseFloat($(this).find('.line-total-mobile-value').val() || $(this).find('.line-total-mobile').text().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+        const discountFixed = parseFloat($(this).find('.discount-rate').val()) || 0;
+        const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
+        
+        newSubtotal += lineTotal;
+        totalDiscount += discountFixed;
+        
+        if ($('select[name="vat_status"]').val() === 'included') {
+            totalVat += lineTotal * (taxRate / 100);
+        }
+    });
+    
+    const newTotal = newSubtotal + totalVat;
+    const exchangeDifference = newTotal - originalTotal;
+    
+    const selectedCurrency = $('#currency').val();
+    const currencySymbol = selectedCurrency === 'USD' ? '$' : (selectedCurrency === 'EUR' ? '€' : '₺');
+    
+    // Update display
+    $('#originalTotal').text(formatNumber(originalTotal) + ' ' + currencySymbol);
+    $('#subtotal').text(formatNumber(newSubtotal) + ' ' + currencySymbol);
+    $('#discount').text(formatNumber(totalDiscount) + ' ' + currencySymbol);
+    $('#vatAmount').text(formatNumber(totalVat) + ' ' + currencySymbol);
+    $('#newTotal').text(formatNumber(newTotal) + ' ' + currencySymbol);
+    
+    // Update difference
+    $('#exchangeDifference').text(formatNumber(exchangeDifference) + ' ' + currencySymbol);
+    
+    // Color difference
+    if (exchangeDifference > 0) {
+        $('#exchangeDifference').removeClass('text-danger text-primary').addClass('text-success');
+        $('#differenceNote').text('Müşteri ek ödeme yapacak');
+    } else if (exchangeDifference < 0) {
+        $('#exchangeDifference').removeClass('text-success text-primary').addClass('text-danger');
+        $('#differenceNote').text('Müşteriye iade yapılacak');
+    } else {
+        $('#exchangeDifference').removeClass('text-success text-danger').addClass('text-primary');
+        $('#differenceNote').text('Fiyat farkı yok');
+    }
+}
+
+function formatNumber(num) {
+    return Math.abs(num).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function calculateTotals() {
+    // For exchange form, use exchange calculation
+    if ($('#exchangeForm').length > 0) {
+        calculateExchangeTotals();
+        return;
+    }
+    
     let subtotal = 0;
     let totalDiscount = 0;
     let totalVat = 0;
@@ -1401,7 +1775,6 @@ function calculateTotals() {
         const lineTotal = parseFloat($(this).find('.line-total').val().replace(',', '.')) || 0;
         const discountFixed = parseFloat($(this).find('.discount-rate').val()) || 0;
         const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
-        console.log('rowTotals:', { lineTotal, discountFixed, taxRate });
         
         // Line total already includes discount
         subtotal += lineTotal;
@@ -1417,7 +1790,6 @@ function calculateTotals() {
         const lineTotal = parseFloat($(this).find('.line-total').val().replace(',', '.')) || 0;
         const discountFixed = parseFloat($(this).find('.discount-rate').val()) || 0;
         const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
-        console.log('rowTotalsMobile:', { lineTotal, discountFixed, taxRate });
         // Line total already includes discount
         subtotal += lineTotal;
         totalDiscount += discountFixed;
@@ -1430,7 +1802,6 @@ function calculateTotals() {
     const totalAmount = subtotal + totalVat;
     const selectedCurrency = $('#currency').val();
     const currencySymbol = selectedCurrency === 'USD' ? '$' : selectedCurrency === 'EUR' ? '€' : '₺';
-    console.log('totals:', { subtotal, totalVat, totalAmount, selectedCurrency });
     
     // Always show totals in the selected currency
     $('#subtotal').text(subtotal.toFixed(2).replace('.', ',') + ' ' + currencySymbol);
@@ -1475,7 +1846,6 @@ function getExchangeRates() {
                     showManualRateInputs(response.rates);
                 }
             }
-            console.log('rates:', response);
         }
     });
     
@@ -1499,18 +1869,15 @@ function updateExchangeRate(currency) {
             if (response.success && response.rates[currency] !== null) {
                 // API'den gelen değeri direkt döviz kuru alanına koy
                 $('#exchangeRate').val(response.rates[currency].toFixed(4));
-                console.log(`Exchange rate for ${currency}: ${response.rates[currency]}`);
                 
                 // API başarılı olsa bile düzenleme modalını göster
                 showEditableRateModal(currency, response.rates[currency]);
             } else {
                 // API'den null gelirse fallback değer koy ve modal göster
-                console.log(`API returned null for ${currency}, showing manual input`);
                 showManualRateInputForCurrency(currency);
             }
         })
         .fail(function() {
-            console.error('Exchange rate API failed');
             // API başarısız olursa manuel input göster
             showManualRateInputForCurrency(currency);
         });
@@ -1614,7 +1981,6 @@ function saveEditedRate(currency) {
     // Modal'ı kapat
     $('#editRateModal').modal('hide');
     
-    console.log(`Edited rate set for ${currency}: ${editedRate}`);
     
     // Totalleri yeniden hesapla
     setTimeout(function() {
@@ -1685,8 +2051,6 @@ function saveManualRate(currency) {
     
     // Modal'ı kapat
     $('#manualRateModal').modal('hide');
-    
-    console.log(`Manual rate set for ${currency}: ${manualRate}`);
     
     // Totalleri yeniden hesapla
     setTimeout(function() {
@@ -1792,22 +2156,16 @@ function saveManualRates() {
 }
 
 function saveNewCustomer() {
-    console.log('saveNewCustomer function called');
-    
     const name = $('#newCustomerName').val();
     const company = $('#newCustomerCompany').val();
     const email = $('#newCustomerEmail').val();
     const phone = $('#newCustomerPhone').val();
     const address = $('#newCustomerAddress').val();
     
-    console.log('Customer data:', { name, company, email, phone, address });
-    
     if (!name || !phone) {
         alert('Ad Soyad ve Telefon alanları zorunludur.');
         return;
     }
-    
-    console.log('Sending AJAX request to:', '{{ route("sales.customers.store") }}');
     
     $.post('{{ route("sales.customers.store") }}', {
         name: name,
@@ -1818,8 +2176,6 @@ function saveNewCustomer() {
         is_active: 1
     })
     .done(function(response) {
-        console.log('Customer created successfully:', response);
-        
         // Close modal
         $('#customerModal').modal('hide');
         
@@ -1840,9 +2196,6 @@ function saveNewCustomer() {
         alert('Müşteri başarıyla eklendi!');
     })
     .fail(function(xhr, status, error) {
-        console.error('Customer creation failed:', xhr.responseText);
-        console.error('Status:', status, 'Error:', error);
-        
         let errorMessage = 'Müşteri eklenirken bir hata oluştu.';
         
         if (xhr.responseJSON && xhr.responseJSON.errors) {
@@ -2054,8 +2407,6 @@ $(document).on('click', '.product-service-item', function(e) {
     const hasColorVariants = $(this).data('has-color-variants');
     const colorVariants = $(this).data('color-variants');
     
-    console.log('Product selected:', name, price, vatRate, type);
-    
     // Set the product/service name
     container.find('input[name*="[product_service_name]"]').val(name);
     
@@ -2137,8 +2488,6 @@ $(document).on('click', '.product-service-item', function(e) {
     } else if (card.length) {
         calculateMobileLineTotal.call(card.find('.unit-price')[0]);
     }
-    
-    console.log('Product added successfully:', name);
 });
 
 // Force hide all dropdowns

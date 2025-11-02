@@ -104,7 +104,10 @@ class ProductController extends Controller
                 'errors' => $e->errors(),
                 'request_data' => $request->all()
             ]);
-            throw $e;
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput()
+                ->with('error', 'Ürün oluşturulurken validasyon hatası oluştu. Lütfen tüm zorunlu alanları doldurun.');
         }
 
         try {
@@ -494,76 +497,6 @@ class ProductController extends Controller
                 'color_variants' => $colorVariants,
                 'has_color_variants' => $colorVariants->count() > 0
             ],
-        ]);
-    }
-    /**
-     * Test method to check RONEX1 products and create critical stock warning
-     */
-    public function testCriticalStock()
-    {
-        $ronex1 = \App\Models\Account::where('code', 'RONEX1')->first();
-        if (!$ronex1) {
-            return response()->json(['error' => 'RONEX1 account not found']);
-        }
-        
-        // RONEX1'deki tüm ürünleri listele
-        $allProducts = \App\Models\Product::where('account_id', $ronex1->id)->get(['id', 'name', 'initial_stock', 'critical_stock', 'category']);
-        
-        // Kritik stok uyarısı olan ürünleri bul
-        $criticalProducts = \App\Models\Product::where('account_id', $ronex1->id)
-            ->whereNotNull('critical_stock')
-            ->where('critical_stock', '>', 0)
-            ->whereColumn('initial_stock', '<=', 'critical_stock')
-            ->get(['id', 'name', 'initial_stock', 'critical_stock', 'category']);
-        
-        // İlk 3 ürünü kritik stok uyarısı yap
-        $products = \App\Models\Product::where('account_id', $ronex1->id)->limit(3)->get();
-        $updatedProducts = [];
-        $updatedColorVariants = [];
-        
-        foreach ($products as $index => $product) {
-            $product->update([
-                'initial_stock' => 0, // Kritik stok uyarısı için 0
-                'critical_stock' => 1
-            ]);
-            $updatedProducts[] = [
-                'id' => $product->id,
-                'name' => $product->name,
-                'initial_stock' => $product->initial_stock,
-                'critical_stock' => $product->critical_stock
-            ];
-            
-            // Color variants'ları da kritik stok yap
-            $colorVariants = $product->colorVariants;
-            foreach ($colorVariants as $cv) {
-                $cv->update([
-                    'stock_quantity' => 0, // Kritik stok uyarısı için 0
-                    'critical_stock' => 1
-                ]);
-                $updatedColorVariants[] = [
-                    'id' => $cv->id,
-                    'product_name' => $product->name,
-                    'color' => $cv->color,
-                    'stock_quantity' => $cv->stock_quantity,
-                    'critical_stock' => $cv->critical_stock
-                ];
-            }
-        }
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'RONEX1 products checked',
-            'ronex1_account' => [
-                'id' => $ronex1->id,
-                'name' => $ronex1->name,
-                'code' => $ronex1->code
-            ],
-            'all_products_count' => $allProducts->count(),
-            'all_products' => $allProducts->toArray(),
-            'critical_products_count' => $criticalProducts->count(),
-            'critical_products' => $criticalProducts->toArray(),
-            'test_products_updated' => $updatedProducts,
-            'test_color_variants_updated' => $updatedColorVariants
         ]);
     }
 

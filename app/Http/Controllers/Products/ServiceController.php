@@ -70,7 +70,10 @@ class ServiceController extends Controller
                 'errors' => $e->errors(),
                 'request_data' => $request->all()
             ]);
-            throw $e;
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput()
+                ->with('error', 'Hizmet oluşturulurken validasyon hatası oluştu. Lütfen tüm zorunlu alanları doldurun.');
         }
 
         try {

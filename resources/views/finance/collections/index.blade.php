@@ -169,64 +169,98 @@
 
 @push('scripts')
 <script>
-let table = new DataTable('#dataTable');
+$(document).ready(function() {
+    let table = new DataTable('#dataTable', {
+        pageLength: 10,
+        responsive: true,
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json'
+        },
+        drawCallback: function() {
+            // Re-attach event handlers after DataTables redraws
+            updateDeleteButton();
+        }
+    });
 
-// Select all functionality
-$('#selectAll').change(function() {
-    $('.row-checkbox').prop('checked', this.checked);
+    // Select all functionality - use event delegation for DataTables
+    $(document).on('change', '#selectAll', function() {
+        $('.row-checkbox').prop('checked', this.checked);
+        updateDeleteButton();
+    });
+
+    // Individual checkbox change - use event delegation
+    $(document).on('change', '.row-checkbox', function() {
+        const totalCheckboxes = $('.row-checkbox').length;
+        const checkedCheckboxes = $('.row-checkbox:checked').length;
+        
+        // Update select all checkbox
+        if (checkedCheckboxes === 0) {
+            $('#selectAll').prop('checked', false);
+            $('#selectAll').prop('indeterminate', false);
+        } else if (checkedCheckboxes === totalCheckboxes) {
+            $('#selectAll').prop('checked', true);
+            $('#selectAll').prop('indeterminate', false);
+        } else {
+            $('#selectAll').prop('indeterminate', true);
+        }
+        
+        updateDeleteButton();
+    });
+
+    // Update delete button visibility
+    function updateDeleteButton() {
+        const checkedBoxes = $('.row-checkbox:checked');
+        const deleteBtn = $('#deleteSelectedBtn');
+        const countSpan = $('#selectedCount');
+        
+        if (checkedBoxes.length > 0) {
+            deleteBtn.show();
+            countSpan.text(checkedBoxes.length);
+        } else {
+            deleteBtn.hide();
+            countSpan.text(0);
+        }
+    }
+
+    // Delete selected - use event delegation
+    $(document).on('click', '#deleteSelectedBtn', function(e) {
+        e.preventDefault();
+        
+        const checkedBoxes = $('.row-checkbox:checked');
+        const ids = checkedBoxes.map(function() { 
+            return $(this).data('id'); 
+        }).get();
+        
+        if (ids.length === 0) {
+            alert('Lütfen silmek istediğiniz tahsilatları seçin.');
+            return;
+        }
+        
+        if (confirm(ids.length + ' tahsilatı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
+            const form = $('<form>', {
+                method: 'POST',
+                action: '{{ route("finance.collections.bulk-delete") }}'
+            });
+            
+            form.append($('<input>', {
+                type: 'hidden',
+                name: '_token',
+                value: '{{ csrf_token() }}'
+            }));
+            
+            form.append($('<input>', {
+                type: 'hidden',
+                name: 'ids',
+                value: JSON.stringify(ids)
+            }));
+            
+            $('body').append(form);
+            form.submit();
+        }
+    });
+    
+    // Initialize delete button state
     updateDeleteButton();
-});
-
-// Individual checkbox change
-$('tbody').on('change', '.row-checkbox', function() {
-    if (!this.checked) {
-        $('#selectAll').prop('checked', false);
-    }
-    updateDeleteButton();
-});
-
-// Update delete button visibility
-function updateDeleteButton() {
-    const checkedBoxes = $('.row-checkbox:checked');
-    const deleteBtn = $('#deleteSelectedBtn');
-    const countSpan = $('#selectedCount');
-    
-    if (checkedBoxes.length > 0) {
-        deleteBtn.show();
-        countSpan.text(checkedBoxes.length);
-    } else {
-        deleteBtn.hide();
-    }
-}
-
-// Delete selected
-$('#deleteSelectedBtn').click(function() {
-    const checkedBoxes = $('.row-checkbox:checked');
-    const ids = checkedBoxes.map(function() { return $(this).data('id'); }).get();
-    
-    if (ids.length === 0) return;
-    
-    if (confirm(ids.length + ' tahsilatı silmek istediğinizden emin misiniz?')) {
-        const form = $('<form>', {
-            method: 'POST',
-            action: '{{ route("finance.collections.bulk-delete") }}'
-        });
-        
-        form.append($('<input>', {
-            type: 'hidden',
-            name: '_token',
-            value: '{{ csrf_token() }}'
-        }));
-        
-        form.append($('<input>', {
-            type: 'hidden',
-            name: 'ids',
-            value: JSON.stringify(ids)
-        }));
-        
-        $('body').append(form);
-        form.submit();
-    }
 });
 </script>
 @endpush

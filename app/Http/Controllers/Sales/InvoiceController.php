@@ -59,18 +59,8 @@ class InvoiceController extends Controller
     public function create()
     {
         $customers = Customer::where('is_active', true)->get();
-        $currentAccountId = session('current_account_id');
-        $products = Product::where('is_active', true)
-            ->with('colorVariants') // Load color variants
-            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
-                $q->where('account_id', $currentAccountId);
-            })
-            ->when($currentAccountId === null, function($q) {
-                // Eğer hesap seçili değilse, tüm ürünleri getir
-                $q->whereNotNull('account_id');
-            })
-            ->orderBy('id', 'asc') // ID'ye göre sırala
-            ->get();
+        // Tekli ürünler kaldırıldı - artık sadece seri ürünler ve hizmetler kullanılıyor
+        $products = collect([]);
         
         return view('sales.invoices.create', compact('customers', 'products'));
     }
@@ -103,20 +93,67 @@ class InvoiceController extends Controller
             $userId = $user ? $user->id : 1;
         }
 
-        // TEMP: Skip validation per user request
-        $validated = [
-            'account_id' => $accountId,
-            'user_id' => $userId,
-            'customer_id' => $request->input('customer_id'),
-            'invoice_date' => $request->input('invoice_date', date('Y-m-d')),
-            'invoice_time' => $request->input('invoice_time', date('H:i')),
-            'due_date' => $request->input('due_date', date('Y-m-d')),
-            'currency' => $request->input('currency', 'TRY'),
-            'vat_status' => $request->input('vat_status', 'included'),
-            'description' => $request->input('description'),
-            'payment_completed' => (bool) $request->input('payment_completed', false),
-            'items' => $request->input('items', []),
-        ];
+        // Validation
+        try {
+            $validated = $request->validate([
+                'customer_id' => 'required|integer|exists:customers,id',
+                'invoice_date' => 'required|date',
+                'invoice_time' => 'nullable|string|max:8',
+                'due_date' => 'required|date|after_or_equal:invoice_date',
+                'currency' => 'required|in:TRY,USD,EUR',
+                'vat_status' => 'required|in:included,excluded',
+                'description' => 'nullable|string|max:1000',
+                'payment_completed' => 'nullable|boolean',
+                'items' => 'required|array|min:1',
+                'items.*.product_service_name' => 'required|string|max:255',
+                'items.*.quantity' => 'required|numeric|min:0.01',
+                'items.*.unit_price' => 'required|numeric|min:0',
+                'items.*.tax_rate' => 'required|numeric|min:0|max:100',
+                'items.*.discount_rate' => 'nullable|numeric|min:0',
+                'items.*.type' => 'required|in:product,series,service',
+            ], [
+                'customer_id.required' => 'Müşteri seçimi zorunludur.',
+                'customer_id.exists' => 'Seçilen müşteri bulunamadı.',
+                'invoice_date.required' => 'Fatura tarihi zorunludur.',
+                'invoice_date.date' => 'Geçerli bir fatura tarihi giriniz.',
+                'due_date.required' => 'Vade tarihi zorunludur.',
+                'due_date.date' => 'Geçerli bir vade tarihi giriniz.',
+                'due_date.after_or_equal' => 'Vade tarihi fatura tarihinden önce olamaz.',
+                'currency.required' => 'Para birimi seçimi zorunludur.',
+                'currency.in' => 'Geçerli bir para birimi seçiniz (TRY, USD, EUR).',
+                'vat_status.required' => 'KDV durumu seçimi zorunludur.',
+                'vat_status.in' => 'Geçerli bir KDV durumu seçiniz.',
+                'items.required' => 'En az bir fatura kalemi eklemelisiniz.',
+                'items.min' => 'En az bir fatura kalemi eklemelisiniz.',
+                'items.*.product_service_name.required' => 'Ürün/Hizmet adı zorunludur.',
+                'items.*.quantity.required' => 'Miktar zorunludur.',
+                'items.*.quantity.numeric' => 'Miktar sayısal olmalıdır.',
+                'items.*.quantity.min' => 'Miktar 0\'dan büyük olmalıdır.',
+                'items.*.unit_price.required' => 'Birim fiyat zorunludur.',
+                'items.*.unit_price.numeric' => 'Birim fiyat sayısal olmalıdır.',
+                'items.*.unit_price.min' => 'Birim fiyat 0\'dan küçük olamaz.',
+                'items.*.tax_rate.required' => 'KDV oranı zorunludur.',
+                'items.*.tax_rate.numeric' => 'KDV oranı sayısal olmalıdır.',
+                'items.*.tax_rate.min' => 'KDV oranı 0\'dan küçük olamaz.',
+                'items.*.tax_rate.max' => 'KDV oranı 100\'den büyük olamaz.',
+            ]);
+
+            // Add account_id and user_id to validated data
+            $validated['account_id'] = $accountId;
+            $validated['user_id'] = $userId;
+            $validated['invoice_time'] = $validated['invoice_time'] ?? date('H:i');
+            $validated['payment_completed'] = (bool) ($validated['payment_completed'] ?? false);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Invoice validation failed', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput()
+                ->with('error', 'Fatura oluşturulurken validasyon hatası oluştu. Lütfen tüm zorunlu alanları doldurun.');
+        }
 
         DB::beginTransaction();
         try {
@@ -140,15 +177,16 @@ class InvoiceController extends Controller
             $subtotal = 0;
             $vatAmount = 0;
             
-            foreach ($validated['items'] as $item) {+
+            foreach ($validated['items'] as $item) {
                 $quantityVal = (float) ($item['quantity'] ?? 0);
                 $unitPriceVal = (float) ($item['unit_price'] ?? 0);
                 $discountRateVal = (float) ($item['discount_rate'] ?? 0);
                 $taxRateVal = (float) ($item['tax_rate'] ?? 0);
 
                 $lineTotal = $quantityVal * $unitPriceVal;
-                $discountAmount = $lineTotal * ($discountRateVal / 100);
-                $lineTotalAfterDiscount = $lineTotal - $discountAmount;
+                // İndirim artık sabit tutar olarak geldiği için yüzdeye çevirmiyoruz
+                $discountAmount = $discountRateVal; // Sabit tutar
+                $lineTotalAfterDiscount = max(0, $lineTotal - $discountAmount);
                 
                 if ($validated['vat_status'] === 'included') {
                     $vatAmount += $lineTotalAfterDiscount * ($taxRateVal / 100);
@@ -198,8 +236,9 @@ class InvoiceController extends Controller
                 $discountRate = (float) ($item['discount_rate'] ?? 0);
                 
                 $lineTotal = $quantity * $unitPrice;
-                $discountAmount = $lineTotal * ($discountRate / 100);
-                $lineTotalAfterDiscount = $lineTotal - $discountAmount;
+                // İndirim artık sabit tutar olarak geldiği için yüzdeye çevirmiyoruz
+                $discountAmount = $discountRate; // Sabit tutar
+                $lineTotalAfterDiscount = max(0, $lineTotal - $discountAmount);
                 
                 // Clean product_id for database storage
                 $cleanProductId = $item['product_id'] ?? null;
@@ -424,18 +463,8 @@ class InvoiceController extends Controller
     public function edit(Invoice $invoice)
     {
         $customers = Customer::where('is_active', true)->get();
-        $currentAccountId = session('current_account_id');
-        $products = Product::where('is_active', true)
-            ->with('colorVariants') // Load color variants like in create method
-            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
-                $q->where('account_id', $currentAccountId);
-            })
-            ->when($currentAccountId === null, function($q) {
-                // Eğer hesap seçili değilse, tüm ürünleri getir
-                $q->whereNotNull('account_id');
-            })
-            ->orderBy('id', 'asc') // ID'ye göre sırala
-            ->get();
+        // Tekli ürünler kaldırıldı - artık sadece seri ürünler ve hizmetler kullanılıyor
+        $products = collect([]);
         $invoice->load('items');
         
         return view('sales.invoices.edit', compact('invoice', 'customers', 'products'));
@@ -504,8 +533,9 @@ class InvoiceController extends Controller
                 $taxRateVal = (float) ($item['tax_rate'] ?? 0);
 
                 $lineTotal = $quantityVal * $unitPriceVal;
-                $discountAmount = $lineTotal * ($discountRateVal / 100);
-                $lineTotalAfterDiscount = $lineTotal - $discountAmount;
+                // İndirim artık sabit tutar olarak geldiği için yüzdeye çevirmiyoruz
+                $discountAmount = $discountRateVal; // Sabit tutar
+                $lineTotalAfterDiscount = max(0, $lineTotal - $discountAmount);
                 
                 if ($validated['vat_status'] === 'included') {
                     $vatAmount += $lineTotalAfterDiscount * ($taxRateVal / 100);
@@ -582,8 +612,9 @@ class InvoiceController extends Controller
                 $discountRate = (float) ($item['discount_rate'] ?? 0);
                 
                 $lineTotal = $quantity * $unitPrice;
-                $discountAmount = $lineTotal * ($discountRate / 100);
-                $lineTotalAfterDiscount = $lineTotal - $discountAmount;
+                // İndirim artık sabit tutar olarak geldiği için yüzdeye çevirmiyoruz
+                $discountAmount = $discountRate; // Sabit tutar
+                $lineTotalAfterDiscount = max(0, $lineTotal - $discountAmount);
                 
                 // Clean product_id
                 $cleanProductId = $item['product_id'] ?? null;
@@ -746,9 +777,139 @@ class InvoiceController extends Controller
      */
     public function destroy(Invoice $invoice)
     {
+        try {
+            DB::beginTransaction();
+            
+            \Log::info('Invoice deletion started', [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'customer_id' => $invoice->customer_id,
+                'total_amount' => $invoice->total_amount,
+                'currency' => $invoice->currency,
+                'payment_completed' => $invoice->payment_completed
+            ]);
+            
+            // Load invoice items with relationships
+            $invoice->load('items');
+            
+            // 1. Restore stock for sold items (is_return = false)
+            // 2. Deduct stock for returned items (is_return = true) - because returns added stock back
+            foreach ($invoice->items as $item) {
+                if ($item->product_id && $item->quantity > 0) {
+                    if ($item->product_type === 'series') {
+                        $series = \App\Models\ProductSeries::with('colorVariants')->find($item->product_id);
+                        if ($series) {
+                            if ($item->is_return) {
+                                // Return item: deduct stock (because return added stock back)
+                                if ($item->color_variant_id) {
+                                    $colorVariant = $series->colorVariants()->where('id', $item->color_variant_id)->first();
+                                    if ($colorVariant) {
+                                        $colorVariant->decrement('stock_quantity', $item->quantity);
+                                        $series->refresh();
+                                        $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                        $series->save();
+                                        \Log::info('Stock deducted for return item deletion', [
+                                            'series_id' => $series->id,
+                                            'color_variant_id' => $item->color_variant_id,
+                                            'quantity' => $item->quantity
+                                        ]);
+                                    }
+                                } else {
+                                    $series->decrement('stock_quantity', $item->quantity);
+                                    \Log::info('Stock deducted for return item deletion', [
+                                        'series_id' => $series->id,
+                                        'quantity' => $item->quantity
+                                    ]);
+                                }
+                            } else {
+                                // Normal item: restore stock
+                                if ($item->color_variant_id) {
+                                    $colorVariant = $series->colorVariants()->where('id', $item->color_variant_id)->first();
+                                    if ($colorVariant) {
+                                        $colorVariant->increment('stock_quantity', $item->quantity);
+                                        $series->refresh();
+                                        $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                        $series->save();
+                                        \Log::info('Stock restored for normal item deletion', [
+                                            'series_id' => $series->id,
+                                            'color_variant_id' => $item->color_variant_id,
+                                            'quantity' => $item->quantity
+                                        ]);
+                                    }
+                                } else {
+                                    $series->increment('stock_quantity', $item->quantity);
+                                    \Log::info('Stock restored for normal item deletion', [
+                                        'series_id' => $series->id,
+                                        'quantity' => $item->quantity
+                                    ]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 3. Update customer balance (subtract invoice amount if payment was not completed)
+            if (!$invoice->payment_completed && $invoice->customer_id) {
+                $customer = \App\Models\Customer::find($invoice->customer_id);
+                if ($customer) {
+                    $currency = $invoice->currency;
+                    $totalAmount = $invoice->total_amount;
+                    
+                    // Subtract from balance based on currency
+                    switch ($currency) {
+                        case 'TRY':
+                            $customer->decrement('balance_try', $totalAmount);
+                            break;
+                        case 'USD':
+                            $customer->decrement('balance_usd', $totalAmount);
+                            break;
+                        case 'EUR':
+                            $customer->decrement('balance_eur', $totalAmount);
+                            break;
+                    }
+                    
+                    // Also update the legacy balance field
+                    $customer->decrement('balance', $totalAmount);
+                    
+                    \Log::info('Customer balance decreased for invoice deletion', [
+                        'customer_id' => $customer->id,
+                        'amount' => $totalAmount,
+                        'currency' => $currency
+                    ]);
+                }
+            }
+            
+            // 4. Delete related exchanges (if this invoice is part of an exchange)
+            \App\Models\Exchange::where('original_invoice_id', $invoice->id)
+                ->orWhere('new_invoice_id', $invoice->id)
+                ->delete();
+            
+            // 5. Delete the invoice (this will cascade delete invoice items)
         $invoice->delete();
+            
+            DB::commit();
+            
+            \Log::info('Invoice deleted successfully', [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number
+            ]);
+            
         return redirect()->route('sales.invoices.index')
             ->with('success', 'Fatura başarıyla silindi.');
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            \Log::error('Invoice deletion failed', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()
+                ->with('error', 'Fatura silinirken bir hata oluştu: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -789,58 +950,8 @@ class InvoiceController extends Controller
             }
             $currentAccountId = session('current_account_id');
         
-        // Search in products - search in all relevant fields
-        $products = \App\Models\Product::with('colorVariants')
-            ->where('is_active', true)
-            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
-                $q->where('account_id', $currentAccountId);
-            })
-            ->when($currentAccountId === null, function($q) {
-                // Eğer hesap seçili değilse, tüm ürünleri getir
-                $q->whereNotNull('account_id');
-            })
-            ->where(function($q) use ($query) {
-                $q->where('name', 'like', "%{$query}%")
-                  ->orWhere('sku', 'like', "%{$query}%")
-                  ->orWhere('category', 'like', "%{$query}%")
-                  ->orWhere('brand', 'like', "%{$query}%")
-                  ->orWhere('size', 'like', "%{$query}%")
-                  ->orWhere('color', 'like', "%{$query}%")
-                  ->orWhere('barcode', 'like', "%{$query}%")
-                  ->orWhere('description', 'like', "%{$query}%");
-            })
-            ->select('id', 'name', 'sku', 'category', 'brand', 'size', 'color', 'price', 'cost', 'stock_quantity')
-            ->limit(10)
-            ->get()
-            ->map(function ($product) {
-                $hasColorVariants = $product->colorVariants->count() > 0;
-                
-                return [
-                    'id' => 'product_' . $product->id,
-                    'product_id' => $product->id, // Add product_id for backend processing
-                    'name' => $product->name,
-                    'product_code' => $product->sku,
-                    'category' => $product->category,
-                    'brand' => $product->brand,
-                    'size' => $product->size,
-                    'color' => $product->color,
-                    'price' => $product->price,
-                    'purchase_price' => $product->cost,
-                    'vat_rate' => 20, // Default VAT rate
-                    'currency' => 'TRY',
-                    'type' => 'product',
-                    'stock_quantity' => $hasColorVariants ? $product->total_stock : $product->stock_quantity,
-                    'has_color_variants' => $hasColorVariants,
-                    'color_variants' => $hasColorVariants ? $product->colorVariants->map(function($variant) {
-                        return [
-                            'id' => $variant->id,
-                            'color' => $variant->color,
-                            'stock_quantity' => $variant->stock_quantity,
-                            'critical_stock' => $variant->critical_stock
-                        ];
-                    })->toArray() : []
-                ];
-            });
+        // Tekli ürünler kaldırıldı - sadece seri ürünler ve hizmetler gösteriliyor
+        $products = collect([]);
         
         // Search in product series - search in all relevant fields
         $productSeries = \App\Models\ProductSeries::with(['seriesItems', 'colorVariants'])
@@ -921,12 +1032,11 @@ class InvoiceController extends Controller
                 ];
             });
         
-        // Combine and return
-        $results = $products->concat($productSeries)->concat($services)->take(20);
+        // Combine and return (tekli ürünler hariç - sadece seri ürünler ve hizmetler)
+        $results = $productSeries->concat($services)->take(20);
         
         \Log::info('Search results:', [
             'query' => $query,
-            'products_count' => $products->count(),
             'series_count' => $productSeries->count(),
             'services_count' => $services->count(),
             'total_results' => $results->count()
@@ -936,6 +1046,300 @@ class InvoiceController extends Controller
         } catch (\Throwable $e) {
             \Log::error('searchProducts failed', ['error' => $e->getMessage(), 'q' => $request->get('q')]);
             return response()->json(['message' => 'Server Error'], 500);
+        }
+    }
+
+    /**
+     * Add return item to invoice
+     */
+    public function addReturn(Request $request, Invoice $invoice)
+    {
+        \Log::info('Add return item called', [
+            'invoice_id' => $invoice->id,
+            'request_data' => $request->all()
+        ]);
+        
+        try {
+            $validated = $request->validate([
+                'invoice_item_id' => 'required|integer|exists:invoice_items,id',
+                'quantity' => 'required|numeric|min:0.01',
+            ]);
+            
+            // Orijinal invoice item'ı bul
+            $originalItem = \App\Models\InvoiceItem::findOrFail($validated['invoice_item_id']);
+            
+            // Orijinal item'ın iade edilmediğinden emin ol
+            if ($originalItem->is_return) {
+                throw new \Exception('Bu satır zaten bir iade satırıdır.');
+            }
+            
+            // İade miktarı kontrolü
+            if ($validated['quantity'] > $originalItem->quantity) {
+                throw new \Exception("İade miktarı orijinal miktardan fazla olamaz. Maksimum: {$originalItem->quantity}");
+            }
+            
+            // Validasyon genişletilmiş
+            $validated = array_merge($validated, [
+                'product_id' => $originalItem->product_id,
+                'type' => $originalItem->product_type ?? 'product',
+                'unit_price' => $originalItem->unit_price,
+                'tax_rate' => $originalItem->tax_rate ?? 20,
+                'discount_rate' => $originalItem->discount_rate ?? 0,
+                'selected_color' => $originalItem->selected_color,
+                'color_variant_id' => $originalItem->color_variant_id,
+                'description' => $request->input('description', 'İade - ' . $originalItem->product_service_name)
+            ]);
+            
+            DB::beginTransaction();
+            
+            // Calculate return item totals (negative)
+            $quantity = (float) $validated['quantity'];
+            $unitPrice = (float) $validated['unit_price'];
+            $taxRate = (float) ($validated['tax_rate'] ?? 20);
+            $discount = (float) ($validated['discount_rate'] ?? 0);
+            
+            $lineTotal = $quantity * $unitPrice;
+            $discountAmount = $discount;
+            $lineTotalAfterDiscount = max(0, $lineTotal - $discountAmount);
+            $taxAmount = $lineTotalAfterDiscount * ($taxRate / 100);
+            $itemTotal = $lineTotalAfterDiscount + $taxAmount;
+            
+            // Get product name
+            $productName = '';
+            if ($validated['type'] === 'product') {
+                $product = \App\Models\Product::find($validated['product_id']);
+                $productName = $product ? $product->name : 'Ürün';
+            } elseif ($validated['type'] === 'series') {
+                $series = \App\Models\ProductSeries::find($validated['product_id']);
+                $productName = $series ? $series->name : 'Seri Ürün';
+            } else {
+                $service = \App\Models\Service::find($validated['product_id']);
+                $productName = $service ? $service->name : 'Hizmet';
+            }
+            
+            // Create return item (with negative values)
+            $returnItem = \App\Models\InvoiceItem::create([
+                'invoice_id' => $invoice->id,
+                'product_service_name' => $productName,
+                'description' => $validated['description'] ?? 'İade',
+                'selected_color' => $validated['selected_color'] ?? null,
+                'product_id' => $validated['product_id'],
+                'color_variant_id' => $validated['color_variant_id'] ?? null,
+                'product_type' => $validated['type'],
+                'quantity' => $quantity,
+                'unit' => 'Ad',
+                'unit_price' => $unitPrice,
+                'unit_currency' => $invoice->currency,
+                'tax_rate' => $taxRate,
+                'discount_rate' => $discount,
+                'line_total' => -$itemTotal, // Negative for return
+                'sort_order' => $invoice->items()->max('sort_order') + 1,
+                'is_return' => true
+            ]);
+            
+            \Log::info('Return item created', ['return_item_id' => $returnItem->id, 'total' => -$itemTotal]);
+            
+            // Reduce original item quantity (subtract returned quantity from original item)
+            $remainingQuantity = $originalItem->quantity - $quantity;
+            if ($remainingQuantity <= 0) {
+                // If all quantity is returned, mark original item as fully returned
+                $originalItem->update(['quantity' => 0]);
+                \Log::info('Original item quantity set to 0 (fully returned)', [
+                    'original_item_id' => $originalItem->id,
+                    'returned_quantity' => $quantity
+                ]);
+            } else {
+                // Update original item quantity
+                $originalItem->update(['quantity' => $remainingQuantity]);
+                // Recalculate original item line total
+                $originalLineTotal = $remainingQuantity * $unitPrice;
+                $originalDiscountAmount = $discount;
+                $originalLineTotalAfterDiscount = max(0, $originalLineTotal - $originalDiscountAmount);
+                $originalTaxAmount = $originalLineTotalAfterDiscount * ($taxRate / 100);
+                $originalItemTotal = $originalLineTotalAfterDiscount + $originalTaxAmount;
+                $originalItem->update(['line_total' => $originalItemTotal]);
+                \Log::info('Original item quantity reduced', [
+                    'original_item_id' => $originalItem->id,
+                    'old_quantity' => $originalItem->quantity + $quantity,
+                    'new_quantity' => $remainingQuantity,
+                    'returned_quantity' => $quantity
+                ]);
+            }
+            
+            // Get old invoice total BEFORE recalculation (for customer balance update)
+            $oldInvoiceTotal = $invoice->total_amount ?? 0;
+            
+            // Recalculate invoice totals based on all items (including returns)
+            $invoice->refresh();
+            $invoiceSubtotal = $invoice->items()->where('is_return', false)->sum('line_total');
+            $invoiceVat = $invoice->items()->where('is_return', false)->get()->sum(function($item) {
+                return $item->line_total * (($item->tax_rate ?? 0) / 100);
+            });
+            // Subtract return items totals
+            $returnsSubtotal = $invoice->items()->where('is_return', true)->sum('line_total');
+            $returnsVat = $invoice->items()->where('is_return', true)->get()->sum(function($item) {
+                return abs($item->line_total) * (($item->tax_rate ?? 0) / 100);
+            });
+            $newSubtotal = $invoiceSubtotal + $returnsSubtotal; // returnsSubtotal is already negative
+            $newVatAmount = $invoiceVat - $returnsVat; // subtract return VAT
+            $newTotalAmount = $newSubtotal + $newVatAmount;
+            
+            $invoice->update([
+                'subtotal' => max(0, $newSubtotal),
+                'vat_amount' => max(0, $newVatAmount),
+                'total_amount' => max(0, $newTotalAmount)
+            ]);
+            
+            \Log::info('Invoice totals updated for return', [
+                'old_total' => $oldInvoiceTotal,
+                'new_total' => $newTotalAmount,
+                'invoice_total_change' => $newTotalAmount - $oldInvoiceTotal,
+                'return_item_total' => $itemTotal
+            ]);
+            
+            // Add stock back
+            if ($validated['type'] === 'product') {
+                $product = \App\Models\Product::find($validated['product_id']);
+                if ($product) {
+                    if ($validated['color_variant_id']) {
+                        $colorVariant = \App\Models\ProductColorVariant::find($validated['color_variant_id']);
+                        if ($colorVariant) {
+                            $colorVariant->increment('stock_quantity', $quantity);
+                            \Log::info('Color variant stock increased', [
+                                'color_variant_id' => $colorVariant->id,
+                                'quantity' => $quantity
+                            ]);
+                        }
+                    } else {
+                        $product->increment('stock_quantity', $quantity);
+                        \Log::info('Product stock increased', [
+                            'product_id' => $product->id,
+                            'quantity' => $quantity
+                        ]);
+                    }
+                }
+            } elseif ($validated['type'] === 'series') {
+                $series = \App\Models\ProductSeries::find($validated['product_id']);
+                if ($series) {
+                    if ($validated['color_variant_id']) {
+                        $seriesColorVariant = \App\Models\ProductSeriesColorVariant::find($validated['color_variant_id']);
+                        if ($seriesColorVariant) {
+                            $seriesColorVariant->increment('stock_quantity', $quantity);
+                            // Update parent series stock
+                            $series->refresh();
+                            $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                            $series->save();
+                            \Log::info('Series color variant stock increased', [
+                                'series_color_variant_id' => $seriesColorVariant->id,
+                                'quantity' => $quantity
+                            ]);
+                        }
+                    } else {
+                        $series->increment('stock_quantity', $quantity);
+                        \Log::info('Series stock increased', [
+                            'series_id' => $series->id,
+                            'quantity' => $quantity
+                        ]);
+                    }
+                }
+            }
+            // Services don't have stock
+            
+            // Update customer balance based on invoice total change
+            // The correct approach: Update customer balance to match the new invoice total
+            // Since invoice total changed from old_total to new_total, customer balance should change by the difference
+            if (!$invoice->payment_completed && $invoice->customer) {
+                $customer = $invoice->customer;
+                $currency = $invoice->currency;
+                
+                // Calculate the change in invoice total
+                // This is the amount we need to adjust customer balance
+                $invoiceTotalChange = $newTotalAmount - $oldInvoiceTotal;
+                
+                // Get current balances before update
+                $currentBalance = $customer->balance ?? 0;
+                $currentCurrencyBalance = match($currency) {
+                    'TRY' => $customer->balance_try ?? 0,
+                    'USD' => $customer->balance_usd ?? 0,
+                    'EUR' => $customer->balance_eur ?? 0,
+                    default => 0
+                };
+                
+                \Log::info('Customer balance update for return', [
+                    'customer_id' => $customer->id,
+                    'currency' => $currency,
+                    'old_invoice_total' => $oldInvoiceTotal,
+                    'new_invoice_total' => $newTotalAmount,
+                    'invoice_total_change' => $invoiceTotalChange,
+                    'current_balance' => $currentBalance,
+                    'current_currency_balance' => $currentCurrencyBalance,
+                    'return_item_total' => $itemTotal,
+                ]);
+                
+                // Update balance based on invoice total change
+                // If invoice total decreased, customer owes less (balance decreases)
+                // If invoice total increased, customer owes more (balance increases)
+                switch ($currency) {
+                    case 'TRY':
+                        $customer->increment('balance_try', $invoiceTotalChange);
+                        break;
+                    case 'USD':
+                        $customer->increment('balance_usd', $invoiceTotalChange);
+                        break;
+                    case 'EUR':
+                        $customer->increment('balance_eur', $invoiceTotalChange);
+                        break;
+                }
+                
+                // Also update legacy balance field
+                $customer->increment('balance', $invoiceTotalChange);
+                
+                // Refresh to get updated values
+                $customer->refresh();
+                
+                $newBalance = $customer->balance ?? 0;
+                $newCurrencyBalance = match($currency) {
+                    'TRY' => $customer->balance_try ?? 0,
+                    'USD' => $customer->balance_usd ?? 0,
+                    'EUR' => $customer->balance_eur ?? 0,
+                    default => 0
+                };
+                
+                \Log::info('Customer balance updated after return', [
+                    'customer_id' => $customer->id,
+                    'currency' => $currency,
+                    'old_balance' => $currentBalance,
+                    'new_balance' => $newBalance,
+                    'old_currency_balance' => $currentCurrencyBalance,
+                    'new_currency_balance' => $newCurrencyBalance,
+                    'invoice_total_change' => $invoiceTotalChange,
+                    'new_invoice_total' => $newTotalAmount,
+                    'explanation' => $invoiceTotalChange >= 0 
+                        ? 'Invoice total increased by ' . abs($invoiceTotalChange) . ', customer debt increased'
+                        : 'Invoice total decreased by ' . abs($invoiceTotalChange) . ', customer debt decreased'
+                ]);
+            }
+            
+            DB::commit();
+            
+            \Log::info('Return item added successfully', [
+                'invoice_id' => $invoice->id,
+                'return_item_id' => $returnItem->id
+            ]);
+            
+            return redirect()->route('sales.invoices.show', $invoice)
+                ->with('success', 'İade başarıyla eklendi.');
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Add return item failed', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()
+                ->with('error', 'İade eklenirken bir hata oluştu: ' . $e->getMessage());
         }
     }
 
@@ -1003,11 +1407,110 @@ class InvoiceController extends Controller
             if (empty($ids) || !is_array($ids)) {
                 return redirect()->back()->with('error', 'Geçersiz seçim');
             }
-            $deletedCount = Invoice::whereIn('id', $ids)->delete();
-            return redirect()->route('sales.invoices.index')->with('success', $deletedCount . ' fatura başarıyla silindi');
+            
+            DB::beginTransaction();
+            
+            $invoices = Invoice::with('items')->whereIn('id', $ids)->get();
+            $deletedCount = 0;
+            
+            foreach ($invoices as $invoice) {
+                // Load invoice items with relationships
+                $invoice->load('items');
+                
+                // 1. Restore stock for sold items (is_return = false)
+                // 2. Deduct stock for returned items (is_return = true) - because returns added stock back
+                foreach ($invoice->items as $item) {
+                    if ($item->product_id && $item->quantity > 0) {
+                        if ($item->product_type === 'series') {
+                            $series = \App\Models\ProductSeries::with('colorVariants')->find($item->product_id);
+                            if ($series) {
+                                if ($item->is_return) {
+                                    // Return item: deduct stock (because return added stock back)
+                                    if ($item->color_variant_id) {
+                                        $colorVariant = $series->colorVariants()->where('id', $item->color_variant_id)->first();
+                                        if ($colorVariant) {
+                                            $colorVariant->decrement('stock_quantity', $item->quantity);
+                                            $series->refresh();
+                                            $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                            $series->save();
+                                        }
+                                    } else {
+                                        $series->decrement('stock_quantity', $item->quantity);
+                                    }
+                                } else {
+                                    // Normal item: restore stock
+                                    if ($item->color_variant_id) {
+                                        $colorVariant = $series->colorVariants()->where('id', $item->color_variant_id)->first();
+                                        if ($colorVariant) {
+                                            $colorVariant->increment('stock_quantity', $item->quantity);
+                                            $series->refresh();
+                                            $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                            $series->save();
+                                        }
+                                    } else {
+                                        $series->increment('stock_quantity', $item->quantity);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // 3. Update customer balance (subtract invoice amount if payment was not completed)
+                if (!$invoice->payment_completed && $invoice->customer_id) {
+                    $customer = \App\Models\Customer::find($invoice->customer_id);
+                    if ($customer) {
+                        $currency = $invoice->currency;
+                        $totalAmount = $invoice->total_amount;
+                        
+                        // Subtract from balance based on currency
+                        switch ($currency) {
+                            case 'TRY':
+                                $customer->decrement('balance_try', $totalAmount);
+                                break;
+                            case 'USD':
+                                $customer->decrement('balance_usd', $totalAmount);
+                                break;
+                            case 'EUR':
+                                $customer->decrement('balance_eur', $totalAmount);
+                                break;
+                        }
+                        
+                        // Also update the legacy balance field
+                        $customer->decrement('balance', $totalAmount);
+                    }
+                }
+                
+                // 4. Delete related exchanges (if this invoice is part of an exchange)
+                \App\Models\Exchange::where('original_invoice_id', $invoice->id)
+                    ->orWhere('new_invoice_id', $invoice->id)
+                    ->delete();
+                
+                // Delete the invoice
+                $invoice->delete();
+                $deletedCount++;
+            }
+            
+            DB::commit();
+            
+            \Log::info('Bulk invoice deletion completed', [
+                'deleted_count' => $deletedCount,
+                'total_requested' => count($ids)
+            ]);
+            
+            return redirect()->route('sales.invoices.index')
+                ->with('success', $deletedCount . ' fatura başarıyla silindi');
+                
         } catch (\Exception $e) {
-            \Log::error('Bulk delete error: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Silme işlemi sırasında bir hata oluştu');
+            DB::rollBack();
+            
+            \Log::error('Bulk delete error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->back()
+                ->with('error', 'Silme işlemi sırasında bir hata oluştu: ' . $e->getMessage());
         }
     }
 

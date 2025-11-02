@@ -76,13 +76,37 @@
                                         </span>
                                     </div>
                                 </div>
+                                @if($collection->discount > 0)
                                 <div class="row mb-2">
-                                    <div class="col-4 fw-medium">Tutar:</div>
+                                    <div class="col-4 fw-medium">Toplam Borç:</div>
+                                    <div class="col-8">
+                                        <span class="fw-semibold">{{ number_format($collection->amount + $collection->discount, 2) }}</span>
+                                        <span class="badge bg-soft-secondary text-secondary ms-1">{{ $collection->currency }}</span>
+                                    </div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-4 fw-medium">Yapılan İndirim:</div>
+                                    <div class="col-8">
+                                        <span class="fw-semibold text-danger">-{{ number_format($collection->discount, 2) }}</span>
+                                        <span class="badge bg-soft-danger text-danger ms-1">{{ $collection->currency }}</span>
+                                    </div>
+                                </div>
+                                <div class="row mb-2" style="border-top: 2px solid #dee2e6; padding-top: 10px; margin-top: 10px;">
+                                    <div class="col-4 fw-bold">Tahsil Edilen Tutar:</div>
+                                    <div class="col-8">
+                                        <span class="fw-bold fs-5 text-success">{{ number_format($collection->amount, 2) }}</span>
+                                        <span class="badge bg-soft-success text-success ms-1">{{ $collection->currency }}</span>
+                                    </div>
+                                </div>
+                                @else
+                                <div class="row mb-2">
+                                    <div class="col-4 fw-medium">Tahsil Edilen Tutar:</div>
                                     <div class="col-8">
                                         <span class="fw-semibold fs-5">{{ number_format($collection->amount, 2) }}</span>
                                         <span class="badge bg-soft-secondary text-secondary ms-1">{{ $collection->currency }}</span>
                                     </div>
                                 </div>
+                                @endif
                                 <div class="row mb-2">
                                     <div class="col-4 fw-medium">Tarih:</div>
                                     <div class="col-8">{{ $collection->transaction_date->format('d.m.Y') }}</div>

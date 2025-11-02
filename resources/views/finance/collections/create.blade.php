@@ -22,7 +22,7 @@
             <!-- end page title -->
 
             <div class="row">
-                <div class="col-lg-8 mx-auto">
+                <div class="col-lg-8">
                     <div class="card">
                         <div class="card-header">
                             <h4 class="card-title mb-0">
@@ -109,16 +109,17 @@
                                         <div class="mb-3">
                                             <label for="amount" class="form-label">
                                                 <iconify-icon icon="solar:dollar-outline" class="me-1"></iconify-icon>
-                                                Ödeme Tutarı <span class="text-danger">*</span>
+                                                Ödenecek Tutar <span class="text-danger">*</span>
                                             </label>
                                             <div class="input-group">
                                                 <input type="number" step="0.01" min="0.01" 
                                                        class="form-control @error('amount') is-invalid @enderror" 
                                                        id="amount" name="amount" 
                                                        value="{{ old('amount') }}" 
-                                                       placeholder="Ödeme Tutarı" required>
+                                                       placeholder="Ödenecek Tutar" required>
                                                 <span class="input-group-text" id="currency-symbol">₺</span>
                                             </div>
+                                            <small class="text-muted">İndirim yapılacaksa indirim tutarını aşağıdaki alana girin.</small>
                                             @error('amount')
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror
@@ -141,6 +142,36 @@
                                             @error('currency')
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="discount" class="form-label">
+                                                <iconify-icon icon="solar:tag-price-outline" class="me-1"></iconify-icon>
+                                                Yapılacak İndirim
+                                            </label>
+                                            <div class="input-group">
+                                                <input type="number" step="0.01" min="0" 
+                                                       class="form-control @error('discount') is-invalid @enderror" 
+                                                       id="discount" name="discount" 
+                                                       value="{{ old('discount', '') }}" 
+                                                       placeholder="İndirim Tutarı (opsiyonel)">
+                                                <span class="input-group-text" id="discount-currency-symbol">₺</span>
+                                            </div>
+                                            <small class="text-muted">İndirim eklendikten sonra kalan tutar ödeme olarak alınacaktır.</small>
+                                            @error('discount')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row" id="payment-summary" style="display: none;">
+                                    <div class="col-12">
+                                        <div class="alert alert-info">
+                                            <strong>Özet:</strong><br>
+                                            <span id="summary-text"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -172,6 +203,39 @@
                         </div>
                     </div>
                 </div>
+                
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title mb-0">
+                                <iconify-icon icon="solar:wallet-outline" class="me-2"></iconify-icon>
+                                Müşteri Bakiyeleri
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="customer-balances" style="display: none;">
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span><strong>₺ TRY:</strong></span>
+                                        <span id="balance-try" class="badge bg-primary">0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span><strong>$ USD:</strong></span>
+                                        <span id="balance-usd" class="badge bg-success">0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span><strong>€ EUR:</strong></span>
+                                        <span id="balance-eur" class="badge bg-info">0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="no-customer-selected" class="text-muted text-center">
+                                <iconify-icon icon="solar:user-outline" style="font-size: 48px;"></iconify-icon>
+                                <p class="mt-2">Lütfen bir müşteri seçin</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -184,11 +248,86 @@ document.addEventListener('DOMContentLoaded', function() {
     const customerResults = document.getElementById('customer_results');
     let searchTimeout;
 
-    // Eğer eski değer varsa göster
+    // Müşteri bakiyelerini yükle - Önce tanımlanmalı
+    function loadCustomerBalances(customerId) {
+        console.log('loadCustomerBalances çağrıldı:', customerId);
+        
+        if (!customerId || customerId === '' || customerId === null || customerId === undefined) {
+            document.getElementById('customer-balances').style.display = 'none';
+            document.getElementById('no-customer-selected').style.display = 'block';
+            return;
+        }
+        
+        // Loading göster
+        document.getElementById('customer-balances').style.display = 'block';
+        document.getElementById('no-customer-selected').style.display = 'none';
+        document.getElementById('balance-try').textContent = 'Yükleniyor...';
+        document.getElementById('balance-usd').textContent = 'Yükleniyor...';
+        document.getElementById('balance-eur').textContent = 'Yükleniyor...';
+        
+        const url = `{{ route('finance.collections.get.balances') }}?customer_id=${customerId}`;
+        console.log('Bakiye yükleme URL:', url);
+        
+        fetch(url)
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Bakiye verisi:', data);
+                if (data.error) {
+                    console.error('Bakiye yükleme hatası:', data.error);
+                    document.getElementById('customer-balances').style.display = 'none';
+                    document.getElementById('no-customer-selected').style.display = 'block';
+                    return;
+                }
+                
+                // Değerleri güvenli şekilde parse et
+                const balanceTry = parseFloat(data.balance_try) || 0;
+                const balanceUsd = parseFloat(data.balance_usd) || 0;
+                const balanceEur = parseFloat(data.balance_eur) || 0;
+                
+                console.log('Parse edilmiş bakiyeler:', { balanceTry, balanceUsd, balanceEur });
+                
+                // Formatla ve göster - eğer toLocaleString desteklenmiyorsa fallback kullan
+                const formatNumber = (num) => {
+                    if (typeof num === 'number' && !isNaN(num)) {
+                        try {
+                            return num.toLocaleString('tr-TR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            });
+                        } catch (e) {
+                            return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                        }
+                    }
+                    return '0,00';
+                };
+                
+                document.getElementById('balance-try').textContent = formatNumber(balanceTry);
+                document.getElementById('balance-usd').textContent = formatNumber(balanceUsd);
+                document.getElementById('balance-eur').textContent = formatNumber(balanceEur);
+                
+                document.getElementById('customer-balances').style.display = 'block';
+                document.getElementById('no-customer-selected').style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Bakiye yükleme hatası:', error);
+                document.getElementById('customer-balances').style.display = 'none';
+                document.getElementById('no-customer-selected').style.display = 'block';
+            });
+    }
+
+    // Eğer eski değer varsa göster ve bakiyeleri yükle
     @if(old('customer_id'))
         const selectedCustomer = @json($customers->find(old('customer_id')));
         if (selectedCustomer) {
             customerSearch.value = selectedCustomer.name + ' - ' + selectedCustomer.email;
+            customerId.value = {{ old('customer_id') }};
+            loadCustomerBalances({{ old('customer_id') }});
         }
     @endif
 
@@ -200,6 +339,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (query.length < 2) {
             customerResults.style.display = 'none';
             customerId.value = '';
+            // Müşteri silindiğinde bakiyeleri gizle
+            document.getElementById('customer-balances').style.display = 'none';
+            document.getElementById('no-customer-selected').style.display = 'block';
             return;
         }
 
@@ -243,11 +385,27 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const item = e.target.closest('.dropdown-item');
         if (item && item.dataset.id) {
+            console.log('Müşteri seçildi:', item.dataset.id, item.dataset.name);
             customerId.value = item.dataset.id;
             customerSearch.value = item.dataset.name + ' - ' + item.dataset.email;
             customerResults.style.display = 'none';
+            
+            // Müşteri seçildiğinde bakiyeleri getir
+            loadCustomerBalances(item.dataset.id);
         }
     });
+    
+    // Müşteri ID input alanı değiştiğinde bakiyeleri yükle (manuel değişiklik için)
+    customerId.addEventListener('change', function() {
+        console.log('Customer ID değişti:', this.value);
+        if (this.value && this.value.trim() !== '') {
+            loadCustomerBalances(this.value);
+        } else {
+            document.getElementById('customer-balances').style.display = 'none';
+            document.getElementById('no-customer-selected').style.display = 'block';
+        }
+    });
+    
 
     // Dışarı tıklayınca kapat
     document.addEventListener('click', function(e) {
@@ -259,43 +417,123 @@ document.addEventListener('DOMContentLoaded', function() {
     // Para birimi değişikliği
     const currencySelect = document.getElementById('currency');
     const currencySymbol = document.getElementById('currency-symbol');
+    const discountCurrencySymbol = document.getElementById('discount-currency-symbol');
+    const amountInput = document.getElementById('amount');
+    const discountInput = document.getElementById('discount');
+    
+    function updateCurrencySymbols() {
+        const currency = currencySelect.value;
+        const symbol = currency === 'TRY' ? '₺' : (currency === 'USD' ? '$' : '€');
+        currencySymbol.textContent = symbol;
+        discountCurrencySymbol.textContent = symbol;
+    }
     
     currencySelect.addEventListener('change', function() {
-        const currency = this.value;
-        switch(currency) {
-            case 'TRY':
-                currencySymbol.textContent = '₺';
-                break;
-            case 'USD':
-                currencySymbol.textContent = '$';
-                break;
-            case 'EUR':
-                currencySymbol.textContent = '€';
-                break;
-            default:
-                currencySymbol.textContent = '₺';
-        }
+        updateCurrencySymbols();
+        calculatePayment();
     });
+    
+    // İndirim ve ödeme hesaplama
+    function calculatePayment() {
+        const paymentAmount = parseFloat(amountInput.value) || 0;
+        const discount = parseFloat(discountInput.value) || 0;
+        const currency = currencySelect.value;
+        const symbol = currency === 'TRY' ? '₺' : (currency === 'USD' ? '$' : '€');
+        
+        if (paymentAmount > 0 || discount > 0) {
+            const totalDebt = paymentAmount + discount;
+            const summaryDiv = document.getElementById('payment-summary');
+            const summaryText = document.getElementById('summary-text');
+            
+            if (discount > 0) {
+                summaryText.innerHTML = `
+                    Toplam Borç: <strong>${totalDebt.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${symbol}</strong><br>
+                    Yapılacak İndirim: <strong class="text-danger">${discount.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${symbol}</strong><br>
+                    Ödenecek Tutar: <strong class="text-success">${paymentAmount.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${symbol}</strong>
+                `;
+                summaryDiv.style.display = 'block';
+            } else {
+                summaryDiv.style.display = 'none';
+            }
+        } else {
+            document.getElementById('payment-summary').style.display = 'none';
+        }
+    }
+    
+    amountInput.addEventListener('input', calculatePayment);
+    discountInput.addEventListener('input', calculatePayment);
+    
+    // İlk yüklemede sembolleri güncelle
+    updateCurrencySymbols();
 });
 
 // Form validation
 function validateForm() {
+    console.log('validateForm çağrıldı');
+    
     const customerId = document.getElementById('customer_id').value;
     const customerSearch = document.getElementById('customer_search').value;
+    const amount = document.getElementById('amount').value;
+    const collectionType = document.getElementById('collection_type').value;
+    const currency = document.getElementById('currency').value;
+    const transactionDate = document.getElementById('transaction_date').value;
+    
+    console.log('Form değerleri:', {
+        customerId,
+        customerSearch,
+        amount,
+        collectionType,
+        currency,
+        transactionDate
+    });
     
     if (!customerId || customerId.trim() === '') {
+        console.error('Müşteri ID eksik');
         alert('Lütfen bir müşteri seçin!');
         document.getElementById('customer_search').focus();
         return false;
     }
     
     if (!customerSearch || customerSearch.trim() === '') {
+        console.error('Müşteri adı eksik');
         alert('Lütfen bir müşteri seçin!');
         document.getElementById('customer_search').focus();
         return false;
     }
     
+    if (!amount || parseFloat(amount) <= 0) {
+        console.error('Ödenecek tutar eksik veya geçersiz');
+        alert('Lütfen geçerli bir ödeme tutarı girin!');
+        document.getElementById('amount').focus();
+        return false;
+    }
+    
+    if (!collectionType || collectionType === '') {
+        console.error('Tahsilat türü seçilmedi');
+        alert('Lütfen bir tahsilat türü seçin!');
+        document.getElementById('collection_type').focus();
+        return false;
+    }
+    
+    console.log('Form validation başarılı, submit ediliyor');
     return true;
 }
+
+// Form submit event listener
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form[action*="collections/store"]');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            console.log('Form submit event tetiklendi');
+            const isValid = validateForm();
+            if (!isValid) {
+                console.error('Form validation başarısız, submit iptal edildi');
+                e.preventDefault();
+                return false;
+            }
+            console.log('Form submit ediliyor...');
+        });
+    }
+});
 </script>
 @endsection

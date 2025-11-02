@@ -28,56 +28,9 @@ class DashboardController extends Controller
         // Get current account ID
         $accountId = $this->getCurrentAccountId();
         
-        // Kritik stok uyarıları - Normal ürünler
-        $lowStockProductsQuery = Product::whereNotNull('critical_stock')
-            ->where('critical_stock', '>', 0)
-            ->whereColumn('initial_stock', '<=', 'critical_stock');
-            
-        // Filter by account
-        if ($accountId !== null) {
-            $lowStockProductsQuery->where('account_id', $accountId);
-        }
-        
-        $lowStockProducts = $lowStockProductsQuery->orderBy('initial_stock')
-            ->limit(10)
-            ->get(['id','name','initial_stock','critical_stock','category']);
-            
-        // Color variants kritik stok uyarıları
+        // Tekli ürünler kaldırıldı - artık sadece seri ürünler kullanılıyor
+        $lowStockProducts = collect();
         $lowStockColorVariants = collect();
-        if ($accountId) {
-            $colorVariantsQuery = \App\Models\ProductColorVariant::whereHas('product', function($query) use ($accountId) {
-                $query->where('account_id', $accountId);
-            })
-            ->whereNotNull('critical_stock')
-            ->where('critical_stock', '>', 0)
-            ->whereColumn('stock_quantity', '<=', 'critical_stock')
-            ->where('is_active', true);
-            
-            $lowStockColorVariants = $colorVariantsQuery->with('product:id,name,category')
-                ->orderBy('stock_quantity')
-                ->limit(10)
-                ->get();
-        }
-            
-        // Debug: RONEX1 için kritik stok uyarılarını logla
-        if ($accountId) {
-            $account = \App\Models\Account::find($accountId);
-            if ($account && $account->code === 'RONEX1') {
-                // Tüm RONEX1 ürünlerini kontrol et
-                $allRonex1Products = \App\Models\Product::where('account_id', $accountId)->get(['id', 'name', 'initial_stock', 'critical_stock', 'category']);
-                
-                \Log::info('RONEX1 Kritik Stok Debug', [
-                    'account_id' => $accountId,
-                    'account_code' => $account->code,
-                    'all_products_count' => $allRonex1Products->count(),
-                    'all_products' => $allRonex1Products->toArray(),
-                    'low_stock_count' => $lowStockProducts->count(),
-                    'low_stock_products' => $lowStockProducts->toArray(),
-                    'color_variants_count' => $lowStockColorVariants->count(),
-                    'color_variants' => $lowStockColorVariants->toArray()
-                ]);
-            }
-        }
             
         // Kritik stok uyarıları - Seri ürünler
         $lowStockSeriesQuery = \App\Models\ProductSeries::whereNotNull('critical_stock')
@@ -332,43 +285,20 @@ class DashboardController extends Controller
         $newCustomers = \App\Models\Customer::whereMonth('created_at', $currentMonth)->count();
         
         // Toplam ürün sayısı - Account bazında
-        $totalProductsQuery = Product::query();
-        if ($accountId !== null) {
-            $totalProductsQuery->where('account_id', $accountId);
-        }
-        $totalProducts = $totalProductsQuery->count();
+        // Tekli ürünler kaldırıldı - artık sadece seri ürünler sayılıyor
+        $totalProducts = \App\Models\ProductSeries::when($accountId !== null, function($q) use ($accountId) {
+            $q->where('account_id', $accountId);
+        })->count();
         
-        // Kritik stok uyarı sayısı - Account bazında (normal ürünler + color variants)
-        $criticalStockQuery = Product::whereNotNull('critical_stock')
-            ->where('critical_stock', '>', 0)
-            ->whereColumn('initial_stock', '<=', 'critical_stock');
-        if ($accountId !== null) {
-            $criticalStockQuery->where('account_id', $accountId);
-        }
-        $criticalStockCount = $criticalStockQuery->count();
-        
-        // Color variants kritik stok sayısını da ekle
-        if ($accountId !== null) {
-            $colorVariantsCriticalCount = \App\Models\ProductColorVariant::whereHas('product', function($query) use ($accountId) {
-                $query->where('account_id', $accountId);
-            })
-            ->whereNotNull('critical_stock')
-            ->where('critical_stock', '>', 0)
-            ->whereColumn('stock_quantity', '<=', 'critical_stock')
-            ->where('is_active', true)
-            ->count();
-            
-            $criticalStockCount += $colorVariantsCriticalCount;
-        }
-        
-        // Seri ürünler kritik stok sayısını da ekle
+        // Tekli ürünler kaldırıldı - artık sadece seri ürünler kritik stok uyarısı veriliyor
+        // Seri ürünler kritik stok sayısı
         $seriesCriticalCount = \App\Models\ProductSeries::whereNotNull('critical_stock')
             ->where('critical_stock', '>', 0)
             ->whereColumn('stock_quantity', '<=', 'critical_stock');
         if ($accountId !== null) {
             $seriesCriticalCount->where('account_id', $accountId);
         }
-        $criticalStockCount += $seriesCriticalCount->count();
+        $criticalStockCount = $seriesCriticalCount->count();
         
         // Seri ürün renk varyantları kritik stok sayısını da ekle
         if ($accountId !== null) {

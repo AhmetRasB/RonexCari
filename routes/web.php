@@ -80,7 +80,12 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
         // Additional invoice routes
         Route::get('invoices/search/customers', [InvoiceController::class, 'searchCustomers'])->name('invoices.search.customers');
         Route::get('invoices/search/products', [InvoiceController::class, 'searchProducts'])->name('invoices.search.products');
+        Route::post('invoices/{invoice}/add-return', [InvoiceController::class, 'addReturn'])->name('invoices.add-return');
         Route::get('invoices/{invoice}/preview', [InvoiceController::class, 'preview'])->name('invoices.preview');
+        
+        // Exchange routes
+        Route::get('exchanges/{invoice}/create', [\App\Http\Controllers\Sales\ExchangeController::class, 'create'])->name('exchanges.create');
+        Route::post('exchanges/{invoice}/store', [\App\Http\Controllers\Sales\ExchangeController::class, 'store'])->name('exchanges.store');
         Route::get('invoices/currency/rates', [InvoiceController::class, 'getCurrencyRates'])->name('invoices.currency.rates');
         Route::get('invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
         Route::post('invoices/{invoice}/mark-paid', [InvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
@@ -113,7 +118,6 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     Route::post('products/series/bulk-delete', [\App\Http\Controllers\Products\ProductSeriesController::class, 'bulkDelete'])->name('products.series.bulk-delete');
     Route::post('products/{product}/quick-stock', [ProductController::class, 'quickStockUpdate'])->name('products.quick-stock');
     Route::post('products/series/{series}/quick-stock', [\App\Http\Controllers\Products\ProductSeriesController::class, 'quickStockUpdate'])->name('products.series.quick-stock');
-    Route::get('products/test-critical-stock', [ProductController::class, 'testCriticalStock'])->name('products.test-critical-stock');
     // Product Categories (per account) - resource under separate prefix
     Route::resource('product-categories', \App\Http\Controllers\Products\ProductCategoryController::class)
         ->parameters(['product-categories' => 'productCategory'])
@@ -137,7 +141,6 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     // Barcode Section
     Route::get('/barcodes', [BarcodeController::class, 'index'])->name('barcode.index');
     Route::post('/barcodes/preview', [BarcodeController::class, 'preview'])->name('barcode.preview');
-    Route::get('/barcodes/test', [BarcodeController::class, 'test'])->name('barcode.test');
     Route::get('/barcodes/lookup', [BarcodeController::class, 'lookupByBarcode'])->name('barcode.lookup');
     
     
@@ -156,57 +159,25 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
 
     // Finance Routes
     Route::prefix('finance')->name('finance.')->group(function () {
-        Route::resource('collections', \App\Http\Controllers\Finance\CollectionController::class);
-        Route::post('collections/bulk-delete', [\App\Http\Controllers\Finance\CollectionController::class, 'bulkDelete'])->name('collections.bulk-delete');
-        Route::resource('supplier-payments', \App\Http\Controllers\Finance\SupplierPaymentController::class);
-        Route::post('supplier-payments/bulk-delete', [\App\Http\Controllers\Finance\SupplierPaymentController::class, 'bulkDelete'])->name('supplier-payments.bulk-delete');
-        
-        // Search routes
+        // Search routes - Resource routes'tan önce olmalı
         Route::get('collections/search/customers', [\App\Http\Controllers\Finance\CollectionController::class, 'searchCustomers'])->name('collections.search.customers');
+        Route::get('collections/get-balances', [\App\Http\Controllers\Finance\CollectionController::class, 'getCustomerBalances'])->name('collections.get.balances');
         Route::get('supplier-payments/search/suppliers', [\App\Http\Controllers\Finance\SupplierPaymentController::class, 'searchSuppliers'])->name('supplier-payments.search.suppliers');
         
         // Print routes
         Route::get('collections/{collection}/print', [\App\Http\Controllers\Finance\CollectionController::class, 'print'])->name('collections.print');
         Route::get('supplier-payments/{supplierPayment}/print', [\App\Http\Controllers\Finance\SupplierPaymentController::class, 'print'])->name('supplier-payments.print');
+        
+        // Resource routes
+        Route::resource('collections', \App\Http\Controllers\Finance\CollectionController::class);
+        Route::post('collections/bulk-delete', [\App\Http\Controllers\Finance\CollectionController::class, 'bulkDelete'])->name('collections.bulk-delete');
+        Route::resource('supplier-payments', \App\Http\Controllers\Finance\SupplierPaymentController::class);
+        Route::post('supplier-payments/bulk-delete', [\App\Http\Controllers\Finance\SupplierPaymentController::class, 'bulkDelete'])->name('supplier-payments.bulk-delete');
     });
 
     // Reports Routes
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/', [\App\Http\Controllers\ReportsController::class, 'index'])->name('index');
-        Route::get('/test-currency', function(\Illuminate\Http\Request $request) {
-            $currencyService = app('App\Services\CurrencyService');
-            
-            // Check if manual rates are being set
-            if ($request->get('manual')) {
-                $usdRate = (float) $request->get('usd', 41.29);
-                $eurRate = (float) $request->get('eur', 48.55);
-                
-                // Clear cache first
-                $currencyService->clearCache();
-                
-                // Set manual rates
-                $rates = $currencyService->setManualRates($usdRate, $eurRate);
-                
-                return response()->json([
-                    'success' => true,
-                    'rates' => $rates,
-                    'timestamp' => now()->toDateTimeString(),
-                    'message' => 'Manual currency rates set successfully'
-                ]);
-            }
-            
-            // Regular test - get current rates and test results
-            $rates = $currencyService->getExchangeRates();
-            $testRates = $currencyService->getTestRates();
-            
-            return response()->json([
-                'success' => true,
-                'current_rates' => $rates,
-                'test_results' => $testRates,
-                'timestamp' => now()->toDateTimeString(),
-                'message' => 'Currency API test completed'
-            ]);
-        })->name('test-currency');
     });
 
     // Management Routes (Admin and God Mode only)

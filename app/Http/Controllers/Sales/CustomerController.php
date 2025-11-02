@@ -73,7 +73,19 @@ class CustomerController extends Controller
                 'errors' => $e->errors(),
                 'request_data' => $request->all()
             ]);
-            throw $e;
+            
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Müşteri oluşturulurken validasyon hatası oluştu.',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+            
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput()
+                ->with('error', 'Müşteri oluşturulurken validasyon hatası oluştu. Lütfen tüm zorunlu alanları doldurun.');
         }
 
         try {
@@ -140,17 +152,35 @@ class CustomerController extends Controller
      */
     public function update(Request $request, Customer $customer)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'company_name' => 'nullable|string|max:255',
-            'email' => ['nullable', 'email', Rule::unique('customers')->ignore($customer->id)],
-            'phone' => 'required|string|max:20',
-            'address' => 'nullable|string|max:500',
-            'tax_number' => 'nullable|string|max:50',
-            'contact_person' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-            'is_active' => 'boolean'
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'company_name' => 'nullable|string|max:255',
+                'email' => ['nullable', 'email', Rule::unique('customers')->ignore($customer->id)],
+                'phone' => 'required|string|max:20',
+                'address' => 'nullable|string|max:500',
+                'tax_number' => 'nullable|string|max:50',
+                'contact_person' => 'nullable|string|max:255',
+                'notes' => 'nullable|string',
+                'is_active' => 'boolean'
+            ], [
+                'name.required' => 'Müşteri adı zorunludur.',
+                'name.max' => 'Müşteri adı çok uzun.',
+                'company_name.max' => 'Şirket adı çok uzun.',
+                'email.email' => 'Geçerli bir e-posta adresi girin.',
+                'email.unique' => 'Bu e-posta adresi zaten kullanılıyor.',
+                'phone.required' => 'Telefon numarası zorunludur.',
+                'phone.max' => 'Telefon numarası çok uzun.',
+                'address.max' => 'Adres çok uzun.',
+                'tax_number.max' => 'Vergi numarası çok uzun.',
+                'contact_person.max' => 'İletişim kişisi adı çok uzun.',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput()
+                ->with('error', 'Müşteri güncellenirken validasyon hatası oluştu. Lütfen tüm zorunlu alanları doldurun.');
+        }
 
         $customer->update($validated);
 

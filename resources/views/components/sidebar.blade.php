@@ -80,7 +80,7 @@
                 </a>
                 <ul class="sidebar-submenu">
                     <li>
-                        <a href="{{ route('products.index') }}"><i class="ri-circle-fill circle-icon text-primary-600 w-auto"></i> Ürünler</a>
+                        <a href="{{ route('products.series.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Seri Ürünler</a>
                     </li>
                     <li>
                         <a href="{{ route('services.index') }}"><i class="ri-circle-fill circle-icon text-warning-main w-auto"></i> Hizmetler</a>
@@ -90,19 +90,6 @@
                     </li>
                     <li>
                         <a href="{{ route('barcode.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Barkod Bölümü</a>
-                    </li>
-                </ul>
-            </li>
-
-            <!-- SERİ ÜRÜNLER (SERIES PRODUCTS) -->
-            <li class="dropdown">
-                <a href="javascript:void(0)">
-                    <iconify-icon icon="solar:layers-outline" class="menu-icon"></iconify-icon>
-                    <span>SERİ ÜRÜNLER</span>
-                </a>
-                <ul class="sidebar-submenu">
-                    <li>
-                        <a href="{{ route('products.series.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Seri Ürünler</a>
                     </li>
                 </ul>
             </li>

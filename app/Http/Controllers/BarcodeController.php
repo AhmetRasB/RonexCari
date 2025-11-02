@@ -145,21 +145,6 @@ class BarcodeController extends Controller
         return $type . $paddedId;
     }
 
-    public function test(QrBarcodeService $service)
-    {
-        $barcodeValue = 'TEST-123456';
-        $qrValue = 'https://example.com/test';
-
-        $barcodeSvg = $service->generateBarcodeSvg($barcodeValue);
-        $qrSvg = $service->generateQrSvg($qrValue, 220);
-
-        return view('barcode.test', [
-            'barcodeSvg' => $barcodeSvg,
-            'qrSvg' => $qrSvg,
-            'barcodeValue' => $barcodeValue,
-            'qrValue' => $qrValue,
-        ]);
-    }
 
     /**
      * Lookup product or series by barcode and return redirect URL

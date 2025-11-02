@@ -15,13 +15,8 @@
                     <div class="col-md-4">
                         <label class="form-label mb-1">Kategori</label>
                         <select name="category" class="form-select" onchange="this.form.submit()">
-                            @php
-                                $options = isset($allowedCategories) && is_array($allowedCategories) && count($allowedCategories) > 0
-                                    ? $allowedCategories
-                                    : ['Gömlek','Ceket','Takım Elbise','Pantalon'];
-                            @endphp
                             <option value="">Tümü</option>
-                            @foreach($options as $cat)
+                            @foreach($allowedCategories as $cat)
                                 <option value="{{ $cat }}" {{ ($selectedCategory ?? '') === $cat ? 'selected' : '' }}>{{ $cat }}</option>
                             @endforeach
                         </select>

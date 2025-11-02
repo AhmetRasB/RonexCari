@@ -12,9 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('purchase_invoice_items', function (Blueprint $table) {
-            $table->string('selected_color')->nullable()->after('description');
-            $table->unsignedBigInteger('product_id')->nullable()->after('selected_color');
-            $table->string('product_type')->nullable()->after('product_id'); // 'product', 'series', 'service'
+            if (!Schema::hasColumn('purchase_invoice_items', 'selected_color')) {
+                $table->string('selected_color')->nullable()->after('description');
+            }
+            if (!Schema::hasColumn('purchase_invoice_items', 'product_id')) {
+                $table->unsignedBigInteger('product_id')->nullable()->after('selected_color');
+            }
+            if (!Schema::hasColumn('purchase_invoice_items', 'product_type')) {
+                $table->string('product_type')->nullable()->after('product_id'); // 'product', 'series', 'service'
+            }
         });
     }
 

@@ -57,19 +57,6 @@ class ReportsController extends Controller
         // Precompute numeric rates for raw SQL usage
         $usdRate = (float) ($exchangeRates['USD'] ?? 1);
         $eurRate = (float) ($exchangeRates['EUR'] ?? 1);
-        
-        // Get test rates for all API versions (tolerate API issues)
-        try {
-            $testRates = $this->currencyService->getTestRates();
-            if (!is_array($testRates)) {
-                $testRates = [];
-            }
-        } catch (\Throwable $e) {
-            \Log::warning('Currency test rates unavailable', [
-                'error' => $e->getMessage()
-            ]);
-            $testRates = [];
-        }
 
         // === SALES ANALYTICS ===
         
@@ -159,6 +146,7 @@ class ReportsController extends Controller
         $topSellingProducts = InvoiceItem::select('invoice_items.product_service_name')
             ->leftJoin('products', 'invoice_items.product_id', '=', 'products.id')
             ->leftJoin('product_series', 'invoice_items.product_id', '=', 'product_series.id')
+            ->where('invoice_items.is_return', false) // Exclude returns
             ->selectRaw('SUM(invoice_items.quantity) as total_quantity')
             ->selectRaw('SUM(invoice_items.line_total) as total_revenue')
             ->selectRaw('SUM(COALESCE(
@@ -211,6 +199,7 @@ class ReportsController extends Controller
             ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
             ->leftJoin('products', 'invoice_items.product_id', '=', 'products.id')
             ->leftJoin('product_series', 'invoice_items.product_id', '=', 'product_series.id')
+            ->where('invoice_items.is_return', false) // Exclude returns
             ->when($accountId !== null, function($query) use ($accountId) {
                 return $query->where('invoices.account_id', $accountId);
             })
@@ -270,6 +259,7 @@ class ReportsController extends Controller
             ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
             ->leftJoin('products', 'invoice_items.product_id', '=', 'products.id')
             ->leftJoin('product_series', 'invoice_items.product_id', '=', 'product_series.id')
+            ->where('invoice_items.is_return', false) // Exclude returns
             ->when($accountId !== null, function($query) use ($accountId) {
                 return $query->where('invoices.account_id', $accountId);
             })
@@ -486,7 +476,7 @@ class ReportsController extends Controller
             'branchStatistics',
             
             // Exchange rates
-            'exchangeRates', 'testRates'
+            'exchangeRates'
         ));
     }
 
@@ -554,6 +544,7 @@ class ReportsController extends Controller
                 ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
                 ->leftJoin('products', 'invoice_items.product_id', '=', 'products.id')
                 ->leftJoin('product_series', 'invoice_items.product_id', '=', 'product_series.id')
+                ->where('invoice_items.is_return', false) // Exclude returns
                 ->where('invoices.account_id', $branch->id)
                 ->whereBetween('invoices.created_at', [$startOfMonth, Carbon::now()])
                 ->sum(DB::raw(

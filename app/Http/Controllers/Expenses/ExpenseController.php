@@ -20,12 +20,12 @@ class ExpenseController extends Controller
                 ->with('warning', 'Gider geçmişini görüntüleme yetkiniz yok. Yeni gider ekleyebilirsiniz.');
         }
         $currentAccountId = session('current_account_id');
-        $expenses = Expense::with(['account', 'user'])
+            $expenses = Expense::with(['account', 'user'])
             ->when(!auth()->user()->isAdmin() && $currentAccountId, function($q) use ($currentAccountId) {
                 return $q->where('account_id', $currentAccountId);
             })
-            ->orderBy('expense_date', 'desc')
-            ->paginate(15);
+                ->orderBy('expense_date', 'desc')
+                ->paginate(15);
         return view('expenses.expenses.index', compact('expenses'));
     }
 

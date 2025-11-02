@@ -23,7 +23,8 @@ class InvoiceItem extends Model
         'discount_rate',
         'line_total',
         'total',
-        'sort_order'
+        'sort_order',
+        'is_return'
     ];
 
     protected $casts = [
@@ -32,6 +33,7 @@ class InvoiceItem extends Model
         'tax_rate' => 'decimal:2',
         'discount_rate' => 'decimal:2',
         'line_total' => 'decimal:2',
+        'is_return' => 'boolean',
     ];
 
     public function invoice(): BelongsTo

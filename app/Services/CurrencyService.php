@@ -180,45 +180,4 @@ class CurrencyService
         return $manualRates;
     }
 
-    /**
-     * Get test rates for reports page
-     */
-    public function getTestRates(): array
-    {
-        $testResults = [];
-
-        foreach (self::TRUNCIL_URLS as $version => $url) {
-            $testResults[$version] = [
-                'url' => $url,
-                'status' => 'testing...',
-                'rates' => null,
-                'error' => null
-            ];
-
-            try {
-                $response = Http::timeout(5)->get($url);
-                
-                if ($response->successful()) {
-                    $data = $response->json();
-                    $rates = $this->parseRatesByVersion($data, $version);
-                    
-                    if (isset($rates['USD']) && isset($rates['EUR'])) {
-                        $testResults[$version]['status'] = 'success';
-                        $testResults[$version]['rates'] = $rates;
-                    } else {
-                        $testResults[$version]['status'] = 'parse_error';
-                        $testResults[$version]['error'] = 'Could not parse USD/EUR rates';
-                    }
-                } else {
-                    $testResults[$version]['status'] = 'http_error';
-                    $testResults[$version]['error'] = 'HTTP ' . $response->status();
-                }
-            } catch (\Exception $e) {
-                $testResults[$version]['status'] = 'exception';
-                $testResults[$version]['error'] = $e->getMessage();
-            }
-        }
-
-        return $testResults;
-    }
 }

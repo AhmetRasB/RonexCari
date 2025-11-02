@@ -110,7 +110,7 @@
             </div>
                     </div>
                 @endif
-
+        
                 @if(!empty($customersToCollect) && $customersToCollect->count())
         <div class="alert alert-warning d-flex flex-column flex-md-row align-items-start align-items-md-center mb-3" role="alert">
             <iconify-icon icon="solar:hand-money-outline" class="text-xl me-2 mb-2 mb-md-0 flex-shrink-0"></iconify-icon>
