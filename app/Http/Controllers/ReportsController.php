@@ -57,7 +57,7 @@ class ReportsController extends Controller
         // Precompute numeric rates for raw SQL usage
         $usdRate = (float) ($exchangeRates['USD'] ?? 1);
         $eurRate = (float) ($exchangeRates['EUR'] ?? 1);
-
+        
         // === SALES ANALYTICS ===
         
         // Sales summary for different periods - convert all to TRY equivalent (ONLY APPROVED)

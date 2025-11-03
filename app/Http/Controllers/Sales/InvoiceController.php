@@ -93,67 +93,20 @@ class InvoiceController extends Controller
             $userId = $user ? $user->id : 1;
         }
 
-        // Validation
-        try {
-            $validated = $request->validate([
-                'customer_id' => 'required|integer|exists:customers,id',
-                'invoice_date' => 'required|date',
-                'invoice_time' => 'nullable|string|max:8',
-                'due_date' => 'required|date|after_or_equal:invoice_date',
-                'currency' => 'required|in:TRY,USD,EUR',
-                'vat_status' => 'required|in:included,excluded',
-                'description' => 'nullable|string|max:1000',
-                'payment_completed' => 'nullable|boolean',
-                'items' => 'required|array|min:1',
-                'items.*.product_service_name' => 'required|string|max:255',
-                'items.*.quantity' => 'required|numeric|min:0.01',
-                'items.*.unit_price' => 'required|numeric|min:0',
-                'items.*.tax_rate' => 'required|numeric|min:0|max:100',
-                'items.*.discount_rate' => 'nullable|numeric|min:0',
-                'items.*.type' => 'required|in:product,series,service',
-            ], [
-                'customer_id.required' => 'Müşteri seçimi zorunludur.',
-                'customer_id.exists' => 'Seçilen müşteri bulunamadı.',
-                'invoice_date.required' => 'Fatura tarihi zorunludur.',
-                'invoice_date.date' => 'Geçerli bir fatura tarihi giriniz.',
-                'due_date.required' => 'Vade tarihi zorunludur.',
-                'due_date.date' => 'Geçerli bir vade tarihi giriniz.',
-                'due_date.after_or_equal' => 'Vade tarihi fatura tarihinden önce olamaz.',
-                'currency.required' => 'Para birimi seçimi zorunludur.',
-                'currency.in' => 'Geçerli bir para birimi seçiniz (TRY, USD, EUR).',
-                'vat_status.required' => 'KDV durumu seçimi zorunludur.',
-                'vat_status.in' => 'Geçerli bir KDV durumu seçiniz.',
-                'items.required' => 'En az bir fatura kalemi eklemelisiniz.',
-                'items.min' => 'En az bir fatura kalemi eklemelisiniz.',
-                'items.*.product_service_name.required' => 'Ürün/Hizmet adı zorunludur.',
-                'items.*.quantity.required' => 'Miktar zorunludur.',
-                'items.*.quantity.numeric' => 'Miktar sayısal olmalıdır.',
-                'items.*.quantity.min' => 'Miktar 0\'dan büyük olmalıdır.',
-                'items.*.unit_price.required' => 'Birim fiyat zorunludur.',
-                'items.*.unit_price.numeric' => 'Birim fiyat sayısal olmalıdır.',
-                'items.*.unit_price.min' => 'Birim fiyat 0\'dan küçük olamaz.',
-                'items.*.tax_rate.required' => 'KDV oranı zorunludur.',
-                'items.*.tax_rate.numeric' => 'KDV oranı sayısal olmalıdır.',
-                'items.*.tax_rate.min' => 'KDV oranı 0\'dan küçük olamaz.',
-                'items.*.tax_rate.max' => 'KDV oranı 100\'den büyük olamaz.',
-            ]);
-
-            // Add account_id and user_id to validated data
-            $validated['account_id'] = $accountId;
-            $validated['user_id'] = $userId;
-            $validated['invoice_time'] = $validated['invoice_time'] ?? date('H:i');
-            $validated['payment_completed'] = (bool) ($validated['payment_completed'] ?? false);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            \Log::error('Invoice validation failed', [
-                'errors' => $e->errors(),
-                'request_data' => $request->all()
-            ]);
-            return redirect()->back()
-                ->withErrors($e->errors())
-                ->withInput()
-                ->with('error', 'Fatura oluşturulurken validasyon hatası oluştu. Lütfen tüm zorunlu alanları doldurun.');
-        }
+        // TEMP: Skip validation per user request
+        $validated = [
+            'account_id' => $accountId,
+            'user_id' => $userId,
+            'customer_id' => $request->input('customer_id'),
+            'invoice_date' => $request->input('invoice_date', date('Y-m-d')),
+            'invoice_time' => $request->input('invoice_time', date('H:i')),
+            'due_date' => $request->input('due_date', date('Y-m-d')),
+            'currency' => $request->input('currency', 'TRY'),
+            'vat_status' => $request->input('vat_status', 'included'),
+            'description' => $request->input('description'),
+            'payment_completed' => (bool) $request->input('payment_completed', false),
+            'items' => $request->input('items', []),
+        ];
 
         DB::beginTransaction();
         try {

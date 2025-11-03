@@ -132,15 +132,6 @@ class CollectionController extends Controller
             return redirect()->route('finance.collections.index')
                 ->with('success', 'Tahsilat başarıyla kaydedildi.');
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Collection validation failed', [
-                'errors' => $e->errors(),
-                'request_data' => $request->all()
-            ]);
-            return redirect()->back()
-                ->withErrors($e->errors())
-                ->withInput()
-                ->with('error', 'Tahsilat oluşturulurken validasyon hatası oluştu. Lütfen tüm zorunlu alanları doldurun.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Collection creation failed', ['error' => $e->getMessage()]);

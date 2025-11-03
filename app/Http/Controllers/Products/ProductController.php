@@ -104,10 +104,7 @@ class ProductController extends Controller
                 'errors' => $e->errors(),
                 'request_data' => $request->all()
             ]);
-            return redirect()->back()
-                ->withErrors($e->errors())
-                ->withInput()
-                ->with('error', 'Ürün oluşturulurken validasyon hatası oluştu. Lütfen tüm zorunlu alanları doldurun.');
+            throw $e;
         }
 
         try {

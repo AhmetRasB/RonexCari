@@ -234,7 +234,7 @@ class ExchangeController extends Controller
                     'unit_price' => $itemData['unit_price'],
                 ]);
             }
-            
+
             // Calculate original total including VAT
             $originalTotal = $originalSubtotal + $originalVatAmount;
 
