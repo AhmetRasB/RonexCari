@@ -129,6 +129,19 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
             'update' => 'products.categories.update',
             'destroy' => 'products.categories.destroy',
         ])->except(['show']);
+
+    // Product Brands (per account)
+    Route::resource('product-brands', \App\Http\Controllers\Products\ProductBrandController::class)
+        ->parameters(['product-brands' => 'productBrand'])
+        ->names([
+            'index' => 'products.brands.index',
+            'create' => 'products.brands.create',
+            'store' => 'products.brands.store',
+            'edit' => 'products.brands.edit',
+            'update' => 'products.brands.update',
+            'destroy' => 'products.brands.destroy',
+        ])->except(['show']);
+    Route::get('product-brands/search', [\App\Http\Controllers\Products\ProductBrandController::class, 'search'])->name('products.brands.search');
     
     // Labels & Printing
     Route::get('/print/labels/zpl', [\App\Http\Controllers\PrintLabelController::class, 'zpl'])->name('print.labels.zpl');

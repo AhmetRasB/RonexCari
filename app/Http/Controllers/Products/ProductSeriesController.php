@@ -7,6 +7,7 @@ use App\Models\ProductSeries;
 use App\Models\ProductSeriesItem;
 use Illuminate\Http\Request;
 use App\Models\ProductCategory;
+use App\Models\ProductBrand;
 
 class ProductSeriesController extends Controller
 {
@@ -109,6 +110,20 @@ class ProductSeriesController extends Controller
         // account_id default değeri
         if (!isset($validated['account_id'])) {
             $validated['account_id'] = session('current_account_id', 1);
+        }
+
+        // Marka: varsa bul/yoksa oluştur ve metin alanını normalize et
+        if (!empty($validated['brand'])) {
+            $brandName = trim($validated['brand']);
+            if ($brandName !== '') {
+                $brand = ProductBrand::firstOrCreate([
+                    'account_id' => $validated['account_id'] ?? session('current_account_id'),
+                    'name' => $brandName,
+                ], [
+                    'is_active' => true,
+                ]);
+                $validated['brand'] = $brand->name; // normalize to stored name
+            }
         }
 
         // Seri oluştur
@@ -228,6 +243,20 @@ class ProductSeriesController extends Controller
                         'is_active' => $variantData['is_active'] ?? true,
                     ]);
                 }
+            }
+        }
+
+        // Marka güncelle: varsa oluştur/bul
+        if (!empty($validated['brand'])) {
+            $brandName = trim($validated['brand']);
+            if ($brandName !== '') {
+                $brand = ProductBrand::firstOrCreate([
+                    'account_id' => session('current_account_id'),
+                    'name' => $brandName,
+                ], [
+                    'is_active' => true,
+                ]);
+                $validated['brand'] = $brand->name;
             }
         }
 

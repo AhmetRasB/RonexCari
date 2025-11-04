@@ -23,18 +23,14 @@
                 <div class="col-md-2">
                     <label class="form-label">Tür</label>
                     <select class="form-select item-type" onchange="syncItemOptionsForRow(this)">
-                        <option value="product">Ürün</option>
-                        <option value="series">Seri</option>
+                        <option value="series" selected>Seri</option>
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Öğe</label>
                     <select class="form-select item-select">
-                        @foreach($products as $p)
-                            <option value="{{ $p->id }}" data-type="product">{{ $p->name }} {{ $p->size ? ' - '.$p->size : '' }}</option>
-                        @endforeach
                         @foreach($series as $s)
-                            <option value="{{ $s->id }}" data-type="series" style="display:none;">{{ $s->name }}</option>
+                            <option value="{{ $s->id }}" data-type="series">{{ $s->name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -189,10 +185,9 @@ function syncItemOptionsForRow(typeSelect) {
     const type = typeSelect.value;
     const select = row.querySelector('.item-select');
     const options = select.querySelectorAll('option');
-    options.forEach(o => { o.style.display = (o.dataset.type === type) ? '' : 'none'; });
-    const first = select.querySelector(`option[data-type="${type}"]`);
-    if (first) select.value = first.value;
-    row.querySelector('.item-mode').disabled = (type !== 'series');
+    // Yalnızca seri destekleniyor; tüm seçenekler zaten seridir
+    options.forEach(o => { o.style.display = ''; });
+    row.querySelector('.item-mode').disabled = false;
 }
 
 // Init first row

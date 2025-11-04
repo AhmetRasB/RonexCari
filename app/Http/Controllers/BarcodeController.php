@@ -11,7 +11,8 @@ class BarcodeController extends Controller
 {
     public function index()
     {
-        $products = Product::orderBy('name')->get(['id','name','size','sku','barcode','price','stock_quantity']);
+        // Tekli ürünler artık gösterilmiyor
+        $products = collect();
         $series = ProductSeries::orderBy('name')->get(['id','name','sku','barcode','price','stock_quantity']);
         return view('barcode.index', compact('products', 'series'));
     }
@@ -160,28 +161,7 @@ class BarcodeController extends Controller
 
             $currentAccountId = session('current_account_id');
 
-            // First, try to find by exact barcode match in products
-            $product = Product::where('barcode', $barcode)
-                ->where('is_active', true)
-                ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
-                    $q->where('account_id', $currentAccountId);
-                })
-                ->when($currentAccountId === null, function($q) {
-                    // Eğer hesap seçili değilse, tüm ürünleri getir
-                    $q->whereNotNull('account_id');
-                })
-                ->first();
-
-            if ($product) {
-                return response()->json([
-                    'type' => 'product',
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'redirect_url' => route('products.show', $product->id)
-                ]);
-            }
-
-            // If not found in products, try product series
+            // Yalnızca seri ürünlerde arama yap
             $series = ProductSeries::where('barcode', $barcode)
                 ->where('is_active', true)
                 ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
@@ -202,8 +182,8 @@ class BarcodeController extends Controller
                 ]);
             }
 
-            // If still not found, try partial matches or other fields
-            $product = Product::where(function($q) use ($barcode) {
+            // Seri olarak kısmi eşleşme ara
+            $series = ProductSeries::where(function($q) use ($barcode) {
                     $q->where('barcode', 'like', "%{$barcode}%")
                       ->orWhere('sku', $barcode)
                       ->orWhere('sku', 'like', "%{$barcode}%");
@@ -213,17 +193,16 @@ class BarcodeController extends Controller
                     $q->where('account_id', $currentAccountId);
                 })
                 ->when($currentAccountId === null, function($q) {
-                    // Eğer hesap seçili değilse, tüm ürünleri getir
                     $q->whereNotNull('account_id');
                 })
                 ->first();
 
-            if ($product) {
+            if ($series) {
                 return response()->json([
-                    'type' => 'product',
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'redirect_url' => route('products.show', $product->id)
+                    'type' => 'series',
+                    'id' => $series->id,
+                    'name' => $series->name,
+                    'redirect_url' => route('products.series.show', $series->id)
                 ]);
             }
 

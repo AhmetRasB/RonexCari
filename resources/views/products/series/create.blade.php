@@ -449,28 +449,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    function searchBrands(query) {
-        // Mevcut markalar
-        const existingBrands = ['Ronex', 'Diğer', 'Nike', 'Adidas', 'Puma', 'Lacoste', 'Tommy Hilfiger', 'Calvin Klein'];
-        
-        const filtered = existingBrands.filter(brand => 
-            brand.toLowerCase().includes(query.toLowerCase())
-        );
-        
-        let html = '';
-        if (filtered.length > 0) {
-            filtered.forEach(function(brand) {
-                html += `
-                    <div class="dropdown-item brand-option" data-brand="${brand}" style="cursor: pointer;">
-                        <i class="ri-star-line me-2"></i>${brand}
-                    </div>
-                `;
-            });
-        } else {
-            html = '<div class="dropdown-item text-muted">Marka bulunamadı</div>';
+    async function searchBrands(query) {
+        try {
+            const url = `{{ route('products.brands.search') }}?q=${encodeURIComponent(query)}`;
+            const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+            const data = await res.json();
+            let html = '';
+            if (Array.isArray(data) && data.length) {
+                data.forEach(function(item){
+                    html += `
+                        <div class="dropdown-item brand-option" data-brand="${item.name}" style="cursor: pointer;">
+                            <i class=\"ri-star-line me-2\"></i>${item.name}
+                        </div>
+                    `;
+                });
+            } else {
+                html = '<div class="dropdown-item text-muted">Marka bulunamadı</div>';
+            }
+            $('#brandDropdown').html(html).show();
+        } catch (e) {
+            $('#brandDropdown').hide();
         }
-        
-        $('#brandDropdown').html(html).show();
     }
 
     // Handle brand selection
