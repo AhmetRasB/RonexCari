@@ -29,12 +29,12 @@
                             <span class="fw-medium text-xs text-md-sm">Satış Faturası</span>
                         </a>
                     </div>
-                    <div class="col-6 col-sm-4 col-md-2">
+                    <!-- <div class="col-6 col-sm-4 col-md-2">
                         <a href="{{ route('purchases.invoices.create') }}" class="btn btn-outline-primary w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
                             <iconify-icon icon="heroicons:document-text" class="text-lg text-md-xl mb-1"></iconify-icon>
                             <span class="fw-medium text-xs text-md-sm">Alış Faturası</span>
                         </a>
-                    </div>
+                    </div> -->
                     <div class="col-6 col-sm-4 col-md-2">
                         <a href="{{ route('finance.collections.create') }}" class="btn btn-outline-warning w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
                             <iconify-icon icon="heroicons:banknotes" class="text-lg text-md-xl mb-1"></iconify-icon>
@@ -42,7 +42,7 @@
                         </a>
                     </div>
                     <div class="col-6 col-sm-4 col-md-2">
-                        <a href="{{ route('products.create') }}" class="btn btn-outline-info w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
+                        <a href="{{ route('products.series.create') }}" class="btn btn-outline-info w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
                             <iconify-icon icon="heroicons:plus-circle" class="text-lg text-md-xl mb-1"></iconify-icon>
                             <span class="fw-medium text-xs text-md-sm">Yeni Ürün</span>
                         </a>
