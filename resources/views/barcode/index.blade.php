@@ -56,42 +56,24 @@
                 </div>
             </div>
         </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">ZPL'den PDF'e Dönüştürme ve Yazdırma Adımları</h6>
+            </div>
+            <div class="card-body">
+                <ol class="mb-0">
+                    <li class="mb-2">Önce üstteki <strong>ZPL indir</strong> butonuna tıklayıp etiketi <code>.zpl</code> olarak indirin.</li>
+                    <li class="mb-2">Şu adrese gidin: <a href="https://zplpdf.com/en/convert-zpl-to-pdf" target="_blank" rel="noopener">zplpdf.com - ZPL to PDF</a></li>
+                    <li class="mb-2">Sayfada <strong>3×6 Production</strong> boyutunu seçin ve <strong>PDF</strong>'i indirin.</li>
+                    <li class="mb-2">Bilgisayarınızdaki <strong>Ekran Alıntısı Aracı</strong> ile gerekli alanın ekran görüntüsünü alın (gerekliyse kırpın).</li>
+                    <li class="mb-2"><strong>Bartender</strong>'ı açıp görüntüyü/etiketi tasarımınıza ekleyin.</li>
+                    <li class="mb-2">Hazır! Yazdırmaya başlayabilirsiniz.</li>
+                </ol>
+            </div>
+        </div>
         <div class="mt-3 d-flex flex-wrap gap-2">
-            <button type="button" class="btn btn-success" onclick="printAllViaQz()" id="printBtn">
-                <span class="btn-text">Hepsini Makineye Yazdır</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    Yazdırılıyor...
-                </span>
-            </button>
-            <button type="button" class="btn btn-outline-dark" onclick="previewAllZpl()" id="previewBtn">
-                <span class="btn-text">Önizleme</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    Yükleniyor...
-                </span>
-            </button>
-            <button type="button" class="btn btn-primary" onclick="exportToPDF()" id="pdfBtn">
-                <span class="btn-text">PDF Olarak İndir</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    Oluşturuluyor...
-                </span>
-            </button>
-            <a class="btn btn-outline-primary" href="#" onclick="downloadAllJScript(event)" id="jscriptBtn">
-                <span class="btn-text">JScript Dosyası İndir</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    İndiriliyor...
-                </span>
-            </a>
-            <a class="btn btn-outline-secondary" href="#" onclick="downloadAllCsv(event)" id="csvBtn">
-                <span class="btn-text">CSV indir</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    İndiriliyor...
-                </span>
-            </a>
+            
             <a class="btn btn-outline-dark" href="#" onclick="downloadAllZpl(event)" id="zplBtn">
                 <span class="btn-text">ZPL indir</span>
                 <span class="btn-loading" style="display: none;">
@@ -99,38 +81,10 @@
                     İndiriliyor...
                 </span>
             </a>
-            <button type="button" class="btn btn-outline-warning" onclick="showBartenderFields()" id="bartenderBtn">
-                <span class="btn-text">Bartender Data Fields</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    Yükleniyor...
-                </span>
-            </button>
-            <a href="{{ route('barcode.test') }}" class="btn btn-outline-info" target="_blank">Test QR / Barkod</a>
+            
+            
         </div>
-        <div class="alert alert-info mt-2 mb-0">
-            <strong>Etiket Formatı:</strong>
-            <ul class="mb-0 mt-2">
-                <li><strong>QR Kod:</strong> Ürün/Seri detay sayfasına yönlendirir</li>
-                <li><strong>Barkod:</strong> CODE128 formatında yazdırılır</li>
-                <li><strong>Bilgiler:</strong> Ürün adı, beden, stok, kategori (renkler kaldırıldı)</li>
-                <li><strong>Seri Ürünler:</strong> Dış paket + Her beden etiketleri</li>
-                <li><strong>Bartender Veri Kaynağı:</strong> CSV formatında, renkler kaldırılmış, toplam stok</li>
-                <li><strong>Karakter Dönüşümü:</strong> Türkçe karakterler İngilizce'ye çevrilir (ğ→g, ü→u, ş→s, vb.)</li>
-            </ul>
-        </div>
-        <div class="alert alert-warning mt-2 mb-0">
-            <strong>Yazdırma:</strong> QZ Tray kurulu olmalı. USB CAB EOS4 yazıcısını QZ Tray'den seçip tarayıcıya izin verin.<br>
-            <strong>USB Bellek:</strong> JScript (CAB) komut dosyasını indirip USB belleğe atabilirsiniz. Yazıcı direkt USB'den okuyabilir.
-        </div>
-        <div class="alert alert-success mt-2 mb-0">
-            <strong>Bartender Entegrasyonu:</strong><br>
-            <strong>1. Veri Kaynağı:</strong> "Bartender Data Fields" butonuna tıklayarak alanları görün<br>
-            <strong>2. Bartender'da:</strong> Yeni veri kaynağı oluşturun ve CSV dosyasını seçin<br>
-            <strong>3. Alan Eşleştirme:</strong> type, category, name, size, barcode, stock alanlarını eşleştirin<br>
-            <strong>4. Tasarım:</strong> Etiket tasarımınızda bu alanları kullanın<br>
-            <strong>5. Yazdırma:</strong> Bartender'dan direkt yazdırın veya BTXML ile entegre edin
-        </div>
+       
     </div>
 </div>
 
