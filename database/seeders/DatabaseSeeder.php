@@ -13,17 +13,26 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create admin user
-        User::factory()->create([
-            'name' => 'Admin User',
-            'email' => 'admin@ronexcari.com',
-        ]);
+        // Create or update admin user (idempotent)
+        User::updateOrCreate(
+            ['email' => 'admin@ronexcari.com'],
+            [
+                'name' => 'Admin User',
+                'email_verified_at' => now(),
+                // Keep existing password if present; otherwise set a default
+                'password' => User::where('email', 'admin@ronexcari.com')->value('password') ?? bcrypt('password'),
+            ]
+        );
 
-        // Create test user
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // Create or update test user (idempotent)
+        User::updateOrCreate(
+            ['email' => 'test@example.com'],
+            [
+                'name' => 'Test User',
+                'email_verified_at' => now(),
+                'password' => User::where('email', 'test@example.com')->value('password') ?? bcrypt('password'),
+            ]
+        );
 
         // Seed roles first, then accounts, then users, then sample data
         $this->call([
