@@ -997,15 +997,39 @@ function searchCustomers(query) {
                 html = '<div class="dropdown-item text-secondary-light" style="padding: 8px 16px;">Müşteri bulunamadı</div>';
             }
             $('#customerDropdown').html(html).show();
-            // Ensure dropdown is positioned correctly
-            $('#customerDropdown').css({
-                'position': 'absolute',
-                'top': '100%',
-                'left': '0',
-                'right': '0',
-                'transform': 'none',
-                'margin-top': '0'
-            });
+            // Ensure dropdown is positioned correctly (mobile friendly)
+            const inputEl = document.getElementById('customerSearch');
+            const rect = inputEl.getBoundingClientRect();
+            const isMobile = window.innerWidth < 992;
+            const dd = $('#customerDropdown');
+            if (isMobile) {
+                if (!dd.data('moved-to-body')) {
+                    dd.appendTo('body');
+                    dd.data('moved-to-body', true);
+                }
+                dd.css({
+                    'position': 'fixed',
+                    'top': (rect.bottom + 8) + 'px',
+                    'left': Math.max(10, Math.min(rect.left, window.innerWidth - 20)) + 'px',
+                    'width': Math.min(window.innerWidth - 20, rect.width) + 'px',
+                    'z-index': 9999,
+                    'transform': 'none',
+                    'margin-top': '0',
+                    'display': 'block',
+                    'visibility': 'visible',
+                    'opacity': 1
+                });
+            } else {
+                dd.css({
+                    'position': 'absolute',
+                    'top': '100%',
+                    'left': '0',
+                    'right': '0',
+                    'transform': 'none',
+                    'margin-top': '0',
+                    'display': 'block'
+                });
+            }
             console.log('Dropdown shown with HTML:', html);
         })
         .fail(function(xhr, status, error) {
@@ -2049,6 +2073,19 @@ $('#invoiceForm').on('submit', function(e) {
         e.preventDefault();
         alert('Yetersiz Stok Uyarısı:\n\n' + errorMessages.join('\n') + '\n\nLütfen miktarları kontrol edin.');
         return false;
+    }
+});
+
+// Reposition on resize/scroll if moved to body
+$(window).on('resize scroll', function(){
+    const dd = $('#customerDropdown');
+    if (dd.is(':visible') && dd.data('moved-to-body')) {
+        const rect = document.getElementById('customerSearch').getBoundingClientRect();
+        dd.css({
+            'top': (rect.bottom + 8) + 'px',
+            'left': Math.max(10, Math.min(rect.left, window.innerWidth - 20)) + 'px',
+            'width': Math.min(window.innerWidth - 20, rect.width) + 'px'
+        });
     }
 });
 </script>

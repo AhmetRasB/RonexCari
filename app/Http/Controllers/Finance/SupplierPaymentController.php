@@ -324,7 +324,7 @@ class SupplierPaymentController extends Controller
         $unitSub = 'kuruş';
         if ($currency === 'USD') { $unitMain = 'dolar'; $unitSub = 'sent'; }
         elseif ($currency === 'EUR') { $unitMain = 'euro'; $unitSub = 'sent'; }
-
+        
         if ($decimalPart > 0) {
             $result .= ' ' . $unitMain . ' ' . $this->convertIntegerToWords($decimalPart, $ones, $tens, $groups) . ' ' . $unitSub;
         } else {
