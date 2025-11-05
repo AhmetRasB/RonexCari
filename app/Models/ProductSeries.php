@@ -18,8 +18,10 @@ class ProductSeries extends Model
         'category',
         'brand',
         'cost',
+        'cost_currency',
         'price',
-        'currency',
+        'price_currency',
+        // 'currency' kept historically; not used for new data but may exist in DB
         'image',
         'series_type',
         'series_size',

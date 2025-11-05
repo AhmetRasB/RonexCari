@@ -940,10 +940,15 @@ function appendInvoiceItemFromResult(item){
     const index = itemCounter - 1;
     const row = $(`tr[data-item-index="${index}"]`);
     row.find('input[name*="[product_service_name]"]').val(item.name);
+    // Set unit price as provided and select item's currency (no conversion)
+    const itemCurrency = item.currency || $('#currency').val();
+    row.find('.unit-currency').val(itemCurrency);
     row.find('input[name*="[unit_price]"]').val(item.price);
     row.find('select[name*="[tax_rate]"]').val(item.vat_rate);
     row.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
     row.find('input[name*="[type]"]').val(item.type);
+    // Trigger change to recalc
+    row.find('.unit-currency').trigger('change');
     
     // Handle color variants - same logic as manual selection
     if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {
@@ -1089,8 +1094,8 @@ $(document).on('click', '.customer-option', function() {
                 <select name="items[${itemCounter}][tax_rate]" class="form-select tax-rate" style="min-height: 50px; font-size: 14px;">
                     <option value="0">KDV %0</option>
                     <option value="1">KDV %1</option>
-                    <option value="10">KDV %10</option>
-                    <option value="20" selected>KDV %20</option>
+                    <option value="10" selected>KDV %10</option>
+                    <option value="20">KDV %20</option>
                 </select>
             </td>
             <td>

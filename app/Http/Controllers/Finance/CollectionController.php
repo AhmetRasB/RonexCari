@@ -349,25 +349,30 @@ class CollectionController extends Controller
         // Load customer relationship
         $collection->load('customer');
         
-        // Convert amount to words (Turkish)
-        $amountInWords = $this->numberToWords($collection->amount);
+        // Convert amount to words (with currency-aware units)
+        $amountInWords = $this->numberToWords($collection->amount, $collection->currency);
+
+        // Language for print
+        $lang = request()->get('lang', 'tr');
+        $translations = $this->getCollectionPrintTranslations($lang);
         
-        // Remaining customer balance in the same currency
-        $remainingBalance = null;
+        // Remaining customer balances in all currencies
+        $remainingBalances = null;
         if ($collection->customer) {
-            $currencyField = 'balance_' . strtolower($collection->currency);
-            if (in_array($currencyField, ['balance_try', 'balance_usd', 'balance_eur'])) {
-                $remainingBalance = $collection->customer->$currencyField;
-            }
+            $remainingBalances = [
+                'TRY' => (float) ($collection->customer->balance_try ?? 0),
+                'USD' => (float) ($collection->customer->balance_usd ?? 0),
+                'EUR' => (float) ($collection->customer->balance_eur ?? 0),
+            ];
         }
         
-        return view('finance.collections.print', compact('collection', 'amountInWords', 'remainingBalance'));
+        return view('finance.collections.print', compact('collection', 'amountInWords', 'remainingBalances', 'translations', 'lang'));
     }
 
     /**
      * Convert number to Turkish words
      */
-    private function numberToWords($number)
+    private function numberToWords($number, $currency = 'TRY')
     {
         $ones = [
             '', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz',
@@ -393,13 +398,99 @@ class CollectionController extends Controller
 
         $result = $this->convertIntegerToWords($integerPart, $ones, $tens, $groups);
         
+        // Currency-aware unit labels
+        $currency = strtoupper($currency ?? 'TRY');
+        $unitMain = 'lira';
+        $unitSub = 'kuruş';
+        if ($currency === 'USD') { $unitMain = 'dolar'; $unitSub = 'sent'; }
+        elseif ($currency === 'EUR') { $unitMain = 'euro'; $unitSub = 'sent'; }
+
         if ($decimalPart > 0) {
-            $result .= ' lira ' . $this->convertIntegerToWords($decimalPart, $ones, $tens, $groups) . ' kuruş';
+            $result .= ' ' . $unitMain . ' ' . $this->convertIntegerToWords($decimalPart, $ones, $tens, $groups) . ' ' . $unitSub;
         } else {
-            $result .= ' lira';
+            $result .= ' ' . $unitMain;
         }
 
         return ucfirst(trim($result));
+    }
+
+    private function getCollectionPrintTranslations(string $lang): array
+    {
+        $lang = strtolower($lang);
+        $tr = [
+            'receipt' => 'Tahsilat Makbuzu',
+            'receipt_no' => 'Makbuz No',
+            'date' => 'Tarih',
+            'customer' => 'Müşteri',
+            'company' => 'Şirket',
+            'tax_no' => 'Vergi No',
+            'address' => 'Adres',
+            'collection_type' => 'Tahsilat Türü',
+            'currency' => 'Para Birimi',
+            'description' => 'Açıklama',
+            'collected_amount' => 'Tahsil Edilen Tutar',
+            'in_words' => 'Yazıyla',
+            'remaining_all' => 'Kalan Bakiye (Tüm Para Birimleri)',
+            'collector' => 'Tahsil Eden',
+            'collected_from' => 'Tahsil Edilen',
+        ];
+        $en = [
+            'receipt' => 'Collection Receipt',
+            'receipt_no' => 'Receipt No',
+            'date' => 'Date',
+            'customer' => 'Customer',
+            'company' => 'Company',
+            'tax_no' => 'Tax No',
+            'address' => 'Address',
+            'collection_type' => 'Collection Type',
+            'currency' => 'Currency',
+            'description' => 'Description',
+            'collected_amount' => 'Collected Amount',
+            'in_words' => 'In Words',
+            'remaining_all' => 'Remaining Balance (All Currencies)',
+            'collector' => 'Collector',
+            'collected_from' => 'Collected From',
+        ];
+        $ar = [
+            'receipt' => 'إيصال التحصيل',
+            'receipt_no' => 'رقم الإيصال',
+            'date' => 'التاريخ',
+            'customer' => 'العميل',
+            'company' => 'الشركة',
+            'tax_no' => 'الرقم الضريبي',
+            'address' => 'العنوان',
+            'collection_type' => 'نوع التحصيل',
+            'currency' => 'العملة',
+            'description' => 'الوصف',
+            'collected_amount' => 'المبلغ المحصل',
+            'in_words' => 'كتابة',
+            'remaining_all' => 'الرصيد المتبقي (جميع العملات)',
+            'collector' => 'القابض',
+            'collected_from' => 'من المحصل منه',
+        ];
+        $ru = [
+            'receipt' => 'Квитанция о получении',
+            'receipt_no' => '№ квитанции',
+            'date' => 'Дата',
+            'customer' => 'Клиент',
+            'company' => 'Компания',
+            'tax_no' => 'ИНН',
+            'address' => 'Адрес',
+            'collection_type' => 'Тип оплаты',
+            'currency' => 'Валюта',
+            'description' => 'Описание',
+            'collected_amount' => 'Полученная сумма',
+            'in_words' => 'Сумма прописью',
+            'remaining_all' => 'Остаток задолженности (все валюты)',
+            'collector' => 'Получил',
+            'collected_from' => 'От',
+        ];
+        return match($lang){
+            'en' => $en,
+            'ar' => $ar,
+            'ru' => $ru,
+            default => $tr,
+        };
     }
 
     private function convertIntegerToWords($number, $ones, $tens, $groups)

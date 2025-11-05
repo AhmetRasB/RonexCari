@@ -535,16 +535,23 @@ class ExchangeController extends Controller
                 } elseif ($originalItem->product_type === 'series') {
                     $series = \App\Models\ProductSeries::with('colorVariants')->find($originalItem->product_id);
                     if ($series) {
+                        $unitsToChange = (int) $exchangeQuantity * max(1, (int) $series->series_size);
                         if ($originalItem->color_variant_id) {
                             $colorVariant = $series->colorVariants()->where('id', $originalItem->color_variant_id)->first();
                             if ($colorVariant) {
-                                $colorVariant->increment('stock_quantity', $exchangeQuantity);
+                                $colorVariant->increment('stock_quantity', $unitsToChange);
                                 $series->refresh();
                                 $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
                                 $series->save();
                             }
                         } else {
-                            $series->increment('stock_quantity', $exchangeQuantity);
+                            $series->increment('stock_quantity', $unitsToChange);
+                            // Recompute parent stock from variants if any exist
+                            $series->refresh();
+                            if ($series->colorVariants && $series->colorVariants->count() > 0) {
+                                $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                $series->save();
+                            }
                         }
                     }
                 }
@@ -563,22 +570,29 @@ class ExchangeController extends Controller
                     if ($type === 'series') {
                         $series = \App\Models\ProductSeries::with('colorVariants')->find($cleanProductId);
                         if ($series) {
+                            $unitsToChange = (int) $quantity * max(1, (int) $series->series_size);
                             if ($colorVariantId) {
                                 $colorVariant = $series->colorVariants()->where('id', $colorVariantId)->first();
                                 if ($colorVariant) {
-                                    if ($colorVariant->stock_quantity < $quantity) {
-                                        throw new \Exception("Yetersiz stok! {$series->name} ({$colorVariant->color}) için stok: {$colorVariant->stock_quantity}, istenen: {$quantity}");
+                                    if ($colorVariant->stock_quantity < $unitsToChange) {
+                                        throw new \Exception("Yetersiz stok! {$series->name} ({$colorVariant->color}) için stok: {$colorVariant->stock_quantity}, istenen: {$unitsToChange}");
                                     }
-                                    $colorVariant->decrement('stock_quantity', $quantity);
+                                    $colorVariant->decrement('stock_quantity', $unitsToChange);
                                     $series->refresh();
                                     $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
                                     $series->save();
                                 }
                             } else {
-                                if ($series->stock_quantity < $quantity) {
-                                    throw new \Exception("Yetersiz stok! {$series->name} için stok: {$series->stock_quantity}, istenen: {$quantity}");
+                                if ($series->stock_quantity < $unitsToChange) {
+                                    throw new \Exception("Yetersiz stok! {$series->name} için stok: {$series->stock_quantity}, istenen: {$unitsToChange}");
                                 }
-                                $series->decrement('stock_quantity', $quantity);
+                                $series->decrement('stock_quantity', $unitsToChange);
+                                // Recompute parent stock from variants if any exist
+                                $series->refresh();
+                                if ($series->colorVariants && $series->colorVariants->count() > 0) {
+                                    $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                    $series->save();
+                                }
                             }
                         }
                     }

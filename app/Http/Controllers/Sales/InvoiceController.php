@@ -204,6 +204,7 @@ class InvoiceController extends Controller
                     'product_service_name' => $item['product_service_name'],
                     'description' => $item['description'] ?? null,
                     'selected_color' => $item['selected_color'] ?? null,
+                    'color_variant_id' => $item['color_variant_id'] ?? null,
                     'product_id' => $cleanProductId,
                     'product_type' => $item['type'] ?? 'product',
                     'quantity' => $quantity,
@@ -284,9 +285,10 @@ class InvoiceController extends Controller
                             $product->decrement('initial_stock', $quantity);
                         }
                     } elseif ($type === 'series') {
-                        // Seri ürün stok düşümü (1 seri = 1 adet)
+                        // Seri ürün stok düşümü: 1 seri = series_size adet
                         $series = \App\Models\ProductSeries::with('colorVariants')->find($productId);
                         if ($series) {
+                            $unitsToChange = (int) $quantity * max(1, (int) $series->series_size);
                             // Color variant seçilmişse (öncelik ID), o rengin stokunu düşür
                             if ($colorVariantId) {
                                 $colorVariant = $series->colorVariants()->where('id', $colorVariantId)->first();
@@ -295,25 +297,28 @@ class InvoiceController extends Controller
                                         'series_name' => $series->name,
                                         'color' => $colorVariant->color,
                                         'current_stock' => $colorVariant->stock_quantity,
-                                        'deducting' => $quantity
+                                        'deducting_units' => $unitsToChange
                                     ]);
-                                    
-                                    if ($colorVariant->stock_quantity < $quantity) {
-                                        throw new \Exception("Yetersiz {$colorVariant->color} renk stoku! {$series->name} için {$colorVariant->color} stoku: {$colorVariant->stock_quantity} seri, istenen: {$quantity} seri");
+                                    if ($colorVariant->stock_quantity < $unitsToChange) {
+                                        throw new \Exception("Yetersiz {$colorVariant->color} renk stoku! {$series->name} için {$colorVariant->color} stoku: {$colorVariant->stock_quantity} adet, istenen: {$unitsToChange} adet");
                                     }
-                                    
-                                    $colorVariant->decrement('stock_quantity', $quantity);
-                                    
-                                    // Ana seri stokunu da güncelle
+                                    $colorVariant->decrement('stock_quantity', $unitsToChange);
+                                    // Ana seri stokunu güncelle
+                                    $series->refresh();
                                     $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
                                     $series->save();
                                 }
                             } else {
-                                // Renk seçilmemişse ana seri stokunu düşür
-                                if ($series->stock_quantity < $quantity) {
-                                    throw new \Exception("Yetersiz seri stoku! {$series->name} için stok: {$series->stock_quantity} seri, istenen: {$quantity} seri");
+                                if ($series->stock_quantity < $unitsToChange) {
+                                    throw new \Exception("Yetersiz seri stoku! {$series->name} için stok: {$series->stock_quantity} adet, istenen: {$unitsToChange} adet");
                                 }
-                                $series->decrement('stock_quantity', $quantity);
+                                $series->decrement('stock_quantity', $unitsToChange);
+                                // Varyant varsa parent'ı yeniden hesapla
+                                $series->refresh();
+                                if ($series->colorVariants && $series->colorVariants->count() > 0) {
+                                    $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                    $series->save();
+                                }
                             }
                         }
                     }
@@ -690,6 +695,12 @@ class InvoiceController extends Controller
                                     throw new \Exception("Yetersiz seri stoku! {$series->name} için stok: {$series->stock_quantity} seri, istenen: {$quantity} seri");
                                 }
                                 $series->decrement('stock_quantity', $quantity);
+                                // Always recompute parent stock from variants if any exist
+                                $series->refresh();
+                                if ($series->colorVariants && $series->colorVariants->count() > 0) {
+                                    $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                                    $series->save();
+                                }
                             }
                         }
                     }
@@ -924,7 +935,7 @@ class InvoiceController extends Controller
                   ->orWhere('brand', 'like', "%{$query}%")
                   ->orWhere('description', 'like', "%{$query}%");
             })
-            ->select('id', 'name', 'sku', 'category', 'brand', 'price', 'cost', 'series_size', 'stock_quantity')
+            ->select('id', 'name', 'sku', 'category', 'brand', 'price', 'price_currency', 'cost', 'cost_currency', 'series_size', 'stock_quantity')
             ->limit(10)
             ->get()
             ->map(function ($series) {
@@ -947,7 +958,8 @@ class InvoiceController extends Controller
                     'price' => $series->price,
                     'purchase_price' => $series->cost,
                     'vat_rate' => 20, // Default VAT rate
-                    'currency' => 'TRY',
+                    // Display currency for UI should follow selling price currency
+                    'currency' => $series->price_currency ?? 'TRY',
                     'type' => 'series',
                     'stock_quantity' => $series->stock_quantity,
                     'series_size' => $series->series_size,
@@ -1036,7 +1048,7 @@ class InvoiceController extends Controller
                 'product_id' => $originalItem->product_id,
                 'type' => $originalItem->product_type ?? 'product',
                 'unit_price' => $originalItem->unit_price,
-                'tax_rate' => $originalItem->tax_rate ?? 20,
+                'tax_rate' => $originalItem->tax_rate,
                 'discount_rate' => $originalItem->discount_rate ?? 0,
                 'selected_color' => $originalItem->selected_color,
                 'color_variant_id' => $originalItem->color_variant_id,
@@ -1048,7 +1060,7 @@ class InvoiceController extends Controller
             // Calculate return item totals (negative)
             $quantity = (float) $validated['quantity'];
             $unitPrice = (float) $validated['unit_price'];
-            $taxRate = (float) ($validated['tax_rate'] ?? 20);
+            $taxRate = (float) ($validated['tax_rate'] ?? 0);
             $discount = (float) ($validated['discount_rate'] ?? 0);
             
             $lineTotal = $quantity * $unitPrice;
@@ -1172,26 +1184,44 @@ class InvoiceController extends Controller
                     }
                 }
             } elseif ($validated['type'] === 'series') {
-                $series = \App\Models\ProductSeries::find($validated['product_id']);
+                $series = \App\Models\ProductSeries::with('colorVariants')->find($validated['product_id']);
                 if ($series) {
-                    if ($validated['color_variant_id']) {
-                        $seriesColorVariant = \App\Models\ProductSeriesColorVariant::find($validated['color_variant_id']);
+                    $unitsToChange = (int) $quantity * max(1, (int) $series->series_size);
+
+                    // Prefer exact variant id; otherwise try resolving by selected_color
+                    $variantId = $validated['color_variant_id'] ?? null;
+                    if (!$variantId && !empty($validated['selected_color'])) {
+                        $resolved = $series->colorVariants()->where('color', $validated['selected_color'])->first();
+                        if ($resolved) {
+                            $variantId = $resolved->id;
+                        }
+                    }
+
+                    if ($variantId) {
+                        $seriesColorVariant = \App\Models\ProductSeriesColorVariant::find($variantId);
                         if ($seriesColorVariant) {
-                            $seriesColorVariant->increment('stock_quantity', $quantity);
-                            // Update parent series stock
+                            $seriesColorVariant->increment('stock_quantity', $unitsToChange);
+                            // Update parent series stock to reflect sum of variants
                             $series->refresh();
                             $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
                             $series->save();
                             \Log::info('Series color variant stock increased', [
                                 'series_color_variant_id' => $seriesColorVariant->id,
-                                'quantity' => $quantity
+                                'quantity' => $unitsToChange
                             ]);
                         }
                     } else {
-                        $series->increment('stock_quantity', $quantity);
-                        \Log::info('Series stock increased', [
+                        // No color variants or unable to resolve: update parent stock directly
+                        $series->increment('stock_quantity', $unitsToChange);
+                        // If variants exist, recompute parent from variants (this will keep totals consistent)
+                        $series->refresh();
+                        if ($series->colorVariants && $series->colorVariants->count() > 0) {
+                            $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                            $series->save();
+                        }
+                        \Log::info('Series stock increased (no variant)', [
                             'series_id' => $series->id,
-                            'quantity' => $quantity
+                            'quantity' => $unitsToChange
                         ]);
                     }
                 }
@@ -1301,10 +1331,159 @@ class InvoiceController extends Controller
      */
     public function print(Invoice $invoice)
     {
-        return view('sales.invoices.print', compact('invoice'));
+        $lang = request()->get('lang', 'tr');
+        $translations = $this->getInvoicePrintTranslations($lang);
+        return view('sales.invoices.print', compact('invoice', 'translations', 'lang'));
     }
 
     // Actions removed - invoices are now directly approved
+
+    private function getInvoicePrintTranslations(string $lang): array
+    {
+        $lang = strtolower($lang);
+        $tr = [
+            'invoice' => 'Fatura',
+            'invoice_no' => 'Fatura #',
+            'invoice_date' => 'Fatura Tarihi',
+            'due_date' => 'Vade Tarihi',
+            'billed_to' => 'Fatura Edilen',
+            'name' => 'Ad Soyad',
+            'company' => 'Şirket',
+            'address' => 'Adres',
+            'phone' => 'Telefon',
+            'email' => 'E-posta',
+            'currency' => 'Para Birimi',
+            'status' => 'Durum',
+            'paid' => 'Tahsilat Yapıldı',
+            'draft' => 'Taslak',
+            'sent' => 'Gönderildi',
+            'paid_status' => 'Ödendi',
+            'overdue' => 'Vadesi Geçti',
+            'cancelled' => 'İptal',
+            'no' => 'Sıra',
+            'product_service' => 'Ürün/Hizmet',
+            'description' => 'Açıklama',
+            'quantity' => 'Miktar',
+            'unit_price' => 'Birim Fiyat',
+            'vat' => 'KDV %',
+            'discount' => 'İndirim',
+            'total' => 'Toplam',
+            'subtotal' => 'Ara Toplam',
+            'vat_amount' => 'KDV',
+            'grand_total' => 'Genel Toplam',
+            'thank_you' => 'İşleminiz için teşekkür ederiz!',
+            'customer_signature' => 'Müşteri İmzası',
+            'authorized_signature' => 'Yetkili İmzası',
+        ];
+        $en = [
+            'invoice' => 'Invoice',
+            'invoice_no' => 'Invoice #',
+            'invoice_date' => 'Invoice Date',
+            'due_date' => 'Due Date',
+            'billed_to' => 'Billed To',
+            'name' => 'Name',
+            'company' => 'Company',
+            'address' => 'Address',
+            'phone' => 'Phone',
+            'email' => 'Email',
+            'currency' => 'Currency',
+            'status' => 'Status',
+            'paid' => 'Paid',
+            'draft' => 'Draft',
+            'sent' => 'Sent',
+            'paid_status' => 'Paid',
+            'overdue' => 'Overdue',
+            'cancelled' => 'Cancelled',
+            'no' => 'No',
+            'product_service' => 'Product/Service',
+            'description' => 'Description',
+            'quantity' => 'Quantity',
+            'unit_price' => 'Unit Price',
+            'vat' => 'VAT %',
+            'discount' => 'Discount',
+            'total' => 'Total',
+            'subtotal' => 'Subtotal',
+            'vat_amount' => 'VAT',
+            'grand_total' => 'Grand Total',
+            'thank_you' => 'Thank you for your business!',
+            'customer_signature' => 'Customer Signature',
+            'authorized_signature' => 'Authorized Signature',
+        ];
+        $ar = [
+            'invoice' => 'فاتورة',
+            'invoice_no' => 'رقم الفاتورة',
+            'invoice_date' => 'تاريخ الفاتورة',
+            'due_date' => 'تاريخ الاستحقاق',
+            'billed_to' => 'إلى',
+            'name' => 'الاسم',
+            'company' => 'الشركة',
+            'address' => 'العنوان',
+            'phone' => 'الهاتف',
+            'email' => 'البريد الإلكتروني',
+            'currency' => 'العملة',
+            'status' => 'الحالة',
+            'paid' => 'مدفوع',
+            'draft' => 'مسودة',
+            'sent' => 'مرسلة',
+            'paid_status' => 'مدفوع',
+            'overdue' => 'متأخر',
+            'cancelled' => 'ملغاة',
+            'no' => 'رقم',
+            'product_service' => 'المنتج/الخدمة',
+            'description' => 'الوصف',
+            'quantity' => 'الكمية',
+            'unit_price' => 'سعر الوحدة',
+            'vat' => 'ضريبة %',
+            'discount' => 'خصم',
+            'total' => 'الإجمالي',
+            'subtotal' => 'الإجمالي الفرعي',
+            'vat_amount' => 'الضريبة',
+            'grand_total' => 'الإجمالي الكلي',
+            'thank_you' => 'شكرًا لتعاملكم معنا!',
+            'customer_signature' => 'توقيع الزبون',
+            'authorized_signature' => 'توقيع المخول',
+        ];
+        $ru = [
+            'invoice' => 'Счёт-фактура',
+            'invoice_no' => 'Счёт №',
+            'invoice_date' => 'Дата счёта',
+            'due_date' => 'Срок оплаты',
+            'billed_to' => 'Плательщик',
+            'name' => 'Имя',
+            'company' => 'Компания',
+            'address' => 'Адрес',
+            'phone' => 'Телефон',
+            'email' => 'E-mail',
+            'currency' => 'Валюта',
+            'status' => 'Статус',
+            'paid' => 'Оплачено',
+            'draft' => 'Черновик',
+            'sent' => 'Отправлено',
+            'paid_status' => 'Оплачено',
+            'overdue' => 'Просрочено',
+            'cancelled' => 'Отменено',
+            'no' => '№',
+            'product_service' => 'Товар/Услуга',
+            'description' => 'Описание',
+            'quantity' => 'Кол-во',
+            'unit_price' => 'Цена',
+            'vat' => 'НДС %',
+            'discount' => 'Скидка',
+            'total' => 'Итого',
+            'subtotal' => 'Промежуточный итог',
+            'vat_amount' => 'НДС',
+            'grand_total' => 'Итого к оплате',
+            'thank_you' => 'Спасибо за сотрудничество!',
+            'customer_signature' => 'Подпись клиента',
+            'authorized_signature' => 'Подпись ответственного',
+        ];
+        return match($lang){
+            'en' => $en,
+            'ar' => $ar,
+            'ru' => $ru,
+            default => $tr,
+        };
+    }
 
     /**
      * Mark invoice as paid (tahsilat yapıldı)

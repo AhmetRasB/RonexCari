@@ -120,20 +120,24 @@
                                             <small class="text-muted d-block">Renk</small>
                                         </td>
                                         <td>
-                                            @php
-                                                $currency = $serie->currency ?? 'TRY';
-                                                $currencySymbol = $currency === 'USD' ? '$' : ($currency === 'EUR' ? '€' : '₺');
-                                            @endphp
-                                            <span class="fw-semibold">{{ number_format($serie->cost, 2) }} {{ $currencySymbol }}</span>
-                                            @if($currency !== 'TRY')
-                                                <br><small class="text-muted currency-convert" data-amount="{{ $serie->cost }}" data-currency="{{ $currency }}" data-type="cost">-</small>
-                                            @endif
+                    @php
+                        $costCurrency = $serie->cost_currency ?? 'TRY';
+                        $costSymbol = $costCurrency === 'USD' ? '$' : ($costCurrency === 'EUR' ? '€' : '₺');
+                    @endphp
+                    <span class="fw-semibold">{{ number_format($serie->cost, 2) }} {{ $costSymbol }}</span>
+                    @if($costCurrency !== 'TRY')
+                        <br><small class="text-muted currency-convert" data-amount="{{ $serie->cost }}" data-currency="{{ $costCurrency }}" data-type="cost">-</small>
+                    @endif
                                         </td>
                                         <td>
-                                            <span class="fw-semibold text-primary">{{ number_format($serie->price, 2) }} {{ $currencySymbol }}</span>
-                                            @if($currency !== 'TRY')
-                                                <br><small class="text-muted currency-convert" data-amount="{{ $serie->price }}" data-currency="{{ $currency }}" data-type="price">-</small>
-                                            @endif
+                    @php
+                        $priceCurrency = $serie->price_currency ?? 'TRY';
+                        $priceSymbol = $priceCurrency === 'USD' ? '$' : ($priceCurrency === 'EUR' ? '€' : '₺');
+                    @endphp
+                    <span class="fw-semibold text-primary">{{ number_format($serie->price, 2) }} {{ $priceSymbol }}</span>
+                    @if($priceCurrency !== 'TRY')
+                        <br><small class="text-muted currency-convert" data-amount="{{ $serie->price }}" data-currency="{{ $priceCurrency }}" data-type="price">-</small>
+                    @endif
                                         </td>
                                         <td>
                                             <span class="bg-{{ $serie->is_active ? 'success' : 'danger' }}-focus text-{{ $serie->is_active ? 'success' : 'danger' }}-main px-24 py-4 rounded-pill fw-medium text-sm">

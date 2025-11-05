@@ -94,23 +94,27 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold text-muted">Maliyet</label>
                                         <div class="form-control-plaintext fw-semibold text-danger">
-                                            @php
-                                                $currency = $series->currency ?? 'TRY';
-                                                $currencySymbol = $currency === 'USD' ? '$' : ($currency === 'EUR' ? '€' : '₺');
-                                            @endphp
-                                            {{ number_format($series->cost, 2) }} {{ $currencySymbol }}
-                                            @if($currency !== 'TRY')
-                                                <br><small class="text-muted" id="costTRY">-</small>
-                                            @endif
+        @php
+            $costCurrency = $series->cost_currency ?? 'TRY';
+            $costSymbol = $costCurrency === 'USD' ? '$' : ($costCurrency === 'EUR' ? '€' : '₺');
+        @endphp
+        {{ number_format($series->cost, 2) }} {{ $costSymbol }}
+        @if($costCurrency !== 'TRY')
+            <br><small class="text-muted" id="costTRY">-</small>
+        @endif
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold text-muted">Satış Fiyatı</label>
                                         <div class="form-control-plaintext fw-semibold text-success">
-                                            {{ number_format($series->price, 2) }} {{ $currencySymbol }}
-                                            @if($currency !== 'TRY')
-                                                <br><small class="text-muted" id="priceTRY">-</small>
-                                            @endif
+        @php
+            $priceCurrency = $series->price_currency ?? 'TRY';
+            $priceSymbol = $priceCurrency === 'USD' ? '$' : ($priceCurrency === 'EUR' ? '€' : '₺');
+        @endphp
+        {{ number_format($series->price, 2) }} {{ $priceSymbol }}
+        @if($priceCurrency !== 'TRY')
+            <br><small class="text-muted" id="priceTRY">-</small>
+        @endif
                                         </div>
                                     </div>
                                 </div>
@@ -501,23 +505,19 @@ document.addEventListener('DOMContentLoaded', function() {
     qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(seriesQRUrl)}`;
     
     // Currency conversion for cost and price
-    @if(($series->currency ?? 'TRY') !== 'TRY')
-        const seriesCurrency = '{{ $series->currency ?? 'TRY' }}';
+    @if(($series->cost_currency ?? 'TRY') !== 'TRY' || ($series->price_currency ?? 'TRY') !== 'TRY')
+        const seriesCostCurrency = '{{ $series->cost_currency ?? 'TRY' }}';
+        const seriesPriceCurrency = '{{ $series->price_currency ?? 'TRY' }}';
         const seriesCost = {{ $series->cost }};
         const seriesPrice = {{ $series->price }};
         
         $.get('{{ route("sales.invoices.currency.rates") }}')
             .done(function(response) {
-                let exchangeRate;
-                if (response.success && response.rates[seriesCurrency]) {
-                    exchangeRate = response.rates[seriesCurrency];
-                } else {
-                    const fallbackRates = { 'USD': 41.29, 'EUR': 48.55 };
-                    exchangeRate = fallbackRates[seriesCurrency] || 1;
-                }
-                
-                const costTRY = seriesCost * exchangeRate;
-                const priceTRY = seriesPrice * exchangeRate;
+                const fallbackRates = { 'USD': 41.29, 'EUR': 48.55 };
+                const rateCost = response.success && response.rates[seriesCostCurrency] ? response.rates[seriesCostCurrency] : (fallbackRates[seriesCostCurrency] || 1);
+                const ratePrice = response.success && response.rates[seriesPriceCurrency] ? response.rates[seriesPriceCurrency] : (fallbackRates[seriesPriceCurrency] || 1);
+                const costTRY = seriesCost * rateCost;
+                const priceTRY = seriesPrice * ratePrice;
                 
                 $('#costTRY').text('(' + costTRY.toFixed(2).replace('.', ',') + ' ₺)');
                 $('#priceTRY').text('(' + priceTRY.toFixed(2).replace('.', ',') + ' ₺)');

@@ -32,6 +32,9 @@
                     <li>
                         <a href="{{ route('sales.invoices.index') }}"><i class="ri-circle-fill circle-icon text-warning-main w-auto"></i> Faturalar</a>
                     </li>
+                    <li>
+                        <a href="{{ route('finance.collections.index') }}"><i class="ri-circle-fill circle-icon text-success-main w-auto"></i> Tahsilatlar</a>
+                    </li>
                 </ul>
             </li>
 
@@ -132,17 +135,7 @@
             @endif
 
             <!-- FİNANS (FINANCE) -->
-            <li class="dropdown">
-                <a href="javascript:void(0)">
-                    <iconify-icon icon="solar:calculator-outline" class="menu-icon"></iconify-icon>
-                    <span>FİNANS</span>
-                </a>
-                <ul class="sidebar-submenu">
-                    <li>
-                        <a href="{{ route('finance.collections.index') }}"><i class="ri-circle-fill circle-icon text-warning-main w-auto"></i> Tahsilatlar</a>
-                    </li>
-                </ul>
-            </li>
+            <!-- Tahsilatlar satışlar altına taşındı -->
         </ul>
     </div>
 </aside>

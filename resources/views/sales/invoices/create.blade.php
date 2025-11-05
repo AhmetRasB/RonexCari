@@ -1024,6 +1024,10 @@ function appendInvoiceItemFromResult(item){
         card.data('stock-quantity', item.stock_quantity || 0);
         card.data('product-type', item.type);
         
+        // Set unit currency from item currency and recalc
+        if (item.currency) {
+            card.find('.unit-currency').val(item.currency).trigger('change');
+        }
         // Recalculate totals
         calculateMobileLineTotal.call(card.find('.unit-price')[0]);
     } else {
@@ -1050,6 +1054,10 @@ function appendInvoiceItemFromResult(item){
         row.data('color-variants', item.color_variants);
     }
     
+    // Set unit currency from item currency (EUR/USD/TRY)
+    if (item.currency) {
+        row.find('.unit-currency').val(item.currency).trigger('change');
+    }
     // Store stock information for validation
     row.data('stock-quantity', item.stock_quantity || 0);
     row.data('product-type', item.type);
@@ -1178,8 +1186,8 @@ function addInvoiceItemRow() {
                 <select name="items[${itemCounter}][tax_rate]" class="form-select tax-rate" style="min-height: 45px; font-size: 14px; border-radius: 8px;">
                     <option value="0">KDV %0</option>
                     <option value="1">KDV %1</option>
-                    <option value="10">KDV %10</option>
-                    <option value="20" selected>KDV %20</option>
+                    <option value="10" selected>KDV %10</option>
+                    <option value="20">KDV %20</option>
                 </select>
             </td>
             <td style="padding: 20px 15px;">
@@ -1283,8 +1291,8 @@ function addMobileInvoiceItemRow() {
                     <select name="items[${itemCounter}][tax_rate]" class="form-select tax-rate" style="min-height: 50px; font-size: 14px; border-radius: 10px;">
                         <option value="0">KDV %0</option>
                         <option value="1">KDV %1</option>
-                        <option value="10">KDV %10</option>
-                        <option value="20" selected>KDV %20</option>
+                        <option value="10" selected>KDV %10</option>
+                        <option value="20">KDV %20</option>
                     </select>
                 </div>
                 
@@ -2059,7 +2067,9 @@ $(document).on('click', '.product-service-item', function(e) {
     // Set the product/service name
     container.find('input[name*="[product_service_name]"]').val(name);
     
-    // Set the unit price
+    // Set the unit price as provided and select item's currency (no conversion)
+    const itemCurrency = $(this).data('currency') || $('#currency').val();
+    container.find('.unit-currency').val(itemCurrency);
     container.find('input[name*="[unit_price]"]').val(price);
     
     // Set the tax rate

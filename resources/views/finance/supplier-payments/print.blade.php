@@ -299,6 +299,25 @@
             <div class="amount-words">
                 <strong>Yazıyla:</strong> {{ $amountInWords }}
             </div>
+            @if(isset($remainingBalances))
+            <div style="margin-top: 15px; padding-top: 12px; border-top: 1px solid #d1d5db;">
+                <div class="amount-label" style="margin-bottom:8px;">Kalan Bakiye (Tüm Para Birimleri):</div>
+                <table style="width:100%; font-size:13px;">
+                    <tr>
+                        <td style="width:33%;"><strong>₺ TRY:</strong></td>
+                        <td class="amount-value" style="text-align:right; color:#dc2626;">{{ number_format($remainingBalances['TRY'] ?? 0, 2) }} ₺</td>
+                    </tr>
+                    <tr>
+                        <td><strong>$ USD:</strong></td>
+                        <td class="amount-value" style="text-align:right; color:#dc2626;">{{ number_format($remainingBalances['USD'] ?? 0, 2) }} $</td>
+                    </tr>
+                    <tr>
+                        <td><strong>€ EUR:</strong></td>
+                        <td class="amount-value" style="text-align:right; color:#dc2626;">{{ number_format($remainingBalances['EUR'] ?? 0, 2) }} €</td>
+                    </tr>
+                </table>
+            </div>
+            @endif
         </div>
         
         <!-- Signature Section -->

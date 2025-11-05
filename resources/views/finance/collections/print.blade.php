@@ -231,7 +231,7 @@
     <div class="receipt-container">
         <!-- Header -->
         <div class="receipt-header">
-            <h1>Tahsilat Makbuzu</h1>
+            <h1>{{ $translations['receipt'] ?? 'Tahsilat Makbuzu' }}</h1>
             <div class="company-name">RONEX TEKSTİL</div>
             <div class="company-info">
                 Finansal Yönetim Sistemi<br>
@@ -241,49 +241,49 @@
         
         <!-- Receipt Number -->
         <div class="receipt-number">
-            Makbuz No: <strong>TAH-{{ str_pad($collection->id, 6, '0', STR_PAD_LEFT) }}</strong>
+            {{ $translations['receipt_no'] ?? 'Makbuz No' }}: <strong>TAH-{{ str_pad($collection->id, 6, '0', STR_PAD_LEFT) }}</strong>
         </div>
         
         <!-- Receipt Details -->
         <div class="receipt-details">
             <table class="receipt-table">
                 <tr>
-                    <td class="label">Tahsilat Tarihi:</td>
+                    <td class="label">{{ $translations['date'] ?? 'Tarih' }}:</td>
                     <td class="value">{{ $collection->transaction_date->format('d.m.Y') }}</td>
                 </tr>
                 <tr>
-                    <td class="label">Müşteri Adı:</td>
+                    <td class="label">{{ $translations['customer'] ?? 'Müşteri' }}:</td>
                     <td class="value">{{ $collection->customer->name ?? 'Müşteri Silinmiş' }}</td>
                 </tr>
                 @if($collection->customer && $collection->customer->company_name)
                 <tr>
-                    <td class="label">Firma Adı:</td>
+                    <td class="label">{{ $translations['company'] ?? 'Şirket' }}:</td>
                     <td class="value">{{ $collection->customer->company_name }}</td>
                 </tr>
                 @endif
                 @if($collection->customer && $collection->customer->tax_number)
                 <tr>
-                    <td class="label">Vergi No:</td>
+                    <td class="label">{{ $translations['tax_no'] ?? 'Vergi No' }}:</td>
                     <td class="value">{{ $collection->customer->tax_number }}</td>
                 </tr>
                 @endif
                 @if($collection->customer && $collection->customer->address)
                 <tr>
-                    <td class="label">Adres:</td>
+                    <td class="label">{{ $translations['address'] ?? 'Adres' }}:</td>
                     <td class="value">{{ $collection->customer->address }}</td>
                 </tr>
                 @endif
                 <tr>
-                    <td class="label">Tahsilat Türü:</td>
+                    <td class="label">{{ $translations['collection_type'] ?? 'Tahsilat Türü' }}:</td>
                     <td class="value">{{ $collection->collection_type_text }}</td>
                 </tr>
                 <tr>
-                    <td class="label">Para Birimi:</td>
+                    <td class="label">{{ $translations['currency'] ?? 'Para Birimi' }}:</td>
                     <td class="value">{{ $collection->currency }}</td>
                 </tr>
                 @if($collection->description)
                 <tr>
-                    <td class="label">Açıklama:</td>
+                    <td class="label">{{ $translations['description'] ?? 'Açıklama' }}:</td>
                     <td class="value">{{ $collection->description }}</td>
                 </tr>
                 @endif
@@ -294,32 +294,45 @@
         <div class="amount-section">
             @if($collection->discount > 0)
             <div class="amount-row" style="margin-bottom: 12px;">
-                <span class="amount-label">Toplam Borç:</span>
+                <span class="amount-label">Total Debt:</span>
                 <span class="amount-value" style="color:#374151;">{{ number_format($collection->amount + $collection->discount, 2) }} {{ $collection->currency }}</span>
             </div>
             <div class="amount-row" style="margin-bottom: 12px;">
-                <span class="amount-label">Yapılan İndirim:</span>
+                <span class="amount-label">Discount:</span>
                 <span class="amount-value" style="color:#dc2626; font-weight: bold;">-{{ number_format($collection->discount, 2) }} {{ $collection->currency }}</span>
             </div>
             <div style="border-top: 2px solid #333; margin: 15px 0; padding-top: 12px;">
                 <div class="amount-row">
-                    <span class="amount-label">Tahsil Edilen Tutar:</span>
+                    <span class="amount-label">{{ $translations['collected_amount'] ?? 'Tahsil Edilen Tutar' }}:</span>
                     <span class="amount-value" style="color:#059669; font-weight: bold;">{{ number_format($collection->amount, 2) }} {{ $collection->currency }}</span>
                 </div>
             </div>
             @else
             <div class="amount-row">
-                <span class="amount-label">Tahsil Edilen Tutar:</span>
+                <span class="amount-label">{{ $translations['collected_amount'] ?? 'Tahsil Edilen Tutar' }}:</span>
                 <span class="amount-value">{{ number_format($collection->amount, 2) }} {{ $collection->currency }}</span>
             </div>
             @endif
             <div class="amount-words">
-                <strong>Yazıyla:</strong> {{ $amountInWords }}
+                <strong>{{ $translations['in_words'] ?? 'Yazıyla' }}:</strong> {{ $amountInWords }}
             </div>
-            @if(isset($remainingBalance))
-            <div class="amount-row" style="margin-top: 15px; padding-top: 12px; border-top: 1px solid #d1d5db;">
-                <span class="amount-label">Kalan Bakiye:</span>
-                <span class="amount-value" style="color:#dc2626;">{{ number_format($remainingBalance, 2) }} {{ $collection->currency }}</span>
+            @if(isset($remainingBalances))
+            <div style="margin-top: 15px; padding-top: 12px; border-top: 1px solid #d1d5db;">
+                <div class="amount-label" style="margin-bottom:8px;">{{ $translations['remaining_all'] ?? 'Kalan Bakiye (Tüm Para Birimleri)' }}:</div>
+                <table style="width:100%; font-size:13px;">
+                    <tr>
+                        <td style="width:33%;"><strong>₺ TRY:</strong></td>
+                        <td class="amount-value" style="text-align:right; color:#dc2626;">{{ number_format($remainingBalances['TRY'] ?? 0, 2) }} ₺</td>
+                    </tr>
+                    <tr>
+                        <td><strong>$ USD:</strong></td>
+                        <td class="amount-value" style="text-align:right; color:#dc2626;">{{ number_format($remainingBalances['USD'] ?? 0, 2) }} $</td>
+                    </tr>
+                    <tr>
+                        <td><strong>€ EUR:</strong></td>
+                        <td class="amount-value" style="text-align:right; color:#dc2626;">{{ number_format($remainingBalances['EUR'] ?? 0, 2) }} €</td>
+                    </tr>
+                </table>
             </div>
             @endif
         </div>
@@ -327,13 +340,13 @@
         <!-- Signature Section -->
         <div class="signature-section">
             <div class="signature-box">
-                <div class="signature-line">Tahsil Eden</div>
+                <div class="signature-line">{{ $translations['collector'] ?? 'Tahsil Eden' }}</div>
                 <div style="margin-top: 10px; font-size: 12px; color: #666;">
                     Tarih: {{ \Carbon\Carbon::now()->format('d.m.Y') }}
                 </div>
             </div>
             <div class="signature-box">
-                <div class="signature-line">Tahsil Edilen</div>
+                <div class="signature-line">{{ $translations['collected_from'] ?? 'Tahsil Edilen' }}</div>
                 <div style="margin-top: 10px; font-size: 12px; color: #666;">
                     {{ $collection->customer->name ?? 'Müşteri' }}
                 </div>

@@ -273,16 +273,26 @@ class SupplierPaymentController extends Controller
         // Load supplier relationship
         $supplierPayment->load('supplier');
         
-        // Convert amount to words (Turkish)
-        $amountInWords = $this->numberToWords($supplierPayment->amount);
+        // Convert amount to words (with currency-aware units)
+        $amountInWords = $this->numberToWords($supplierPayment->amount, $supplierPayment->currency);
         
-        return view('finance.supplier-payments.print', compact('supplierPayment', 'amountInWords'));
+        // Remaining supplier balances in all currencies
+        $remainingBalances = null;
+        if ($supplierPayment->supplier) {
+            $remainingBalances = [
+                'TRY' => (float) (($supplierPayment->supplier->balance_try ?? 0) - ($supplierPayment->supplier->paid_amount_try ?? 0)),
+                'USD' => (float) (($supplierPayment->supplier->balance_usd ?? 0) - ($supplierPayment->supplier->paid_amount_usd ?? 0)),
+                'EUR' => (float) (($supplierPayment->supplier->balance_eur ?? 0) - ($supplierPayment->supplier->paid_amount_eur ?? 0)),
+            ];
+        }
+        
+        return view('finance.supplier-payments.print', compact('supplierPayment', 'amountInWords', 'remainingBalances'));
     }
 
     /**
      * Convert number to Turkish words
      */
-    private function numberToWords($number)
+    private function numberToWords($number, $currency = 'TRY')
     {
         $ones = [
             '', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz',
@@ -308,10 +318,17 @@ class SupplierPaymentController extends Controller
 
         $result = $this->convertIntegerToWords($integerPart, $ones, $tens, $groups);
         
+        // Currency-aware unit labels
+        $currency = strtoupper($currency ?? 'TRY');
+        $unitMain = 'lira';
+        $unitSub = 'kuruş';
+        if ($currency === 'USD') { $unitMain = 'dolar'; $unitSub = 'sent'; }
+        elseif ($currency === 'EUR') { $unitMain = 'euro'; $unitSub = 'sent'; }
+
         if ($decimalPart > 0) {
-            $result .= ' lira ' . $this->convertIntegerToWords($decimalPart, $ones, $tens, $groups) . ' kuruş';
+            $result .= ' ' . $unitMain . ' ' . $this->convertIntegerToWords($decimalPart, $ones, $tens, $groups) . ' ' . $unitSub;
         } else {
-            $result .= ' lira';
+            $result .= ' ' . $unitMain;
         }
 
         return ucfirst(trim($result));

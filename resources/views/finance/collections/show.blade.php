@@ -14,6 +14,21 @@
                         <iconify-icon icon="lucide:edit" class="me-2"></iconify-icon>
                         Düzenle
                     </a>
+                    <div class="btn-group">
+                        <a href="{{ route('finance.collections.print', $collection) }}" target="_blank" class="btn btn-warning">
+                            <iconify-icon icon="basil:printer-outline" class="me-2"></iconify-icon>
+                            Yazdır
+                        </a>
+                        <button type="button" class="btn btn-warning dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="visually-hidden">Toggle Dropdown</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" target="_blank" href="{{ route('finance.collections.print', $collection) }}?lang=tr">Türkçe</a></li>
+                            <li><a class="dropdown-item" target="_blank" href="{{ route('finance.collections.print', $collection) }}?lang=en">English</a></li>
+                            <li><a class="dropdown-item" target="_blank" href="{{ route('finance.collections.print', $collection) }}?lang=ar">العربية</a></li>
+                            <li><a class="dropdown-item" target="_blank" href="{{ route('finance.collections.print', $collection) }}?lang=ru">Русский</a></li>
+                        </ul>
+                    </div>
                     <a href="{{ route('finance.collections.index') }}" class="btn btn-secondary">
                         <iconify-icon icon="solar:arrow-left-outline" class="me-2"></iconify-icon>
                         Geri Dön

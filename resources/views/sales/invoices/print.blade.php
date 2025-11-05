@@ -213,9 +213,9 @@
         <!-- Invoice Header -->
         <div class="invoice-header">
             <div class="invoice-info">
-                <h1>Fatura #{{ $invoice->invoice_number }}</h1>
-                <p>Fatura Tarihi: {{ $invoice->invoice_date->format('d/m/Y') }}</p>
-                <p>Vade Tarihi: {{ $invoice->due_date->format('d/m/Y') }}</p>
+                <h1>{{ $translations['invoice'] }} {{ $translations['invoice_no'] }}{{ $invoice->invoice_number }}</h1>
+                <p>{{ $translations['invoice_date'] }}: {{ $invoice->invoice_date->format('d/m/Y') }}</p>
+                <p>{{ $translations['due_date'] }}: {{ $invoice->due_date->format('d/m/Y') }}</p>
             </div>
             <div class="company-info">
                 <img src="{{ asset('assets/images/logo.png') }}" alt="Ronex Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
@@ -232,33 +232,33 @@
         <!-- Invoice Details -->
         <div class="invoice-details">
             <div class="billed-to">
-                <h3>Fatura Edilen:</h3>
+                <h3>{{ $translations['billed_to'] }}:</h3>
                 <table>
                     <tr>
-                        <td>Ad Soyad</td>
-                        <td>: {{ $invoice->customer->name }}</td>
+                        <td>{{ $translations['name'] }}</td>
+                        <td>: {{ $invoice->customer?->name ?? '-' }}</td>
                     </tr>
-                    @if($invoice->customer->company_name)
+                    @if($invoice->customer && $invoice->customer->company_name)
                     <tr>
-                        <td>Şirket</td>
+                        <td>{{ $translations['company'] }}</td>
                         <td>: {{ $invoice->customer->company_name }}</td>
                     </tr>
                     @endif
-                    @if($invoice->customer->address)
+                    @if($invoice->customer && $invoice->customer->address)
                     <tr>
-                        <td>Adres</td>
+                        <td>{{ $translations['address'] }}</td>
                         <td>: {{ $invoice->customer->address }}</td>
                     </tr>
                     @endif
-                    @if($invoice->customer->phone)
+                    @if($invoice->customer && $invoice->customer->phone)
                     <tr>
-                        <td>Telefon</td>
+                        <td>{{ $translations['phone'] }}</td>
                         <td>: {{ $invoice->customer->phone }}</td>
                     </tr>
                     @endif
-                    @if($invoice->customer->email)
+                    @if($invoice->customer && $invoice->customer->email)
                     <tr>
-                        <td>E-posta</td>
+                        <td>{{ $translations['email'] }}</td>
                         <td>: {{ $invoice->customer->email }}</td>
                     </tr>
                     @endif
@@ -267,19 +267,19 @@
             <div class="invoice-summary">
                 <table>
                     <tr>
-                        <td>Fatura Tarihi</td>
+                        <td>{{ $translations['invoice_date'] }}</td>
                         <td>: {{ $invoice->invoice_date->format('d.m.Y') }}</td>
                     </tr>
                     <tr>
-                        <td>Fatura Saati</td>
+                        <td>Time</td>
                         <td>: {{ $invoice->invoice_time }}</td>
                     </tr>
                     <tr>
-                        <td>Vade Tarihi</td>
+                        <td>{{ $translations['due_date'] }}</td>
                         <td>: {{ $invoice->due_date->format('d.m.Y') }}</td>
                     </tr>
                     <tr>
-                        <td>Para Birimi</td>
+                        <td>{{ $translations['currency'] }}</td>
                         <td>: 
                             @if($invoice->currency === 'USD')
                                 $ USD
@@ -291,17 +291,17 @@
                         </td>
                     </tr>
                     <tr>
-                        <td>Durum</td>
+                        <td>{{ $translations['status'] }}</td>
                         <td>: 
                             @if($invoice->payment_completed)
-                                Tahsilat Yapıldı
+                                {{ $translations['paid'] }}
                             @else
                                 @switch($invoice->status)
-                                    @case('draft') Taslak @break
-                                    @case('sent') Gönderildi @break
-                                    @case('paid') Ödendi @break
-                                    @case('overdue') Vadesi Geçti @break
-                                    @case('cancelled') İptal @break
+                                    @case('draft') {{ $translations['draft'] }} @break
+                                    @case('sent') {{ $translations['sent'] }} @break
+                                    @case('paid') {{ $translations['paid_status'] }} @break
+                                    @case('overdue') {{ $translations['overdue'] }} @break
+                                    @case('cancelled') {{ $translations['cancelled'] }} @break
                                 @endswitch
                             @endif
                         </td>
@@ -314,14 +314,14 @@
         <table class="items-table">
             <thead>
                 <tr>
-                    <th class="text-center">Sıra</th>
-                    <th>Ürün/Hizmet</th>
-                    <th>Açıklama</th>
-                    <th class="text-center">Miktar</th>
-                    <th class="text-right">Birim Fiyat</th>
-                    <th class="text-center">KDV %</th>
-                    <th class="text-center">İndirim</th>
-                    <th class="text-right">Toplam</th>
+                    <th class="text-center">{{ $translations['no'] }}</th>
+                    <th>{{ $translations['product_service'] }}</th>
+                    <th>{{ $translations['description'] }}</th>
+                    <th class="text-center">{{ $translations['quantity'] }}</th>
+                    <th class="text-right">{{ $translations['unit_price'] }}</th>
+                    <th class="text-center">{{ $translations['vat'] }}</th>
+                    <th class="text-center">{{ $translations['discount'] }}</th>
+                    <th class="text-right">{{ $translations['total'] }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -395,7 +395,7 @@
             <div class="totals">
                 <table>
                     <tr>
-                        <td>Ara Toplam:</td>
+                        <td>{{ $translations['subtotal'] }}:</td>
                         <td>
                             {{ number_format($invoice->subtotal, 2) }}
                             @if($invoice->currency === 'USD')
@@ -408,7 +408,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td>KDV:</td>
+                        <td>{{ $translations['vat_amount'] }}:</td>
                         <td>
                             {{ number_format($invoice->vat_amount, 2) }}
                             @if($invoice->currency === 'USD')
@@ -421,7 +421,7 @@
                         </td>
                     </tr>
                     <tr class="total-row">
-                        <td>Genel Toplam:</td>
+                        <td>{{ $translations['grand_total'] }}:</td>
                         <td>
                             {{ number_format($invoice->total_amount, 2) }}
                             @if($invoice->currency === 'USD')
@@ -440,13 +440,13 @@
 
         <!-- Thank You Message -->
         <div class="thank-you">
-            İşleminiz için teşekkür ederiz!
+            {{ $translations['thank_you'] }}
         </div>
 
         <!-- Signatures -->
         <div class="signatures">
-            <div class="signature-box">Müşteri İmzası</div>
-            <div class="signature-box">Yetkili İmzası</div>
+            <div class="signature-box">{{ $translations['customer_signature'] }}</div>
+            <div class="signature-box">{{ $translations['authorized_signature'] }}</div>
         </div>
     </div>
 

@@ -18,10 +18,21 @@
                         <iconify-icon icon="solar:refresh-outline" class="text-xl"></iconify-icon>
                         Değişim
                     </a>
-                    <a href="{{ route('sales.invoices.print', $invoice) }}" target="_blank" class="btn btn-sm btn-warning radius-8 d-inline-flex align-items-center gap-1">
-                        <iconify-icon icon="basil:printer-outline" class="text-xl"></iconify-icon>
-                        Fatura Yazdır
-                    </a>
+                    <div class="btn-group">
+                        <a href="{{ route('sales.invoices.print', $invoice) }}" target="_blank" class="btn btn-sm btn-warning radius-8 d-inline-flex align-items-center gap-1">
+                            <iconify-icon icon="basil:printer-outline" class="text-xl"></iconify-icon>
+                            Yazdır
+                        </a>
+                        <button type="button" class="btn btn-sm btn-warning dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="visually-hidden">Toggle Dropdown</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" target="_blank" href="{{ route('sales.invoices.print', $invoice) }}?lang=tr">Türkçe</a></li>
+                            <li><a class="dropdown-item" target="_blank" href="{{ route('sales.invoices.print', $invoice) }}?lang=en">English</a></li>
+                            <li><a class="dropdown-item" target="_blank" href="{{ route('sales.invoices.print', $invoice) }}?lang=ar">العربية</a></li>
+                            <li><a class="dropdown-item" target="_blank" href="{{ route('sales.invoices.print', $invoice) }}?lang=ru">Русский</a></li>
+                        </ul>
+                    </div>
                     <a href="{{ route('sales.invoices.index') }}" class="btn btn-sm btn-secondary radius-8 d-inline-flex align-items-center gap-1">
                         <iconify-icon icon="solar:arrow-left-outline" class="text-xl"></iconify-icon>
                         Geri Dön
@@ -383,7 +394,13 @@
                                         <strong>Birim Fiyat:</strong> <span id="displayUnitPrice">-</span> {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}
                                     </div>
                                     <div class="col-md-6">
-                                        <strong>KDV Oranı:</strong> <span id="displayTaxRate">-</span>%
+                                        <label class="form-label mb-0"><strong>KDV Oranı</strong></label>
+                                        <select id="returnTaxRate" name="tax_rate" class="form-select form-select-sm" style="max-width: 120px; display: inline-block;">
+                                            <option value="0">%0</option>
+                                            <option value="1">%1</option>
+                                            <option value="10">%10</option>
+                                            <option value="20">%20</option>
+                                        </select>
                                     </div>
                                     @if(false)
                                     <div class="col-md-6">
@@ -393,7 +410,6 @@
                                 </div>
                             </div>
                             <input type="hidden" name="unit_price" id="returnUnitPrice">
-                            <input type="hidden" name="tax_rate" id="returnTaxRate">
                             <input type="hidden" name="discount_rate" id="returnDiscount" value="0">
                             <input type="hidden" name="selected_color" id="returnSelectedColor">
                             <input type="hidden" name="color_variant_id" id="returnColorVariantId">
@@ -443,7 +459,9 @@ $(document).ready(function() {
             productType: selectedOption.data('product-type'),
             productName: selectedOption.data('product-name'),
             unitPrice: parseFloat(selectedOption.data('unit-price')) || 0,
-            taxRate: parseFloat(selectedOption.data('tax-rate')) || 20,
+            taxRate: (selectedOption.data('tax-rate') !== undefined && selectedOption.data('tax-rate') !== null)
+                ? parseFloat(selectedOption.data('tax-rate'))
+                : 0,
             discountRate: parseFloat(selectedOption.data('discount-rate')) || 0,
             maxQuantity: parseFloat(selectedOption.data('quantity')) || 0,
             selectedColor: selectedOption.data('color') || '',
@@ -464,7 +482,7 @@ $(document).ready(function() {
         
         // Görüntüleme alanlarını doldur
         $('#displayUnitPrice').text(selectedReturnItem.unitPrice.toLocaleString('tr-TR', {minimumFractionDigits: 2}));
-        $('#displayTaxRate').text(selectedReturnItem.taxRate);
+        $('#returnTaxRate').val(selectedReturnItem.taxRate ?? 0).trigger('change');
         if (selectedReturnItem.selectedColor) {
             $('#displayColor').text(selectedReturnItem.selectedColor);
             $('#returnSelectedColor').val(selectedReturnItem.selectedColor);
@@ -479,7 +497,7 @@ $(document).ready(function() {
     });
     
     // Hesaplama
-    $('#returnQuantity').on('input', function() {
+    $('#returnQuantity, #returnTaxRate').on('input change', function() {
         // Max miktar kontrolü
         const maxQty = parseFloat($('#returnQuantity').attr('max')) || 0;
         const enteredQty = parseFloat($('#returnQuantity').val()) || 0;
@@ -496,7 +514,7 @@ $(document).ready(function() {
         $('#returnProductId').val('');
         $('#returnProductType').val('');
         $('#returnUnitPrice').val('');
-        $('#returnTaxRate').val(20);
+        $('#returnTaxRate').val(0);
         $('#returnDiscount').val(0);
         $('#returnDescription').val('');
         $('#returnQuantity').val('').attr('max', 0).attr('placeholder', '');
@@ -504,7 +522,7 @@ $(document).ready(function() {
         $('#returnSelectedColor').val('');
         $('#returnColorVariantId').val('');
         $('#displayUnitPrice').text('-');
-        $('#displayTaxRate').text('-');
+        $('#returnTaxRate').val(0);
         $('#displayColor').text('-');
         $('#returnItemSummary').hide();
     }
