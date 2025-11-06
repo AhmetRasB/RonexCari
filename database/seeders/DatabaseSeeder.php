@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'admin@ronexcari.com'],
             [
-                'name' => 'Admin User',
+            'name' => 'Admin User',
                 'email_verified_at' => now(),
                 // Keep existing password if present; otherwise set a default
                 'password' => User::where('email', 'admin@ronexcari.com')->value('password') ?? bcrypt('password'),
@@ -28,7 +28,7 @@ class DatabaseSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'test@example.com'],
             [
-                'name' => 'Test User',
+            'name' => 'Test User',
                 'email_verified_at' => now(),
                 'password' => User::where('email', 'test@example.com')->value('password') ?? bcrypt('password'),
             ]

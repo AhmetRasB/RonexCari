@@ -223,7 +223,7 @@
                             'sizes' => $sizesText,
                             'category' => $seriesItem->category ?: 'Kategori Yok',
                             'colors' => $colorsText,
-                            'series_info' => ($seriesItem->series_size ? $seriesItem->series_size . '\'li SERI ' : '5\'li SERI ') . date('Y'),
+                            'series_info' => ($seriesItem->series_size ? $seriesItem->series_size . '\'li SERI ' : 'SERI ') . date('Y'),
                             'barcode' => $seriesItem->barcode ?: ($seriesItem->sku ?: ('S' . str_pad($seriesItem->id, 4, '0', STR_PAD_LEFT))),
                             'qr_url' => route('products.series.show', $seriesItem->id),
                             'type' => 'series'
@@ -240,7 +240,7 @@
                                 <div class="product-category">{{ $labelData['category'] }}</div>
                                 <div class="product-name">{{ $labelData['name'] }}</div>
                                 @if($labelData['type'] === 'series')
-                                    <div class="product-info">{{ $labelData['series_info'] ?? '5\'li SERI ' . date('Y') }}</div>
+                                    <div class="product-info">{{ $labelData['series_info'] ?? 'SERI ' . date('Y') }}</div>
                                     @if(isset($labelData['colors']) && !empty($labelData['colors']))
                                         <div class="colors-info">Renkler: {{ $labelData['colors'] }}</div>
                                     @endif

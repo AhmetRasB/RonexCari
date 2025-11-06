@@ -43,11 +43,16 @@ class ProductSeriesController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public function create(Request $request)
     {
         $currentAccountId = session('current_account_id');
         $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
-        return view('products.series.create', compact('allowedCategories'));
+        $parentId = $request->query('parent');
+        $parentSeries = null;
+        if ($parentId) {
+            $parentSeries = ProductSeries::with(['seriesItems','colorVariants'])->find($parentId);
+        }
+        return view('products.series.create', compact('allowedCategories', 'parentSeries'));
     }
 
     /**
@@ -125,6 +130,33 @@ class ProductSeriesController extends Controller
                 $validated['brand'] = $brand->name; // normalize to stored name
             }
         }
+
+        // Eğer bir üst seri seçilerek gelindiyse, adı/barkodu üst seriden zorla kullan
+        $parentSeriesId = $request->input('parent_series_id');
+        if ($parentSeriesId) {
+            $parent = ProductSeries::find($parentSeriesId);
+            if ($parent) {
+                $validated['name'] = $parent->name;
+                $validated['barcode'] = $parent->barcode;
+                // SKU boş ise üst serininkiyle eşle
+                if (empty($validated['sku'])) {
+                    $validated['sku'] = $parent->sku;
+                }
+                // Varsayılan olarak kategori/marka boşsa üst seriden kopyala
+                $validated['category'] = $validated['category'] ?? $parent->category;
+                $validated['brand'] = $validated['brand'] ?? $parent->brand;
+                // Bağlantıyı kur
+                $validated['parent_series_id'] = $parent->id;
+            }
+        }
+
+        // Seri boyutunu belirle: girilen miktarların toplamı (yoksa beden sayısı)
+        $quantities = (array) ($validated['quantities'] ?? []);
+        $sumQuantities = 0;
+        foreach ($quantities as $q) {
+            $sumQuantities += (int) $q;
+        }
+        $validated['series_size'] = $sumQuantities > 0 ? $sumQuantities : count($validated['sizes']);
 
         // Seri oluştur
         $series = ProductSeries::create($validated);
@@ -422,7 +454,12 @@ class ProductSeriesController extends Controller
             // Create new series with the same data but different series_size
             $newSeries = $series->replicate();
             $newSeries->series_size = $validated['series_size'];
-            $newSeries->name = $series->name . ' (' . $validated['series_size'] . 'li)';
+            // Keep the same name to group under a single product name
+            $newSeries->name = $series->name;
+            // IMPORTANT: Reuse the same barcode so all sizes share one code
+            $newSeries->barcode = $series->barcode;
+            // Link as child
+            $newSeries->parent_series_id = $series->parent_series_id ?: $series->id;
             $newSeries->save();
 
             // Create series items based on existing series items

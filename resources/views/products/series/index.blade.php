@@ -95,7 +95,11 @@
                                         <td>{{ $serie->sku ?? 'SKU Yok' }}</td>
                                         <td>
                                             <div class="d-flex flex-column">
-                                                <span class="badge bg-primary mb-1">{{ $serie->series_size }}'li Seri</span>
+                                                @php
+                                                    $displaySize = $serie->series_size ?: $serie->seriesItems->count();
+                                                    $displaySize = $displaySize > 0 ? $displaySize : '?';
+                                                @endphp
+                                                <span class="badge bg-primary mb-1">{{ $displaySize != '?' ? $displaySize . "'li Seri" : "Seri Boyutu Belirlenmemiş" }}</span>
                                                 @if($serie->seriesItems->count() > 0)
                                                     <div class="d-flex flex-wrap gap-1">
                                                         @foreach($serie->seriesItems as $item)

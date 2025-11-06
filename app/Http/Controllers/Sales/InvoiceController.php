@@ -285,10 +285,10 @@ class InvoiceController extends Controller
                             $product->decrement('initial_stock', $quantity);
                         }
                     } elseif ($type === 'series') {
-                        // Seri ürün stok düşümü: 1 seri = series_size adet
-                        $series = \App\Models\ProductSeries::with('colorVariants')->find($productId);
+                        // Seri ürün stok düşümü: Kullanıcı adet girer; doğrudan adet düşülür (çarpım yok)
+                        $series = \App\Models\ProductSeries::with(['colorVariants','seriesItems'])->find($productId);
                         if ($series) {
-                            $unitsToChange = (int) $quantity * max(1, (int) $series->series_size);
+                            $unitsToChange = (int) $quantity;
                             // Color variant seçilmişse (öncelik ID), o rengin stokunu düşür
                             if ($colorVariantId) {
                                 $colorVariant = $series->colorVariants()->where('id', $colorVariantId)->first();
@@ -310,7 +310,7 @@ class InvoiceController extends Controller
                                 }
                             } else {
                                 if ($series->stock_quantity < $unitsToChange) {
-                                    throw new \Exception("Yetersiz seri stoku! {$series->name} için stok: {$series->stock_quantity} adet, istenen: {$unitsToChange} adet");
+                                    throw new \Exception("Yetersiz stok! {$series->name} için stok: {$series->stock_quantity} adet, istenen: {$unitsToChange} adet");
                                 }
                                 $series->decrement('stock_quantity', $unitsToChange);
                                 // Varyant varsa parent'ı yeniden hesapla
@@ -947,13 +947,17 @@ class InvoiceController extends Controller
                     ];
                 });
                 
+                // Seri boyutunu hesapla: kayıtlı değer; yoksa seri içeriğindeki miktarların toplamı; o da yoksa beden sayısı
+                $seriesItemsSum = $series->seriesItems->sum('quantity_per_series');
+                $seriesSize = $series->series_size ?: ($seriesItemsSum ?: $series->seriesItems->count());
+                
                 return [
                     'id' => 'series_' . $series->id,
-                    'name' => $series->name . ' (' . $series->series_size . 'li Seri)',
+                    'name' => $series->name . ($seriesSize > 0 ? ' (' . $seriesSize . 'li Seri)' : ''),
                     'product_code' => $series->sku,
                     'category' => $series->category,
                     'brand' => $series->brand,
-                    'size' => $series->series_size . 'li Seri',
+                    'size' => $seriesSize > 0 ? $seriesSize . 'li Seri' : 'Seri Boyutu Belirlenmemiş',
                     'color' => null,
                     'price' => $series->price,
                     'purchase_price' => $series->cost,

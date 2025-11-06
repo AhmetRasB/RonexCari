@@ -146,6 +146,41 @@
                             <!-- Stok Bilgileri -->
                             <div class="col-12">
                                 <h6 class="fw-semibold text-primary mb-3">Stok Bilgileri</h6>
+                                @php
+                                    // Group by parent/children if linked, else fallback to barcode grouping
+                                    $groupSeries = collect();
+                                    if ($series->parent_series_id) {
+                                        $parent = \App\Models\ProductSeries::with(['children.colorVariants'])
+                                            ->find($series->parent_series_id);
+                                        if ($parent) {
+                                            $groupSeries = $parent->children->push($parent)->sortBy('series_size');
+                                        }
+                                    } else {
+                                        $children = $series->children()->with('colorVariants')->get();
+                                        if ($children->count() > 0) {
+                                            $groupSeries = $children->push($series)->sortBy('series_size');
+                                        } elseif (!empty($series->barcode)) {
+                                            // Fallback to barcode grouping
+                                            $groupSeries = \App\Models\ProductSeries::with('colorVariants')
+                                                ->where('barcode', $series->barcode)
+                                                ->orderBy('series_size')
+                                                ->get();
+                                        }
+                                    }
+                                    $hasGroup = $groupSeries->count() > 1;
+                                    $groupTotalStock = $hasGroup ? $groupSeries->flatMap->colorVariants->sum('stock_quantity') : 0;
+                                @endphp
+                                @if($hasGroup)
+                                    <div class="alert alert-info mb-3">
+                                        <strong>Aynı Barkoda Bağlı Seri Boyutları:</strong>
+                                        <div class="mt-2 d-flex flex-wrap gap-2">
+                                            @foreach($groupSeries as $gs)
+                                                <span class="badge bg-primary">{{ $gs->series_size }}'li</span>
+                                            @endforeach
+                                        </div>
+                                        <div class="mt-2 small text-muted">Toplam Grup Stok: <strong>{{ number_format($groupTotalStock) }}</strong> Adet</div>
+                                    </div>
+                                @endif
                                 <div class="row g-3">
                                     <div class="col-md-4">
                                         <label class="form-label fw-semibold text-muted">Toplam Stok</label>

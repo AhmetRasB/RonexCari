@@ -11,6 +11,7 @@ class ProductSeries extends Model
 
     protected $fillable = [
         'account_id',
+        'parent_series_id',
         'name',
         'sku',
         'barcode',
@@ -101,5 +102,15 @@ class ProductSeries extends Model
     public function account()
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(ProductSeries::class, 'parent_series_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(ProductSeries::class, 'parent_series_id');
     }
 }

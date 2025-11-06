@@ -1021,14 +1021,14 @@ function searchCustomers(query) {
                 });
             } else {
                 dd.css({
-                    'position': 'absolute',
-                    'top': '100%',
-                    'left': '0',
-                    'right': '0',
-                    'transform': 'none',
+                'position': 'absolute',
+                'top': '100%',
+                'left': '0',
+                'right': '0',
+                'transform': 'none',
                     'margin-top': '0',
                     'display': 'block'
-                });
+            });
             }
             console.log('Dropdown shown with HTML:', html);
         })
@@ -1859,6 +1859,11 @@ $(document).on('click', '.product-service-item', function(e) {
     // Recalculate totals
     calculateLineTotal.call(row.find('.unit-price')[0]);
     
+    // Validate stock only for non-service items
+    if (type !== 'service') {
+        setTimeout(() => validateStock(row), 100);
+    }
+    
     console.log('Product added successfully:', name);
 });
 
@@ -1962,7 +1967,19 @@ $(document).on('click', function(e) {
 // Stock validation function
 function validateStock(row) {
     const quantity = parseFloat(row.find('input[name*="[quantity]"]').val()) || 0;
-    const productType = row.data('product-type') || 'product';
+    const productType = row.data('product-type') || row.find('input[name*="[type]"]').val() || 'product';
+    
+    // Hizmetler için stok kontrolü yapma
+    if (productType === 'service') {
+        // Clear any existing stock warnings for services
+        row.find('.stock-warning').remove();
+        row.next('.stock-warning-row').remove();
+        row.removeClass('table-danger');
+        row.find('td').removeClass('bg-danger-subtle');
+        row.removeData('invalid-stock');
+        return true;
+    }
+    
     const productName = row.find('input[name*="[product_service_name]"]').val() || 'Ürün';
     
     // Check if product has color variants
@@ -2043,8 +2060,14 @@ $('#invoiceForm').on('submit', function(e) {
     
     $('tbody tr').each(function() {
         const row = $(this);
+        const productType = row.data('product-type') || row.find('input[name*="[type]"]').val() || 'product';
+        
+        // Hizmetler için stok kontrolü yapma
+        if (productType === 'service') {
+            return true; // continue to next iteration
+        }
+        
         const quantity = parseFloat(row.find('input[name*="[quantity]"]').val()) || 0;
-        const productType = row.data('product-type') || 'product';
         const productName = row.find('input[name*="[product_service_name]"]').val() || 'Ürün';
         
         // Check if product has color variants

@@ -13,6 +13,9 @@
             <div class="card-body">
                 <form action="{{ route('products.series.store') }}" method="POST" enctype="multipart/form-data" id="seriesForm">
                     @csrf
+                    @if(isset($parentSeries) && $parentSeries)
+                        <input type="hidden" name="parent_series_id" value="{{ $parentSeries->id }}">
+                    @endif
                     
                     <div class="row g-3">
                         <!-- Temel Bilgiler -->
@@ -23,16 +26,19 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Seri Adı *</label>
                             <input type="text" class="form-control radius-8 @error('name') is-invalid @enderror" 
-                                   name="name" value="{{ old('name') }}" placeholder="Seri adını girin" required>
+                                   name="name" value="{{ old('name', ($parentSeries->name ?? '')) }}" placeholder="Seri adını girin" required {{ isset($parentSeries) ? 'readonly' : '' }}>
                             @error('name')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
+                            @if(isset($parentSeries))
+                                <small class="text-muted">Bu alan üst seriden devralındı ve değiştirilemez.</small>
+                            @endif
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">SKU</label>
                             <input type="text" class="form-control radius-8 @error('sku') is-invalid @enderror" 
-                                   name="sku" id="seriesSku" value="{{ old('sku') }}" placeholder="Seri SKU'su">
+                                   name="sku" id="seriesSku" value="{{ old('sku', ($parentSeries->sku ?? '')) }}" placeholder="Seri SKU'su" {{ isset($parentSeries) ? 'readonly' : '' }}>
                             <small class="text-secondary-light">Otomatik oluşturulur, isterseniz değiştirebilirsiniz</small>
                             @error('sku')
                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -42,7 +48,7 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Barkod</label>
                             <input type="text" class="form-control radius-8 @error('barcode') is-invalid @enderror" 
-                                   name="barcode" id="seriesBarcode" value="{{ old('barcode') }}" placeholder="Kendi seri barkodunuzu girin">
+                                   name="barcode" id="seriesBarcode" value="{{ old('barcode', ($parentSeries->barcode ?? '')) }}" placeholder="Kendi seri barkodunuzu girin" {{ isset($parentSeries) ? 'readonly' : '' }}>
                             <small class="text-secondary-light">Kendi barkodunuzu girin veya otomatik oluşturulsun</small>
                             @error('barcode')
                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -62,12 +68,15 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Kategori</label>
                             <select class="form-control radius-8 @error('category') is-invalid @enderror" 
-                                    name="category" id="category" required>
+                                    name="category" id="category" required {{ isset($parentSeries) ? 'disabled' : '' }}>
                                 <option value="">Kategori Seçin</option>
                                 @foreach($allowedCategories as $cat)
-                                    <option value="{{ $cat }}" {{ old('category') == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                    <option value="{{ $cat }}" {{ old('category', ($parentSeries->category ?? '')) == $cat ? 'selected' : '' }}>{{ $cat }}</option>
                                 @endforeach
                             </select>
+                            @if(isset($parentSeries))
+                                <input type="hidden" name="category" value="{{ $parentSeries->category }}">
+                            @endif
                             @error('category')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -77,8 +86,8 @@
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Marka</label>
                             <div class="position-relative">
                                 <input type="text" class="form-control radius-8 @error('brand') is-invalid @enderror" 
-                                       name="brand" id="brandInput" value="{{ old('brand') }}" 
-                                       placeholder="Marka yazın veya seçin..." autocomplete="off">
+                                       name="brand" id="brandInput" value="{{ old('brand', ($parentSeries->brand ?? '')) }}" 
+                                       placeholder="Marka yazın veya seçin..." autocomplete="off" {{ isset($parentSeries) ? 'readonly' : '' }}>
                                 <div class="position-absolute top-50 end-0 translate-middle-y me-3">
                                     <iconify-icon icon="solar:star-outline" class="text-secondary-light"></iconify-icon>
                                 </div>

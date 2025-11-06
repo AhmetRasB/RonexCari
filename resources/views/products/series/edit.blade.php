@@ -10,10 +10,10 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Seri Ürün Düzenle</h5>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#addSeriesSizeModal">
+                    <a href="{{ route('products.series.create', ['parent' => $series->id]) }}" class="btn btn-info">
                         <iconify-icon icon="solar:add-circle-outline" class="me-1"></iconify-icon>
                         Yeni Seri Boyutu Ekle
-                    </button>
+                    </a>
                     <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#quickStockModal">
                         <iconify-icon icon="solar:database-outline" class="me-1"></iconify-icon>
                         Hızlı Stok

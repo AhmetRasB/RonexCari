@@ -207,7 +207,7 @@
                     <!-- Action Buttons -->
                     <div class="row mt-4">
                         <div class="col-12">
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary" id="submitInvoiceBtn">
                                 <iconify-icon icon="solar:check-circle-outline" class="me-2"></iconify-icon>
                                 Kaydet
                             </button>
@@ -719,7 +719,9 @@ $(document).ready(function() {
         if (query.length >= 2) {
             searchCustomers(query);
         } else {
-            $('#customerDropdown').hide();
+            const dd = $('#customerDropdown');
+            dd.hide();
+            dd.removeClass('force-visible');
         }
     });
     
@@ -731,22 +733,95 @@ $(document).ready(function() {
         }
     });
     
-    // Hide dropdown when clicking outside
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('#customerSearch, #customerDropdown').length) {
-            $('#customerDropdown').hide();
+    // Hide dropdown when clicking outside - improved for mobile
+    let clickOutsideTimer = null;
+    $(document).on('click touchend', function(e) {
+        // Check if click is on customer search input, dropdown, or any dropdown item
+        const $target = $(e.target);
+        const isInsideDropdown = $target.closest('#customerDropdown').length > 0;
+        const isInsideSearch = $target.closest('#customerSearch').length > 0;
+        const isDropdownItem = $target.hasClass('customer-option') || $target.closest('.customer-option').length > 0;
+        
+        // On mobile, add a small delay to allow dropdown item click to register first
+        const isMobile = window.innerWidth < 992;
+        
+        if (!isInsideDropdown && !isInsideSearch && !isDropdownItem) {
+            if (isMobile && clickOutsideTimer) {
+                clearTimeout(clickOutsideTimer);
+            }
+            
+            if (isMobile) {
+                // Small delay on mobile to ensure dropdown item clicks register first
+                clickOutsideTimer = setTimeout(function() {
+                    const dd = $('#customerDropdown');
+                    dd.hide();
+                    dd.removeClass('force-visible');
+                }, 150);
+            } else {
+                const dd = $('#customerDropdown');
+                dd.hide();
+                dd.removeClass('force-visible');
+            }
+        } else if (isDropdownItem || isInsideDropdown) {
+            // Clear any pending hide timer if clicking inside dropdown
+            if (clickOutsideTimer) {
+                clearTimeout(clickOutsideTimer);
+                clickOutsideTimer = null;
+            }
         }
     });
-    // Reposition on resize/scroll for mobile
-    $(window).on('resize scroll', function(){
+    // Reposition on resize/scroll for mobile - but don't hide dropdown
+    let isScrollingDropdown = false;
+    $('#customerDropdown').on('scroll touchstart touchmove', function() {
+        isScrollingDropdown = true;
+        clearTimeout(window.dropdownScrollTimeout);
+        window.dropdownScrollTimeout = setTimeout(function() {
+            isScrollingDropdown = false;
+        }, 150);
+    });
+    
+    $(window).on('resize', function(){
         const dd = $('#customerDropdown');
         if (dd.is(':visible') && dd.data('moved-to-body')) {
-            const rect = document.getElementById('customerSearch').getBoundingClientRect();
-            dd.css({
-                'top': (rect.bottom + 8) + 'px',
-                'left': Math.max(10, Math.min(rect.left, window.innerWidth - 20)) + 'px',
-                'width': Math.min(window.innerWidth - 20, rect.width) + 'px'
-            });
+            const inputEl = document.getElementById('customerSearch');
+            const rect = inputEl.getBoundingClientRect();
+            const isMobile = window.innerWidth < 992;
+            const isVerySmall = window.innerWidth < 576;
+            
+            if (isMobile) {
+                let dropdownWidth;
+                let dropdownLeft;
+                
+                if (isVerySmall) {
+                    // At very small sizes, use almost full width (95% of viewport)
+                    dropdownWidth = Math.max(window.innerWidth - 20, window.innerWidth * 0.95);
+                    dropdownLeft = (window.innerWidth - dropdownWidth) / 2; // Center it
+                    if (dropdownLeft < 10) dropdownLeft = 10;
+                } else {
+                    // For larger mobile screens, use input width or min 300px
+                    dropdownWidth = Math.min(window.innerWidth - 20, Math.max(300, rect.width));
+                    dropdownLeft = Math.max(10, Math.min(rect.left, window.innerWidth - dropdownWidth - 10));
+                }
+                
+                let dropdownTop = rect.bottom + 8;
+                const maxTop = window.innerHeight - 100;
+                if (dropdownTop > maxTop) {
+                    dropdownTop = Math.max(10, rect.top - 8);
+                }
+                    if (dropdownTop < 10) {
+                        dropdownTop = 10;
+                }
+                
+                dd.css({
+                    'top': dropdownTop + 'px',
+                    'left': dropdownLeft + 'px',
+                    'width': dropdownWidth + 'px',
+                    'display': 'block',
+                    'visibility': 'visible',
+                    'opacity': '1',
+                    'max-height': isVerySmall ? '70vh' : '60vh'
+                });
+            }
         }
     });
     
@@ -833,17 +908,20 @@ $(document).ready(function() {
     
     // Form validation
     $('#invoiceForm').on('submit', function(e) {
+        console.log('=== FORM SUBMIT HANDLER 1 (Müşteri ve Ürün Kontrolü) ===');
         console.log('Form submit triggered');
         console.log('Customer ID:', $('#customerId').val());
         console.log('Invoice items count:', $('#invoiceItemsBody tr').length);
         
         if ($('#customerId').val() === '') {
+            console.log('FORM SUBMIT ENGELLENDİ - Müşteri seçilmemiş');
             e.preventDefault();
             alert('Lütfen bir müşteri seçin.');
             return false;
         }
         
         if ($('#invoiceItemsBody tr').length === 0) {
+            console.log('FORM SUBMIT ENGELLENDİ - Ürün/hizmet eklenmemiş');
             e.preventDefault();
             alert('En az bir ürün/hizmet eklemelisiniz.');
             return false;
@@ -853,6 +931,14 @@ $(document).ready(function() {
         updateFormWithCalculatedValues();
         
         console.log('Form validation passed, submitting...');
+    });
+    
+    // Submit button click handler for debugging
+    $('#submitInvoiceBtn, button[type="submit"]').on('click', function(e) {
+        console.log('=== SUBMIT BUTTON CLICKED ===');
+        console.log('Button clicked, form will submit...');
+        console.log('Form element:', $('#invoiceForm').length);
+        console.log('Form action:', $('#invoiceForm').attr('action'));
     });
 });
 // Functions to be called by global scanner
@@ -1099,32 +1185,100 @@ function searchCustomers(query) {
             } else {
                 html = '<div class="dropdown-item text-secondary-light" style="padding: 8px 16px;">Müşteri bulunamadı</div>';
             }
-            $('#customerDropdown').html(html).show();
+            $('#customerDropdown').html(html);
             // Ensure dropdown is visible and correctly positioned (especially on mobile)
             const inputEl = document.getElementById('customerSearch');
             const rect = inputEl.getBoundingClientRect();
             const isMobile = window.innerWidth < 992;
             const dd = $('#customerDropdown');
+            
+            console.log('Customer dropdown positioning:', {
+                isMobile,
+                inputRect: rect,
+                windowWidth: window.innerWidth
+            });
+            
             if (isMobile) {
                 // Move to body and position fixed like product dropdown logic
                 if (!dd.data('moved-to-body')) {
                     dd.appendTo('body');
                     dd.data('moved-to-body', true);
                 }
+                
+                // Calculate dropdown position - ensure it's visible on screen
+                // Fixed position is relative to viewport, not document, so don't add scroll
+                const isVerySmall = window.innerWidth < 576;
+                
+                // For very small screens, use almost full width
+                let dropdownWidth;
+                let dropdownLeft;
+                
+                if (isVerySmall) {
+                    // At very small sizes, use almost full width (95% of viewport)
+                    dropdownWidth = Math.max(window.innerWidth - 20, window.innerWidth * 0.95);
+                    dropdownLeft = (window.innerWidth - dropdownWidth) / 2; // Center it
+                    if (dropdownLeft < 10) dropdownLeft = 10;
+                } else {
+                    // For larger mobile screens, use input width or min 300px
+                    dropdownWidth = Math.min(window.innerWidth - 20, Math.max(300, rect.width));
+                    dropdownLeft = Math.max(10, Math.min(rect.left, window.innerWidth - dropdownWidth - 10));
+                }
+                
+                // Fixed position: use viewport coordinates directly (rect is already relative to viewport)
+                let dropdownTop = rect.bottom + 8;
+                
+                // Ensure dropdown doesn't go off bottom of screen
+                const maxTop = window.innerHeight - 100;
+                if (dropdownTop > maxTop) {
+                    // If it would go off screen, show above input instead
+                    dropdownTop = Math.max(10, rect.top - 8);
+                }
+                
+                // Ensure dropdown doesn't go off top
+                    if (dropdownTop < 10) {
+                        dropdownTop = 10;
+                }
+                
                 dd.css({
                     'position': 'fixed',
-                    'top': (rect.bottom + 8) + 'px',
-                    'left': Math.max(10, Math.min(rect.left, window.innerWidth - 20)) + 'px',
-                    'width': Math.min(window.innerWidth - 20, rect.width) + 'px',
-                    'z-index': 9999,
+                    'top': dropdownTop + 'px',
+                    'left': dropdownLeft + 'px',
+                    'width': dropdownWidth + 'px',
+                    'z-index': '99999',
                     'transform': 'none',
                     'margin-top': '0',
+                    'margin-left': '0',
                     'display': 'block',
                     'visibility': 'visible',
-                    'opacity': 1
+                    'opacity': '1',
+                    'max-height': isVerySmall ? '70vh' : '60vh',
+                    'overflow-y': 'auto',
+                    'background': 'white',
+                    'border': '2px solid #007bff',
+                    'border-radius': '12px',
+                    'box-shadow': '0 8px 24px rgba(0, 0, 0, 0.2)',
+                    'pointer-events': 'auto'
+                });
+                
+                console.log('Mobile dropdown positioned:', {
+                    top: dropdownTop + 'px',
+                    left: dropdownLeft + 'px',
+                    width: dropdownWidth + 'px',
+                    inputRect: rect,
+                    windowHeight: window.innerHeight,
+                    windowWidth: window.innerWidth
                 });
             } else {
-                // Desktop – keep relative
+                // Desktop – keep in original position and relative
+                // If it was moved to body, move it back
+                if (dd.data('moved-to-body')) {
+                    const parent = $(inputEl).closest('.position-relative');
+                    if (parent.length) {
+                        parent.append(dd);
+                        dd.removeData('moved-to-body');
+                    }
+                }
+                
                 dd.css({
                     'position': 'absolute',
                     'top': '100%',
@@ -1132,8 +1286,68 @@ function searchCustomers(query) {
                     'right': '0',
                     'transform': 'none',
                     'margin-top': '0',
-                    'display': 'block'
+                    'display': 'block',
+                    'visibility': 'visible',
+                    'opacity': '1',
+                    'z-index': '1020',
+                    'max-height': '300px',
+                    'overflow-y': 'auto',
+                    'background': 'white',
+                    'border': '1px solid #dee2e6',
+                    'border-radius': '0.375rem',
+                    'box-shadow': '0 0.5rem 1rem rgba(0, 0, 0, 0.15)',
+                    'width': 'auto'
                 });
+            }
+            
+            // Explicitly show dropdown and ensure visibility on mobile
+            dd.show();
+            if (isMobile) {
+                const isVerySmall = window.innerWidth < 576;
+                
+                // CRITICAL: Force visibility immediately on mobile
+                dd.removeClass('hidden d-none');
+                dd.addClass('force-visible mobile-dropdown-visible');
+                
+                // Ensure dropdown is visible and clickable on mobile - use !important via inline style
+                dd.attr('style', dd.attr('style') + '; display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important;');
+                
+                // On very small screens, ensure it's positioned correctly
+                if (isVerySmall) {
+                    // Force update position for very small screens
+                    setTimeout(function() {
+                        const inputRect = inputEl.getBoundingClientRect();
+                        let dropdownTop = inputRect.bottom + 8;
+                        const maxTop = window.innerHeight - 100;
+                        if (dropdownTop > maxTop) {
+                            dropdownTop = Math.max(10, inputRect.top - 8);
+                        }
+                        if (dropdownTop < 10) dropdownTop = 10;
+                        
+                        // Force all styles with !important via inline style
+                        const currentStyle = dd.attr('style') || '';
+                        dd.attr('style', currentStyle + 
+                            '; left: 10px !important; ' +
+                            'width: calc(100vw - 20px) !important; ' +
+                            'top: ' + dropdownTop + 'px !important; ' +
+                            'display: block !important; ' +
+                            'visibility: visible !important; ' +
+                            'opacity: 1 !important; ' +
+                            'z-index: 99999 !important; ' +
+                            'position: fixed !important;');
+                    }, 50);
+                } else {
+                    // For larger mobile screens, also force with setTimeout
+                    setTimeout(function() {
+                        const currentStyle = dd.attr('style') || '';
+                        dd.attr('style', currentStyle + 
+                            '; display: block !important; ' +
+                            'visibility: visible !important; ' +
+                            'opacity: 1 !important; ' +
+                            'z-index: 99999 !important; ' +
+                            'position: fixed !important;');
+                    }, 50);
+                }
             }
             console.log('Dropdown shown with HTML:', html);
         })
@@ -1152,8 +1366,15 @@ function searchCustomers(query) {
         });
 }
 
-$(document).on('click', '.customer-option', function() {
-    console.log('Customer option clicked');
+// Handle customer option click - support both click and touch events for mobile
+$(document).on('click touchend', '.customer-option', function(e) {
+    // Prevent default and stop propagation on mobile to avoid double-firing
+    if (e.type === 'touchend') {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    console.log('Customer option clicked/touched');
     const customerId = $(this).data('customer-id');
     const customerName = $(this).data('customer-name');
     const customerCompany = $(this).data('customer-company');
@@ -1164,7 +1385,9 @@ $(document).on('click', '.customer-option', function() {
     
     $('#customerId').val(customerId);
     $('#customerSearch').val(customerName);
-    $('#customerDropdown').hide();
+    const dd = $('#customerDropdown');
+    dd.hide();
+    dd.removeClass('force-visible');
     
     // Show customer info
     let infoHtml = `<div class="text-success"><iconify-icon icon="solar:check-circle-outline" class="me-1"></iconify-icon>${customerName}`;
@@ -1444,7 +1667,8 @@ function calculateTotals() {
     
     // Calculate from desktop table rows
     $('#invoiceItemsBody tr').each(function() {
-        const lineTotal = parseFloat($(this).find('.line-total').val().replace(',', '.')) || 0;
+        const lineTotalVal = $(this).find('.line-total').val() || '0';
+        const lineTotal = parseFloat(lineTotalVal.replace(',', '.')) || 0;
         const discountFixed = parseFloat($(this).find('.discount-rate').val()) || 0;
         const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
         console.log('rowTotals:', { lineTotal, discountFixed, taxRate });
@@ -2141,21 +2365,29 @@ $(document).on('click', '.product-service-item', function(e) {
     const stockQuantity = $(this).data('stock-quantity');
     container.data('stock-quantity', stockQuantity);
     container.data('product-type', type);
+    
+    // Hizmetler için invalid-stock flag'ini temizle ve type input'unu set et
+    if (type === 'service') {
+        container.removeData('invalid-stock');
+        container.find('input[name*="[type]"]').val('service');
+    }
 
-    // Show zero stock indicator if needed
-    const parentRow = container.closest('tr');
-    const parentCard = container.closest('.card');
-    if (stockQuantity <= 0) {
-        if (parentRow.length) {
-            parentRow.find('.stock-zero').show();
-        } else if (parentCard.length) {
-            parentCard.find('.stock-zero').show();
-        }
-    } else {
-        if (parentRow.length) {
-            parentRow.find('.stock-zero').hide();
-        } else if (parentCard.length) {
-            parentCard.find('.stock-zero').hide();
+    // Show zero stock indicator if needed (but not for services)
+    if (type !== 'service') {
+        const parentRow = container.closest('tr');
+        const parentCard = container.closest('.card');
+        if (stockQuantity <= 0) {
+            if (parentRow.length) {
+                parentRow.find('.stock-zero').show();
+            } else if (parentCard.length) {
+                parentCard.find('.stock-zero').show();
+            }
+        } else {
+            if (parentRow.length) {
+                parentRow.find('.stock-zero').hide();
+            } else if (parentCard.length) {
+                parentCard.find('.stock-zero').hide();
+            }
         }
     }
     
@@ -2182,6 +2414,10 @@ $(document).on('click', '.product-service-item', function(e) {
     // Recalculate totals
     if (row.length) {
         calculateLineTotal.call(row.find('.unit-price')[0]);
+        // Validate stock only for non-service items
+        if (type !== 'service') {
+            setTimeout(() => validateStock(row), 100);
+        }
     } else if (card.length) {
         calculateMobileLineTotal.call(card.find('.unit-price')[0]);
     }
@@ -2350,7 +2586,20 @@ function validateStock(row) {
     const isCard = row.hasClass('card');
     const quantityInput = isCard ? row.find('input[name*="[quantity]"]') : row.find('input[name*="[quantity]"]');
     const quantity = parseFloat(quantityInput.val()) || 0;
-    const productType = row.data('product-type') || 'product';
+    const productType = row.data('product-type') || row.find('input[name*="[type]"]').val() || 'product';
+    
+    // Hizmetler için stok kontrolü yapma
+    if (productType === 'service') {
+        // Clear any existing stock warnings for services
+        row.find('.stock-warning').remove();
+        row.next('.stock-warning-row').remove();
+        row.removeClass('table-danger');
+        row.find('td').removeClass('bg-danger-subtle');
+        row.find('.stock-zero').hide();
+        row.removeData('invalid-stock');
+        return true;
+    }
+    
     const productName = row.find('input[name*="[product_service_name]"]').val() || 'Ürün';
     const productId = (row.find('input[name*="[product_id]"]').val() || '').toString();
     
@@ -2483,20 +2732,50 @@ $(document).on('change', '.color-variant-select', function() {
     validateStock(row);
 });
 
-// Form submission validation
+// Form submission validation - STOK KONTROLÜ
 $('#invoiceForm').on('submit', function(e) {
+    console.log('=== FORM SUBMIT HANDLER 2 (STOK KONTROLÜ) ===');
+    console.log('=== STOK KONTROLÜ BAŞLADI ===');
     let hasStockError = false;
     let errorMessages = [];
+    let rowCount = 0;
     
     $('tbody tr').each(function() {
+        rowCount++;
         const row = $(this);
+        const productTypeFromData = row.data('product-type');
+        const productTypeFromInput = row.find('input[name*="[type]"]').val();
+        const productType = productTypeFromData || productTypeFromInput || 'product';
+        
+        // Hizmetleri kontrol et - input değeri boş string olsa bile kontrol et
+        const productName = row.find('input[name*="[product_service_name]"]').val() || '';
+        const isService = productType === 'service' || productTypeFromInput === 'service' || 
+                          (productName && productName.toLowerCase().includes('hizmet'));
+        
+        console.log(`Satır ${rowCount}:`, {
+            productTypeFromData,
+            productTypeFromInput,
+            productType,
+            productName,
+            isService,
+            invalidStock: row.data('invalid-stock')
+        });
+        
+        // Hizmetler için stok kontrolü yapma ve invalid-stock flag'ini temizle
+        if (isService) {
+            console.log(`Satır ${rowCount}: Hizmet olduğu için stok kontrolü atlandı ve invalid-stock flag temizlendi`);
+            row.removeData('invalid-stock');
+            return true; // continue to next iteration
+        }
+        
         if (row.data('invalid-stock')) {
+            console.log(`Satır ${rowCount}: invalid-stock flag bulundu`);
             hasStockError = true;
         }
         const quantity = parseFloat(row.find('input[name*="[quantity]"]').val()) || 0;
-        const productType = row.data('product-type') || 'product';
-        const productName = row.find('input[name*="[product_service_name]"]').val() || 'Ürün';
         const productId = (row.find('input[name*="[product_id]"]').val() || '').toString();
+        
+        console.log(`Satır ${rowCount}: Miktar=${quantity}, Ürün=${productName}, ID=${productId}`);
         
         // Check if product has color variants
         const colorSelect = row.find('.color-variant-select');
@@ -2509,9 +2788,11 @@ $('#invoiceForm').on('submit', function(e) {
             const selectedOption = colorSelect.find('option:selected');
             stockQuantity = parseInt(selectedOption.data('stock')) || 0;
             selectedColor = selectedOption.text().split(' (')[0]; // Get color name without stock info
+            console.log(`Satır ${rowCount}: Renk varyantı seçilmiş, stok=${stockQuantity}`);
         } else {
             // No color variant - use general stock
             stockQuantity = row.data('stock-quantity') || 0;
+            console.log(`Satır ${rowCount}: Genel stok=${stockQuantity}`);
         }
         
         // Sum quantities for same product (and selected color variant)
@@ -2520,7 +2801,7 @@ $('#invoiceForm').on('submit', function(e) {
         $('tbody tr').each(function() {
             const r = $(this);
             const pid = (r.find('input[name*="[product_id]"]').val() || '').toString();
-            const type = r.data('product-type') || 'product';
+            const type = r.data('product-type') || r.find('input[name*="[type]"]').val() || 'product';
             const variantSel = r.find('.color-variant-select');
             const vid = variantSel.length > 0 ? (variantSel.val() || '') : '';
             if (pid && pid === productId && type === productType && (vid || 'no_variant') === keyVariant) {
@@ -2528,18 +2809,29 @@ $('#invoiceForm').on('submit', function(e) {
             }
         });
         const remaining = stockQuantity - (totalRequested - quantity);
+        console.log(`Satır ${rowCount}: Stok=${stockQuantity}, Toplam İstenen=${totalRequested}, Kalan=${remaining}`);
+        
         if (quantity > 0 && stockQuantity > 0 && quantity > remaining) {
+            console.log(`Satır ${rowCount}: STOK HATASI! Miktar=${quantity}, Kalan=${remaining}`);
             hasStockError = true;
             const colorInfo = selectedColor ? ` (${selectedColor} rengi)` : '';
             errorMessages.push(`${productName}${colorInfo}: Stok ${stockQuantity}. Satırlardaki toplam istek ${totalRequested}. Bu satır için en fazla ${Math.max(0, remaining)} girilebilir.`);
         }
     });
     
+    console.log('=== STOK KONTROLÜ SONU ===');
+    console.log('Toplam Satır:', rowCount);
+    console.log('Stok Hatası Var mı?', hasStockError);
+    console.log('Hata Mesajları:', errorMessages);
+    
     if (hasStockError) {
+        console.log('FORM SUBMIT ENGELLENDİ - Stok hatası var');
         e.preventDefault();
         alert('Yetersiz Stok Uyarısı:\n\n' + errorMessages.join('\n') + '\n\nLütfen miktarları kontrol edin.');
         return false;
     }
+    
+    console.log('FORM SUBMIT ONAYLANDI - Stok kontrolü başarılı');
 });
 </script>
 
@@ -2858,17 +3150,146 @@ $(document).on('change', '.card .series-size-select', function() {
         opacity: 0 !important;
     }
     
-    /* Customer dropdown mobile improvements */
-    #customerDropdown {
+    /* Customer dropdown mobile improvements - AGGRESSIVE STYLING */
+    #customerDropdown,
+    #customerDropdown.force-visible,
+    #customerDropdown.mobile-dropdown-visible {
         position: fixed !important;
-        z-index: 9999 !important;
+        z-index: 99999 !important;
         max-height: 60vh !important;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
         border: 2px solid #007bff !important;
         border-radius: 12px !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        background: white !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        transform: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     
-    /* Ensure all inputs are touch-friendly on mobile */
+    /* Override any hidden classes on mobile */
+    #customerDropdown.hidden,
+    #customerDropdown.d-none {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Customer dropdown items - make touch-friendly on mobile */
+    #customerDropdown .customer-option {
+        min-height: 48px !important;
+        padding: 12px 16px !important;
+        cursor: pointer !important;
+        -webkit-tap-highlight-color: rgba(0, 123, 255, 0.2) !important;
+        touch-action: manipulation !important;
+        user-select: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+    }
+    
+    #customerDropdown .customer-option:active {
+        background-color: #f0f0f0 !important;
+    }
+    
+    #customerDropdown .customer-option:hover {
+        background-color: #f8f9fa !important;
+    }
+    
+    /* Force visibility class for mobile - AGGRESSIVE */
+    #customerDropdown.force-visible,
+    #customerDropdown.mobile-dropdown-visible {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        position: fixed !important;
+        z-index: 99999 !important;
+    }
+    
+    /* Override Bootstrap's hidden class on mobile */
+    #customerDropdown.hidden.force-visible,
+    #customerDropdown.d-none.force-visible {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+}
+
+/* Extra small screens - very small mobile devices - AGGRESSIVE */
+@media (max-width: 575px) {
+    /* Customer dropdown - full width on very small screens */
+    #customerDropdown,
+    #customerDropdown.force-visible,
+    #customerDropdown.mobile-dropdown-visible {
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+        min-width: calc(100vw - 20px) !important;
+        left: 10px !important;
+        right: 10px !important;
+        position: fixed !important;
+        z-index: 99999 !important;
+        max-height: 70vh !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+        border: 2px solid #007bff !important;
+        border-radius: 12px !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        background: white !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        transform: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Override hidden states on very small screens */
+    #customerDropdown.hidden,
+    #customerDropdown.d-none {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Customer dropdown items - larger touch targets on very small screens */
+    #customerDropdown .customer-option {
+        min-height: 52px !important;
+        padding: 14px 16px !important;
+    }
+    
+    /* Force visibility class for very small screens - AGGRESSIVE */
+    #customerDropdown.force-visible,
+    #customerDropdown.mobile-dropdown-visible {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        width: calc(100vw - 20px) !important;
+        left: 10px !important;
+        position: fixed !important;
+        z-index: 99999 !important;
+    }
+    
+    /* Override any hidden classes */
+    #customerDropdown.hidden.force-visible,
+    #customerDropdown.d-none.force-visible,
+    #customerDropdown.hidden.mobile-dropdown-visible,
+    #customerDropdown.d-none.mobile-dropdown-visible {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+}
+
+/* Ensure all inputs are touch-friendly on mobile */
+@media (max-width: 991px) {
     .form-control, .form-select {
         min-height: 44px !important;
         font-size: 16px !important;
