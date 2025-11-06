@@ -47,6 +47,88 @@ class PrintLabelController extends Controller
     }
 
     /**
+     * Generate ZPL for a specific color variant of a series.
+     * Query params:
+     * - id: series id
+     * - color: color name
+     * - mode: outer|sizes
+     * - count: number of labels
+     */
+    public function zplByColor(Request $request)
+    {
+        $id = (int) $request->query('id');
+        $color = $request->query('color');
+        $mode = $request->query('mode', 'outer');
+        $count = max(1, (int) $request->query('count', 1));
+
+        if ($id <= 0 || empty($color)) {
+            return response()->json(['message' => 'Invalid parameters'], 422);
+        }
+
+        $label = $this->buildSeriesZplByColor($id, $color, $mode, $count);
+
+        if ($label === null) {
+            return response()->json(['message' => 'Item or color not found'], 404);
+        }
+
+        return response($label, 200, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="etiket.zpl"',
+        ]);
+    }
+
+    /**
+     * Preview label as PNG via Labelary for a specific color variant.
+     * Query: id, color, mode
+     */
+    public function previewPngByColor(Request $request)
+    {
+        $id = (int) $request->query('id');
+        $color = $request->query('color');
+        $mode = $request->query('mode', 'outer');
+
+        if ($id <= 0 || empty($color)) {
+            return response()->json(['message' => 'Invalid parameters'], 422);
+        }
+
+        $zpl = $this->buildSeriesZplByColor($id, $color, $mode);
+        if ($zpl === null) {
+            return response()->json(['message' => 'Item or color not found'], 404);
+        }
+
+        // Use Laravel HTTP client instead of cURL (Labelary API documentation example)
+        // According to Labelary docs: POST with application/x-www-form-urlencoded, body contains raw ZPL
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(10)
+                ->withHeaders([
+                    'Accept' => 'image/png',
+                ])
+                ->withOptions([
+                    'verify' => false, // Dev ortamında SSL doğrulamasını atla
+                ])
+                ->withBody($zpl, 'application/x-www-form-urlencoded')
+                ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
+
+            if ($response->successful() && $response->body()) {
+                return response($response->body(), 200, [
+                    'Content-Type' => 'image/png',
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Labelary render failed',
+                'status' => $response->status(),
+                'error' => $response->body(),
+            ], 502);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Labelary request failed',
+                'error' => $e->getMessage(),
+            ], 502);
+        }
+    }
+
+    /**
      * Preview label as PNG via Labelary (server-side proxy to avoid CORS).
      * Query: type, id, mode (series only)
      */
@@ -69,34 +151,36 @@ class PrintLabelController extends Controller
             return response()->json(['message' => 'Item not found'], 404);
         }
 
-        $url = 'https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/';
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $zpl);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Accept: image/png',
-            'Content-Type: application/x-www-form-urlencoded',
-        ]);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        // Dev ortamında SSL problemleri için (prod'da açmayın):
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        $png = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $respHeaderSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        $err  = curl_error($ch);
-        curl_close($ch);
+        // Use Laravel HTTP client instead of cURL (Labelary API documentation example)
+        // According to Labelary docs: POST with application/x-www-form-urlencoded, body contains raw ZPL
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(10)
+                ->withHeaders([
+                    'Accept' => 'image/png',
+                ])
+                ->withOptions([
+                    'verify' => false, // Dev ortamında SSL doğrulamasını atla
+                ])
+                ->withBody($zpl, 'application/x-www-form-urlencoded')
+                ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
 
-        if ($code >= 200 && $code < 300 && $png) {
-            return response($png, 200, [ 'Content-Type' => 'image/png' ]);
+            if ($response->successful() && $response->body()) {
+                return response($response->body(), 200, [
+                    'Content-Type' => 'image/png',
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Labelary render failed',
+                'status' => $response->status(),
+                'error' => $response->body(),
+            ], 502);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Labelary request failed',
+                'error' => $e->getMessage(),
+            ], 502);
         }
-
-        return response()->json([
-            'message' => 'Labelary render failed',
-            'status' => $code,
-            'error' => $err,
-            'body' => is_string($png) ? substr($png, 0, 500) : null,
-        ], 502);
     }
 
     /**
@@ -441,8 +525,12 @@ class PrintLabelController extends Controller
         if (!$series) return null;
 
         $category = $this->sanitize($series->category ?? '');
-        $name = $this->sanitize($series->name ?? '');
         $seriesSize = (int) ($series->series_size ?? 0);
+        // Seri boyutunu hesapla: kayıtlı değer; yoksa içeriğin toplam miktarı; o da yoksa beden sayısı
+        $seriesItemsSum = $series->seriesItems->sum('quantity_per_series');
+        $calculatedSize = $seriesSize ?: ($seriesItemsSum ?: $series->seriesItems->count());
+        // Sadece ürün adı (seri boyutu ekleme)
+        $name = $this->sanitize($series->name ?? '');
         $barcode = $this->sanitize($series->barcode ?: ($series->sku ?: ('S' . str_pad((string)$series->id, 4, '0', STR_PAD_LEFT))));
         
         // TÜM bedenler - tekrar edenlerle birlikte (unique değil!)
@@ -456,69 +544,281 @@ class PrintLabelController extends Controller
         $colorsCsv = $this->sanitize(implode(', ', $colors));
 
         if ($mode === 'sizes') {
-            // Her beden için ayrı etiket üret - AYNI BEDENDEN VARSA HEPSİ
+            // Her renk için ayrı beden etiketleri üret
             $blocks = [];
             
+            // Eğer renk varsa, her renk için ayrı beden etiketleri üret
+            if (count($colors) > 0) {
+                foreach ($colors as $color) {
+                    $colorSan = $this->sanitize($color);
             // TÜM bedenler (tekrarlı olanlar dahil)
             foreach ($allSizes as $size) {
                 $sizeSan = $this->sanitize((string)$size);
-
-                // QR'ı daha küçük yap ve sağ üstte sabit tut; barkodu alta indir
+                        $one = "^XA\n" .
+                               "^PW500\n" .
+                               "^LL300\n" .
+                               "^LH10,10\n" .
+                               "^FO10,10^GB480,280,2^FS\n" .
+                               "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+                               "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
+                               "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
+                               "^FO370,10^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
+                               "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+                               "^BY3,2,85\n" .
+                               "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                               "^FO340,150^GB0,85,2^FS\n" .
+                               "^XZ\n";
+                        $blocks[] = str_repeat($one, max(1, $count));
+                    }
+                }
+            } else {
+                // Renk yoksa normal beden etiketleri
+                foreach ($allSizes as $size) {
+                    $sizeSan = $this->sanitize((string)$size);
                 $one = "^XA\n" .
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
                        "^FO10,10^GB480,280,2^FS\n" .
-                       // Üst sol metin alanı
-                       "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
-                       "^FO20,50^A0N,28,28^FD{$name}^FS\n" .
-                       "^FO20,86^A0N,26,26^FDBEDEN: {$sizeSan}^FS\n" .
-                       "^FO20,116^A0N,22,22^FDSeri: " . ($seriesSize > 0 ? $seriesSize . "'li" : 'Normal') . "^FS\n" .
-                       // Barkod metni (barkoddan önce)
-                       "^FO20,146^A0N,20,20^FD{$barcode}^FS\n" .
-                       // QR sağ üst (daha küçük):
+                       "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+                       "^FO20,56^A0N,26,26^FD{$sizeSan}^FS\n" .
+                       "^FO20,90^A0N,20,20^FD{$barcode}^FS\n" .
                        "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
-                       // Barkod en altta, yüksekliği azaltılmış
                        "^BY3,2,85\n" .
-                       "^FO20,175^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                       "^FO20,118^BCN,85,N,N,N^FD{$barcode}^FS\n" .
                        "^XZ\n";
                 $blocks[] = str_repeat($one, max(1, $count));
+                }
             }
             return implode('', $blocks);
         }
 
-        // DIŞ paket etiketi (OUTER mode)
-        $seriesInfo = $seriesSize > 0 ? ($seriesSize . "'li SERI") : 'SERI';
-        $year = date('Y');
+        // DIŞ paket etiketi (OUTER mode) - Her renk için ayrı dış etiket
 
+        $blocks = [];
+        // Renkleri tekrar al (outer modunda) - TÜM renkleri al, aktif/pasif fark etmez
+        $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
+        
+        \Log::info('ZPL Outer mode - Colors found', [
+            'series_id' => $series->id,
+            'series_name' => $series->name,
+            'color_variants_count' => $series->colorVariants->count(),
+            'color_variants' => $series->colorVariants->map(function($cv) {
+                return ['id' => $cv->id, 'color' => $cv->color, 'is_active' => $cv->is_active];
+            })->toArray(),
+            'colors_count' => count($colors),
+            'colors' => $colors
+        ]);
+        
+        // Eğer renk varsa, her renk için ayrı dış etiket üret
+        if (count($colors) > 0) {
+            foreach ($colors as $colorIndex => $color) {
+                $colorSan = $this->sanitize($color);
+                $one = "^XA\n" .    
+                       "^PW500\n" .
+                       "^LL300\n" .
+                       "^LH10,10\n" .
+                       "^FO10,10^GB480,280,2^FS\n" .
+                       "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
+                       "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
+                       ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
+                       "^FO20,120^A0N,20,20^FD{$barcode}^FS\n" .
+                       "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
+                       "^BY4,2,90\n" .
+                       "^FO20,148^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                       "^XZ\n";
+                $blocks[] = str_repeat($one, max(1, $count));
+                \Log::info('ZPL Outer mode - Added label for color', [
+                    'series_id' => $series->id,
+                    'color_index' => $colorIndex,
+                    'color' => $color,
+                    'blocks_count' => count($blocks)
+                ]);
+            }
+        } else {
+            // Renk yoksa normal dış etiket
         $one = "^XA\n" .    
                "^PW500\n" .
                "^LL300\n" .
                "^LH10,10\n" .
                "^FO10,10^GB480,280,2^FS\n" .
-               "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
-               "^FO20,48^A0N,30,30^FD{$name}^FS\n" .
+               "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
+               ($sizesCsv !== '' ? "^FO20,58^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
+               "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
                "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
-               "^FO20,80^A0N,26,26^FD{$seriesInfo} {$year}^FS\n" .
-               ($sizesCsv !== '' ? "^FO20,110^A0N,22,22^FDBedenler:^FS\n^FO20,135^A0N,20,20^FD{$sizesCsv}^FS\n" : '') .
-               "^FO20,163^A0N,20,20^FD{$barcode}^FS\n" .
                "^BY4,2,90\n" .
-               "^FO20,188^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+               "^FO20,116^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                "^XZ\n";
-        return str_repeat($one, max(1, $count));
+            $blocks[] = str_repeat($one, max(1, $count));
+        }
+        
+        $result = implode('', $blocks);
+        \Log::info('ZPL Outer mode - Final result', [
+            'series_id' => $series->id,
+            'blocks_count' => count($blocks),
+            'result_length' => strlen($result),
+            'result_preview' => substr($result, 0, 200) . '...'
+        ]);
+        
+        return $result;
     }
 
     private function buildSeriesZplFull(int $seriesId, int $packages = 1): ?string
     {
+        $root = ProductSeries::with(['seriesItems', 'colorVariants', 'children.colorVariants', 'children.seriesItems'])
+            ->find($seriesId);
+        if (!$root) return null;
+
+        // Build group: parent + children if exists, else children of root, else fallback same barcode
+        $group = collect();
+        if ($root->parent_series_id) {
+            $parent = ProductSeries::with(['children.colorVariants','children.seriesItems','seriesItems','colorVariants'])
+                ->find($root->parent_series_id);
+            if ($parent) {
+                $group = $parent->children->push($parent);
+            }
+        } else {
+            if ($root->children && $root->children->count() > 0) {
+                $group = $root->children->push($root);
+            } else {
+                $sameBarcode = ProductSeries::with(['seriesItems','colorVariants'])
+                    ->where('barcode', $root->barcode)
+                    ->get();
+                $group = $sameBarcode->count() > 0 ? $sameBarcode : collect([$root]);
+            }
+        }
+
+        // Ensure unique series and order by series_size
+        $group = $group->unique('id')->sortBy(function($s){ return (int) ($s->series_size ?? 0); });
+
+        $blocks = [];
+        foreach ($group as $series) {
+            // Sadece ürün adı (seri boyutu ve kategori ekleme)
+            $name = $this->sanitize($series->name ?? '');
+            $barcode = $this->sanitize($series->barcode ?: ($series->sku ?: ('S' . str_pad((string)$series->id, 4, '0', STR_PAD_LEFT))));
+            $qrSeries = url('/products/series/' . $series->id);
+            
+            // TÜM bedenler - tekrar edenlerle birlikte
+            $allSizes = $series->seriesItems->pluck('size')->filter()->all();
+            $sizesCsv = $this->sanitize(implode(' ', $allSizes));
+            
+            // Her renk varyantı için ayrı dış etiket + beden etiketleri + renk etiketi
+            foreach ($series->colorVariants as $cv) {
+                $color = $this->sanitize($cv->color ?? '');
+                
+                // 1) Dış etiket (her renk için ayrı)
+                $outerOne = "^XA\n" .    
+                           "^PW500\n" .
+                           "^LL300\n" .
+                           "^LH10,10\n" .
+                           "^FO10,10^GB480,280,2^FS\n" .
+                           "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
+                           "^FO20,58^A0N,24,24^FD{$color}^FS\n" .
+                           ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
+                           "^FO20,120^A0N,20,20^FD{$barcode}^FS\n" .
+                           "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
+                           "^BY4,2,90\n" .
+                           "^FO20,148^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                           "^XZ\n";
+                $blocks[] = str_repeat($outerOne, max(1, $packages));
+                
+                // 2) Beden etiketleri (her renk için)
+                foreach ($allSizes as $size) {
+                    $sizeSan = $this->sanitize((string)$size);
+                    $sizeOne = "^XA\n" .
+                               "^PW500\n" .
+                               "^LL300\n" .
+                               "^LH10,10\n" .
+                               "^FO10,10^GB480,280,2^FS\n" .
+                               "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+                               "^FO20,56^A0N,24,24^FD{$color}^FS\n" .
+                               "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
+                               "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+                               "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
+                               "^BY3,2,85\n" .
+                               "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                               "^XZ\n";
+                    $blocks[] = str_repeat($sizeOne, max(1, $packages));
+                }
+                
+                // 3) Renk etiketi (her renk için)
+                $colorOne = "^XA\n" .
+                           "^PW500\n" .
+                           "^LL300\n" .
+                           "^LH10,10\n" .
+                           "^FO10,10^GB480,280,2^FS\n" .
+                           "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+                           "^FO20,56^A0N,24,24^FD{$color}^FS\n" .
+                           "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
+                           "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
+                           "^BY3,2,85\n" .
+                           "^FO20,116^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                           "^XZ\n";
+                $blocks[] = str_repeat($colorOne, max(1, $packages));
+            }
+        }
+
+        return implode('', $blocks);
+    }
+
+    /**
+     * Build ZPL for a specific color variant of a series.
+     */
+    private function buildSeriesZplByColor(int $seriesId, string $color, string $mode, int $count = 1): ?string
+    {
         $series = ProductSeries::with(['seriesItems', 'colorVariants'])->find($seriesId);
         if (!$series) return null;
 
-        $outer = $this->buildSeriesZpl($seriesId, 'outer', 1);
-        $sizesZpl = $this->buildSeriesZpl($seriesId, 'sizes', 1);
-        if ($outer === null || $sizesZpl === null) return null;
+        // Find the specific color variant
+        $colorVariant = $series->colorVariants->firstWhere('color', $color);
+        if (!$colorVariant) return null;
 
-        $sequence = $outer . $sizesZpl; 
-        return str_repeat($sequence, max(1, $packages));
+        $name = $this->sanitize($series->name ?? '');
+        $colorSan = $this->sanitize($color);
+        $barcode = $this->sanitize($series->barcode ?: ($series->sku ?: ('S' . str_pad((string)$series->id, 4, '0', STR_PAD_LEFT))));
+        $qrSeries = url('/products/series/' . $series->id);
+        
+        $allSizes = $series->seriesItems->pluck('size')->filter()->all();
+        $sizesCsv = $this->sanitize(implode(' ', $allSizes));
+
+        if ($mode === 'sizes') {
+            // Beden etiketleri (sadece bu renk için)
+            $blocks = [];
+            foreach ($allSizes as $size) {
+                $sizeSan = $this->sanitize((string)$size);
+                $one = "^XA\n" .
+                       "^PW500\n" .
+                       "^LL300\n" .
+                       "^LH10,10\n" .
+                       "^FO10,10^GB480,280,2^FS\n" .
+                       "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+                       "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
+                       "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
+                       "^FO370,10^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
+                       "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+                       "^BY3,2,85\n" .
+                       "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                       "^XZ\n";
+                $blocks[] = str_repeat($one, max(1, $count));
+            }
+            return implode('', $blocks);
+        } else {
+            // Dış etiket (sadece bu renk için)
+            $one = "^XA\n" .    
+                   "^PW500\n" .
+                   "^LL300\n" .
+                   "^LH10,10\n" .
+                   "^FO10,10^GB480,280,2^FS\n" .
+                   "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
+                   "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
+                   ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
+                   "^FO20,120^A0N,20,20^FD{$barcode}^FS\n" .
+                   "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
+                   "^BY4,2,90\n" .
+                   "^FO20,148^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                   "^XZ\n";
+            return str_repeat($one, max(1, $count));
+        }
     }
 
    
@@ -587,6 +887,216 @@ class PrintLabelController extends Controller
             \Log::error('QR code generation failed', ['error' => $e->getMessage(), 'text' => $text]);
             return response()->json(['error' => 'QR code generation failed'], 500);
         }
+    }
+
+    /**
+     * Download all color images as ZIP file
+     * POST: items array with type, id, mode, count
+     */
+    public function downloadColorsZip(Request $request)
+    {
+        $items = $request->input('items', []);
+        
+        if (empty($items)) {
+            return response()->json(['error' => 'No items provided'], 400);
+        }
+
+        // Create temporary directory for PNG files
+        $tempDir = storage_path('app/temp/labels_' . uniqid());
+        if (!\File::exists($tempDir)) {
+            \File::makeDirectory($tempDir, 0755, true);
+        }
+
+        $pngFiles = [];
+        $delay = 333; // 333ms = saniyede 3 istek (Labelary limit)
+
+        try {
+            foreach ($items as $item) {
+                if ($item['type'] !== 'series') {
+                    continue;
+                }
+
+                $series = ProductSeries::with('colorVariants')->find($item['id']);
+                if (!$series) {
+                    continue;
+                }
+
+                $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
+                
+                if (empty($colors)) {
+                    continue;
+                }
+
+                // Her renk için PNG al ve kaydet
+                foreach ($colors as $index => $color) {
+                    $zpl = $this->buildSeriesZplByColor($series->id, $color, $item['mode'] ?? 'outer');
+                    if ($zpl === null) {
+                        continue;
+                    }
+
+                    // Labelary API'den PNG al
+                    try {
+                        $response = \Illuminate\Support\Facades\Http::timeout(10)
+                            ->withHeaders([
+                                'Accept' => 'image/png',
+                            ])
+                            ->withOptions([
+                                'verify' => false,
+                            ])
+                            ->withBody($zpl, 'application/x-www-form-urlencoded')
+                            ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
+
+                        if ($response->successful() && $response->body()) {
+                            $fileName = 'etiket_' . $series->id . '_' . str_replace(' ', '_', $color) . '.png';
+                            $filePath = $tempDir . '/' . $fileName;
+                            \File::put($filePath, $response->body());
+                            $pngFiles[] = $filePath;
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error('Labelary API error for color ' . $color, ['error' => $e->getMessage()]);
+                        continue;
+                    }
+
+                    // Rate limiting: son renk değilse bekle (333ms = saniyede 3 istek)
+                    if ($index < count($colors) - 1) {
+                        usleep($delay * 1000); // 333ms = 333000 microseconds
+                    }
+                }
+            }
+
+            if (empty($pngFiles)) {
+                \File::deleteDirectory($tempDir);
+                return response()->json(['error' => 'No PNG files generated'], 404);
+            }
+
+            // ZIP dosyası oluştur
+            $zipFileName = 'etiketler_' . date('Y-m-d') . '_' . uniqid() . '.zip';
+            $zipPath = storage_path('app/temp/' . $zipFileName);
+
+            // Check if ZipArchive is available
+            if (class_exists('ZipArchive')) {
+                $zip = new \ZipArchive();
+                if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== TRUE) {
+                    \File::deleteDirectory($tempDir);
+                    return response()->json(['error' => 'Failed to create ZIP file'], 500);
+                }
+
+                foreach ($pngFiles as $pngFile) {
+                    $zip->addFile($pngFile, basename($pngFile));
+                }
+
+                $zip->close();
+            } else {
+                // Alternative: Use command line zip if available (Windows/Linux/Mac)
+                // Try PowerShell on Windows, zip command on Linux/Mac
+                $zipCommand = '';
+                if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                    // Windows: Try PowerShell Compress-Archive
+                    $zipCommand = "powershell -Command \"Compress-Archive -Path '" . str_replace('\\', '/', $tempDir) . "/*' -DestinationPath '" . str_replace('\\', '/', $zipPath) . "' -Force\"";
+                } else {
+                    // Linux/Mac: Use zip command
+                    $zipCommand = "cd " . escapeshellarg($tempDir) . " && zip -r " . escapeshellarg($zipPath) . " .";
+                }
+                
+                if (!empty($zipCommand)) {
+                    exec($zipCommand, $output, $returnVar);
+                }
+                
+                if (empty($zipCommand) || $returnVar !== 0) {
+                    // Fallback: Create ZIP manually using simple method
+                    // This is a basic ZIP implementation
+                    $zipContent = $this->createSimpleZip($pngFiles);
+                    \File::put($zipPath, $zipContent);
+                }
+            }
+
+            // Geçici PNG dosyalarını sil
+            \File::deleteDirectory($tempDir);
+
+            // ZIP dosyasını indir
+            return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+
+        } catch (\Exception $e) {
+            // Hata durumunda temizlik
+            if (\File::exists($tempDir)) {
+                \File::deleteDirectory($tempDir);
+            }
+            \Log::error('Download colors ZIP error', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Failed to create ZIP: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Simple ZIP creation method (fallback when ZipArchive is not available)
+     */
+    private function createSimpleZip(array $files): string
+    {
+        // This is a very basic ZIP implementation
+        // For production, consider using a proper ZIP library
+        $zipData = '';
+        $offset = 0;
+        $centralDir = '';
+        
+        foreach ($files as $filePath) {
+            if (!\File::exists($filePath)) {
+                continue;
+            }
+            
+            $fileName = basename($filePath);
+            $fileContent = \File::get($filePath);
+            $fileSize = strlen($fileContent);
+            $crc32 = crc32($fileContent);
+            
+            // Local file header
+            $localHeader = pack('V', 0x04034b50); // Local file header signature
+            $localHeader .= pack('v', 20); // Version needed to extract
+            $localHeader .= pack('v', 0); // General purpose bit flag
+            $localHeader .= pack('v', 0); // Compression method (0 = stored)
+            $localHeader .= pack('v', 0); // Last mod file time
+            $localHeader .= pack('v', 0); // Last mod file date
+            $localHeader .= pack('V', $crc32); // CRC-32
+            $localHeader .= pack('V', $fileSize); // Compressed size
+            $localHeader .= pack('V', $fileSize); // Uncompressed size
+            $localHeader .= pack('v', strlen($fileName)); // File name length
+            $localHeader .= pack('v', 0); // Extra field length
+            $localHeader .= $fileName; // File name
+            
+            $zipData .= $localHeader . $fileContent;
+            
+            // Central directory file header
+            $centralDir .= pack('V', 0x02014b50); // Central file header signature
+            $centralDir .= pack('v', 20); // Version made by
+            $centralDir .= pack('v', 20); // Version needed to extract
+            $centralDir .= pack('v', 0); // General purpose bit flag
+            $centralDir .= pack('v', 0); // Compression method
+            $centralDir .= pack('v', 0); // Last mod file time
+            $centralDir .= pack('v', 0); // Last mod file date
+            $centralDir .= pack('V', $crc32); // CRC-32
+            $centralDir .= pack('V', $fileSize); // Compressed size
+            $centralDir .= pack('V', $fileSize); // Uncompressed size
+            $centralDir .= pack('v', strlen($fileName)); // File name length
+            $centralDir .= pack('v', 0); // Extra field length
+            $centralDir .= pack('v', 0); // File comment length
+            $centralDir .= pack('v', 0); // Disk number start
+            $centralDir .= pack('v', 0); // Internal file attributes
+            $centralDir .= pack('V', 0); // External file attributes
+            $centralDir .= pack('V', $offset); // Relative offset of local header
+            $centralDir .= $fileName; // File name
+            
+            $offset += strlen($localHeader) + $fileSize;
+        }
+        
+        // End of central directory record
+        $endOfCentralDir = pack('V', 0x06054b50); // End of central dir signature
+        $endOfCentralDir .= pack('v', 0); // Number of this disk
+        $endOfCentralDir .= pack('v', 0); // Number of the disk with the start of the central directory
+        $endOfCentralDir .= pack('v', count($files)); // Total number of entries in the central directory on this disk
+        $endOfCentralDir .= pack('v', count($files)); // Total number of entries in the central directory
+        $endOfCentralDir .= pack('V', strlen($centralDir)); // Size of the central directory
+        $endOfCentralDir .= pack('V', strlen($zipData)); // Offset of start of central directory with respect to the starting disk number
+        $endOfCentralDir .= pack('v', 0); // ZIP file comment length
+        
+        return $zipData . $centralDir . $endOfCentralDir;
     }
 }
 

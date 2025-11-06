@@ -13,7 +13,7 @@ class BarcodeController extends Controller
     {
         // Tekli ürünler artık gösterilmiyor
         $products = collect();
-        $series = ProductSeries::orderBy('name')->get(['id','name','sku','barcode','price','stock_quantity']);
+        $series = ProductSeries::with('seriesItems')->orderBy('name')->get(['id','name','sku','barcode','price','stock_quantity','series_size']);
         return view('barcode.index', compact('products', 'series'));
     }
 

@@ -145,6 +145,9 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     
     // Labels & Printing
     Route::get('/print/labels/zpl', [\App\Http\Controllers\PrintLabelController::class, 'zpl'])->name('print.labels.zpl');
+    Route::get('/print/labels/zpl-by-color', [\App\Http\Controllers\PrintLabelController::class, 'zplByColor'])->name('print.labels.zpl-by-color');
+    Route::get('/print/labels/preview-by-color', [\App\Http\Controllers\PrintLabelController::class, 'previewPngByColor'])->name('print.labels.preview-by-color');
+    Route::post('/print/labels/download-colors-zip', [\App\Http\Controllers\PrintLabelController::class, 'downloadColorsZip'])->name('print.labels.download-colors-zip');
     Route::get('/print/labels/csv', [\App\Http\Controllers\PrintLabelController::class, 'csv'])->name('print.labels.csv');
     Route::get('/print/labels/btxml', [\App\Http\Controllers\PrintLabelController::class, 'btxml'])->name('print.labels.btxml');
     Route::get('/print/labels/preview', [\App\Http\Controllers\PrintLabelController::class, 'previewPng'])->name('print.labels.preview');
@@ -155,6 +158,16 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     Route::get('/barcodes', [BarcodeController::class, 'index'])->name('barcode.index');
     Route::post('/barcodes/preview', [BarcodeController::class, 'preview'])->name('barcode.preview');
     Route::get('/barcodes/lookup', [BarcodeController::class, 'lookupByBarcode'])->name('barcode.lookup');
+    
+    // API: Get colors for a series
+    Route::get('/api/series/{id}/colors', function($id) {
+        $series = \App\Models\ProductSeries::with('colorVariants')->find($id);
+        if (!$series) {
+            return response()->json(['error' => 'Series not found'], 404);
+        }
+        $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
+        return response()->json(['colors' => $colors]);
+    })->name('api.series.colors');
     
     
     // Services Routes (separate)

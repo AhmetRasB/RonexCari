@@ -218,12 +218,19 @@
                         $colors = $seriesItem->colorVariants->pluck('color')->filter()->values()->all();
                         $colorsText = !empty($colors) ? implode(', ', $colors) : '';
                         
+                        // Seri boyutunu ürün adına ekle
+                        $seriesSize = $seriesItem->series_size ?: ($seriesItem->seriesItems->sum('quantity_per_series') ?: $seriesItem->seriesItems->count());
+                        $displayName = $seriesItem->name;
+                        if ($seriesSize > 0) {
+                            $displayName .= ' (' . $seriesSize . '\'li Seri)';
+                        }
+                        
                         $labelData = [
-                            'name' => $seriesItem->name,
+                            'name' => $displayName,
                             'sizes' => $sizesText,
                             'category' => $seriesItem->category ?: 'Kategori Yok',
                             'colors' => $colorsText,
-                            'series_info' => ($seriesItem->series_size ? $seriesItem->series_size . '\'li SERI ' : 'SERI ') . date('Y'),
+                            'series_info' => ($seriesSize > 0 ? $seriesSize . '\'li SERI ' : 'SERI ') . date('Y'),
                             'barcode' => $seriesItem->barcode ?: ($seriesItem->sku ?: ('S' . str_pad($seriesItem->id, 4, '0', STR_PAD_LEFT))),
                             'qr_url' => route('products.series.show', $seriesItem->id),
                             'type' => 'series'

@@ -6,6 +6,8 @@
 @section('content')
 <!-- QZ Tray Script -->
 <script src="https://cdn.jsdelivr.net/npm/qz-tray@3.0.0/dist/qz-tray.js"></script>
+<!-- JSZip for creating ZIP files -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
     // QZ Tray configuration
     qz.security.setCertificatePromise(function(resolve, reject) {
@@ -30,7 +32,14 @@
                     <label class="form-label">Öğe</label>
                     <select class="form-select item-select">
                         @foreach($series as $s)
-                            <option value="{{ $s->id }}" data-type="series">{{ $s->name }}</option>
+                            @php
+                                $seriesSize = $s->series_size ?: ($s->seriesItems->sum('quantity_per_series') ?: $s->seriesItems->count());
+                                $displayName = $s->name;
+                                if ($seriesSize > 0) {
+                                    $displayName .= ' (' . $seriesSize . '\'li Seri)';
+                                }
+                            @endphp
+                            <option value="{{ $s->id }}" data-type="series">{{ $displayName }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -78,6 +87,13 @@
                 </span>
             </a>
             
+            <button class="btn btn-outline-primary" onclick="downloadColorImages()" id="downloadColorsBtn">
+                <span class="btn-text">Fotoğrafları İndir</span>
+                <span class="btn-loading" style="display: none;">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    İndiriliyor...
+                </span>
+            </button>
             
         </div>
        
@@ -159,7 +175,14 @@ function addPrintRow() {
                     <option value="{{ $p->id }}" data-type="product">{{ $p->name }} {{ $p->size ? ' - '.$p->size : '' }}</option>
                 @endforeach
                 @foreach($series as $s)
-                    <option value="{{ $s->id }}" data-type="series" style="display:none;">{{ $s->name }}</option>
+                    @php
+                        $seriesSize = $s->series_size ?: ($s->seriesItems->sum('quantity_per_series') ?: $s->seriesItems->count());
+                        $displayName = $s->name;
+                        if ($seriesSize > 0) {
+                            $displayName .= ' (' . $seriesSize . '\'li Seri)';
+                        }
+                    @endphp
+                    <option value="{{ $s->id }}" data-type="series" style="display:none;">{{ $displayName }}</option>
                 @endforeach
             </select>
         </div>
@@ -612,6 +635,56 @@ async function previewAllZpl(){
         alert('Önizleme oluşturulamadı: ' + (e.message || e));
     } finally {
         hideLoading('previewBtn');
+    }
+}
+
+// Her renk için ayrı PNG indir ve ZIP olarak indir (Backend'de işlenir)
+async function downloadColorImages(){
+    try {
+        showLoading('downloadColorsBtn');
+        
+        const items = getAllPrintItems();
+        if (items.length === 0) {
+            alert('İndirilecek öğe bulunamadı!');
+            return;
+        }
+        
+        // Backend'e istek gönder - backend tüm PNG'leri alıp ZIP'leyecek
+        const response = await fetch('{{ route('print.labels.download-colors-zip') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ items: items })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Backend error:', errorText);
+            alert('ZIP oluşturma başarısız: ' + response.status);
+            return;
+        }
+        
+        // ZIP dosyasını al ve indir
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `etiketler_${new Date().toISOString().split('T')[0]}.zip`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        alert('Tüm renk fotoğrafları başarıyla ZIP dosyası olarak indirildi!');
+    } catch (e) {
+        console.error('Download color images error:', e);
+        alert('İndirme başarısız: ' + (e.message || e));
+    } finally {
+        hideLoading('downloadColorsBtn');
     }
 }
 </script>
