@@ -1192,7 +1192,8 @@ class InvoiceController extends Controller
             } elseif ($validated['type'] === 'series') {
                 $series = \App\Models\ProductSeries::with('colorVariants')->find($validated['product_id']);
                 if ($series) {
-                    $unitsToChange = (int) $quantity * max(1, (int) $series->series_size);
+                    // Seri ürünlerde iade miktarı birebir alınır (çarpan uygulanmaz)
+                    $unitsToChange = (int) $quantity;
 
                     // Prefer exact variant id; otherwise try resolving by selected_color
                     $variantId = $validated['color_variant_id'] ?? null;

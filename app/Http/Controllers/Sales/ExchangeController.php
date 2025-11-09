@@ -535,7 +535,8 @@ class ExchangeController extends Controller
                 } elseif ($originalItem->product_type === 'series') {
                     $series = \App\Models\ProductSeries::with('colorVariants')->find($originalItem->product_id);
                     if ($series) {
-                        $unitsToChange = (int) $exchangeQuantity * max(1, (int) $series->series_size);
+                        // Seri ürünlerde değişim miktarı birebir alınır (çarpan uygulanmaz)
+                        $unitsToChange = (int) $exchangeQuantity;
                         if ($originalItem->color_variant_id) {
                             $colorVariant = $series->colorVariants()->where('id', $originalItem->color_variant_id)->first();
                             if ($colorVariant) {
@@ -570,7 +571,8 @@ class ExchangeController extends Controller
                     if ($type === 'series') {
                         $series = \App\Models\ProductSeries::with('colorVariants')->find($cleanProductId);
                         if ($series) {
-                            $unitsToChange = (int) $quantity * max(1, (int) $series->series_size);
+                            // Seri ürünlerde yeni ürün düşümü birebir miktar üzerinden yapılır
+                            $unitsToChange = (int) $quantity;
                             if ($colorVariantId) {
                                 $colorVariant = $series->colorVariants()->where('id', $colorVariantId)->first();
                                 if ($colorVariant) {
