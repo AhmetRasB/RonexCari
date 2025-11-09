@@ -202,12 +202,14 @@
                                                     <td>
                                                         <input type="number" 
                                                                class="form-control exchange-quantity" 
-                                                               value="{{ $item->quantity }}" 
+                                                               value="" 
                                                                min="0.01" 
                                                                step="0.01" 
                                                                data-original-quantity="{{ $item->quantity }}"
                                                                data-unit-price="{{ $item->unit_price }}"
-                                                               style="min-width: 100px; max-width: 120px;">
+                                                               style="min-width: 100px; max-width: 120px;"
+                                                               placeholder="Seçim yapın"
+                                                               disabled>
                                                     </td>
                                                     <td>{{ number_format($item->unit_price, 2) }} {{ $invoice->currency === 'USD' ? '$' : ($invoice->currency === 'EUR' ? '€' : '₺') }}</td>
                                                     <td>
@@ -923,15 +925,47 @@ $(document).ready(function() {
         calculateTotals();
     });
     
+    // Helper: toggle row enable/disable based on checkbox
+    function toggleExchangeRowState($checkbox) {
+        const $row = $checkbox.closest('tr');
+        const $qty = $row.find('.exchange-quantity');
+        const unitPrice = parseFloat($qty.data('unit-price')) || 0;
+        const originalQuantity = parseFloat($qty.data('original-quantity')) || 0;
+        const $total = $row.find('.exchange-item-total');
+
+        if ($checkbox.is(':checked')) {
+            if (originalQuantity <= 0) {
+                // Cannot exchange already-zero lines
+                $checkbox.prop('checked', false);
+                toastr.warning('Bu satırın miktarı 0, değişim yapılamaz.');
+                // Ensure disabled state
+                $qty.prop('required', false).prop('disabled', true).val('');
+                $total.text((originalQuantity * unitPrice).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+                return;
+            }
+            // Enable and prefill with original quantity if empty
+            $qty.prop('disabled', false).prop('required', true);
+            if (!$qty.val()) {
+                $qty.val(originalQuantity.toFixed(2));
+            }
+            // Update total display
+            const q = parseFloat($qty.val()) || 0;
+            $total.text((q * unitPrice).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+        } else {
+            // Disable and clear value to avoid HTML min validation
+            $qty.prop('required', false).prop('disabled', true).val('');
+            $qty.removeClass('is-invalid');
+            // Restore display to original total (for reference)
+            $total.text((originalQuantity * unitPrice).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+        }
+    }
+
+    // Initialize rows on load
+    $('.exchange-item-checkbox').each(function() { toggleExchangeRowState($(this)); });
+
     // Exchange item checkbox change handler
     $(document).on('change', '.exchange-item-checkbox', function() {
-        const $row = $(this).closest('tr');
-        const $qty = $row.find('.exchange-quantity');
-        // Quantity is required only when the row is selected
-        $qty.prop('required', this.checked);
-        if (!this.checked) {
-            $qty.removeClass('is-invalid');
-        }
+        toggleExchangeRowState($(this));
         calculateExchangeTotals();
     });
     
