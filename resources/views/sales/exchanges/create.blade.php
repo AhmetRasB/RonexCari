@@ -925,6 +925,13 @@ $(document).ready(function() {
     
     // Exchange item checkbox change handler
     $(document).on('change', '.exchange-item-checkbox', function() {
+        const $row = $(this).closest('tr');
+        const $qty = $row.find('.exchange-quantity');
+        // Quantity is required only when the row is selected
+        $qty.prop('required', this.checked);
+        if (!this.checked) {
+            $qty.removeClass('is-invalid');
+        }
         calculateExchangeTotals();
     });
     
@@ -991,7 +998,14 @@ $(document).ready(function() {
             const $quantityInput = $row.find('.exchange-quantity');
             
             // Get updated quantity from input
-            const exchangeQuantity = $quantityInput.length > 0 ? parseFloat($quantityInput.val()) || 0 : parseFloat($checkbox.data('item-quantity')) || 0;
+            let exchangeQuantity;
+            if ($quantityInput.length > 0) {
+                const originalQuantity = parseFloat($quantityInput.data('original-quantity')) || 0;
+                const rawVal = $quantityInput.val();
+                exchangeQuantity = (rawVal === '' || rawVal === null) ? originalQuantity : (parseFloat(rawVal) || 0);
+            } else {
+                exchangeQuantity = parseFloat($checkbox.data('item-quantity')) || 0;
+            }
             
             selectedExchangeItems.push({
                 original_item_id: originalItemId,
@@ -1003,6 +1017,14 @@ $(document).ready(function() {
         if (selectedExchangeItems.length === 0) {
             e.preventDefault();
             alert('Lütfen en az bir ürün seçin!');
+            return false;
+        }
+
+        // Validate selected rows have positive quantity
+        const invalid = selectedExchangeItems.some(i => !i.exchange_quantity || i.exchange_quantity <= 0);
+        if (invalid) {
+            e.preventDefault();
+            alert('Seçilen ürünler için miktar girin (0\'dan büyük).');
             return false;
         }
         
@@ -1083,7 +1105,7 @@ $(document).ready(function() {
             }).appendTo('#exchangeForm');
             
             // Add exchange_quantity if provided
-            if (item.exchange_quantity !== undefined && item.exchange_quantity !== null) {
+            if (item.exchange_quantity !== undefined && item.exchange_quantity !== null && item.exchange_quantity > 0) {
                 $('<input>').attr({
                     type: 'hidden',
                     name: 'exchange_items[' + index + '][exchange_quantity]',

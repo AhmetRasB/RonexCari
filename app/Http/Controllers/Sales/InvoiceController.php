@@ -1034,8 +1034,10 @@ class InvoiceController extends Controller
                 'quantity' => 'required|numeric|min:0.01',
             ]);
             
-            // Orijinal invoice item'ı bul
-            $originalItem = \App\Models\InvoiceItem::findOrFail($validated['invoice_item_id']);
+            DB::beginTransaction();
+
+            // Orijinal invoice item'ı bul ve kilitle (yarış durumlarını önlemek için)
+            $originalItem = \App\Models\InvoiceItem::where('id', $validated['invoice_item_id'])->lockForUpdate()->firstOrFail();
             
             // Orijinal item'ın iade edilmediğinden emin ol
             if ($originalItem->is_return) {
@@ -1043,8 +1045,9 @@ class InvoiceController extends Controller
             }
             
             // İade miktarı kontrolü
-            if ($validated['quantity'] > $originalItem->quantity) {
-                throw new \Exception("İade miktarı orijinal miktardan fazla olamaz. Maksimum: {$originalItem->quantity}");
+            $availableQty = (float) $originalItem->quantity;
+            if ($validated['quantity'] > $availableQty) {
+                throw new \Exception("İade miktarı orijinal miktardan fazla olamaz. Maksimum: {$availableQty}");
             }
             
             // Validasyon genişletilmiş
@@ -1058,8 +1061,6 @@ class InvoiceController extends Controller
                 'color_variant_id' => $originalItem->color_variant_id,
                 'description' => $request->input('description', 'İade - ' . $originalItem->product_service_name)
             ]);
-            
-            DB::beginTransaction();
             
             // Calculate return item totals (negative)
             $quantity = (float) $validated['quantity'];
@@ -1102,7 +1103,7 @@ class InvoiceController extends Controller
                 'tax_rate' => $taxRate,
                 'discount_rate' => $discount,
                 'line_total' => -$itemTotal, // Negative for return
-                'sort_order' => $invoice->items()->max('sort_order') + 1,
+                'sort_order' => (($invoice->items()->max('sort_order')) ?? 0) + 1,
                 'is_return' => true
             ]);
             
@@ -1187,6 +1188,7 @@ class InvoiceController extends Controller
                         ]);
                     }
                 }
+            } elseif ($validated['type'] === 'series') {
             } elseif ($validated['type'] === 'series') {
                 $series = \App\Models\ProductSeries::with('colorVariants')->find($validated['product_id']);
                 if ($series) {

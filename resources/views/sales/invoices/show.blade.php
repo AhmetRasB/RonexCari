@@ -260,11 +260,32 @@
                             <div class="card-body">
                                 <h6 class="fw-semibold mb-3">Fatura Toplamları</h6>
                                 @php
-                                    $returnsTotal = $invoice->items()->where('is_return', true)->sum('line_total');
-                                    $normalSubtotal = $invoice->items()->where('is_return', false)->sum('line_total');
-                                    $displaySubtotal = $invoice->subtotal;
-                                    $displayVat = $invoice->vat_amount;
-                                    $displayTotal = $invoice->total_amount;
+                                    // Recalculate totals consistently from item primitives to avoid mixed stored values
+                                    $calcSubtotal = 0;
+                                    $calcVat = 0;
+                                    $returnsTotalDisplay = 0;
+
+                                    foreach ($invoice->items as $it) {
+                                        $lineSubtotal = max(0, ($it->quantity * $it->unit_price) - ($it->discount_rate ?? 0));
+                                        $lineVat = $invoice->vat_status === 'included'
+                                            ? $lineSubtotal * (($it->tax_rate ?? 0) / 100)
+                                            : 0;
+                                        if ($it->is_return) {
+                                            // Returns reduce totals
+                                            $calcSubtotal -= $lineSubtotal;
+                                            $calcVat -= $lineVat;
+                                            $returnsTotalDisplay += ($lineSubtotal + $lineVat);
+                                        } else {
+                                            $calcSubtotal += $lineSubtotal;
+                                            $calcVat += $lineVat;
+                                        }
+                                    }
+
+                                    // Display values: never below zero for classic fields
+                                    $displaySubtotal = max(0, $calcSubtotal);
+                                    $displayVat = max(0, $calcVat);
+                                    $displayTotal = max(0, $calcSubtotal + $calcVat);
+                                    $remainingAfterReturns = max(0, -($calcSubtotal + $calcVat)); // Kalan/Alacak
                                 @endphp
                                 <div class="d-flex justify-content-between mb-2">
                                     <span>Ara Toplam:</span>
@@ -279,11 +300,11 @@
                                         @endif
                                     </span>
                                 </div>
-                                @if($returnsTotal < 0)
+                                @if($returnsTotalDisplay > 0)
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="text-danger">İade Toplamı:</span>
                                     <span class="text-danger">
-                                        {{ number_format(abs($returnsTotal), 2) }}
+                                        {{ number_format($returnsTotalDisplay, 2) }}
                                         @if($invoice->currency === 'USD')
                                             $
                                         @elseif($invoice->currency === 'EUR')
@@ -321,6 +342,21 @@
                                         @endif
                                     </span>
                                 </div>
+                                @if($remainingAfterReturns > 0)
+                                <div class="d-flex justify-content-between mt-2">
+                                    <span class="fw-medium text-danger">Kalan İade/Alacak:</span>
+                                    <span class="fw-medium text-danger">
+                                        {{ number_format($remainingAfterReturns, 2) }}
+                                        @if($invoice->currency === 'USD')
+                                            $
+                                        @elseif($invoice->currency === 'EUR')
+                                            €
+                                        @else
+                                            ₺
+                                        @endif
+                                    </span>
+                                </div>
+                                @endif
                                 <!-- TL eşdeğeri ve kur gösterimi kaldırıldı -->
                             </div>
                         </div>
