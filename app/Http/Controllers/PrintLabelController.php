@@ -536,7 +536,25 @@ class PrintLabelController extends Controller
         // TÜM bedenler - tekrar edenlerle birlikte (unique değil!)
         $allSizes = $series->seriesItems->pluck('size')->filter()->all();
         
+        \Log::info('ZPL - Series sizes', [
+            'series_id' => $series->id,
+            'series_items_count' => $series->seriesItems->count(),
+            'series_items' => $series->seriesItems->map(function($item) {
+                return ['id' => $item->id, 'size' => $item->size, 'quantity' => $item->quantity_per_series];
+            })->toArray(),
+            'all_sizes' => $allSizes,
+            'all_sizes_count' => count($allSizes)
+        ]);
+        
+        // Renkleri al - TÜM renkleri al, aktif/pasif fark etmez
         $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
+        
+        // Eğer renk yoksa, colorVariants ilişkisini tekrar yükle
+        if (empty($colors) && $series->relationLoaded('colorVariants')) {
+            $series->load('colorVariants');
+            $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
+        }
+        
         $qrSeries = url('/products/series/' . $series->id);
 
         // Dış pakette TÜM bedenler gösterilecek (tekrarlılar dahil!)
@@ -547,13 +565,29 @@ class PrintLabelController extends Controller
             // Her renk için ayrı beden etiketleri üret
             $blocks = [];
             
+            \Log::info('ZPL Sizes mode - Starting', [
+                'series_id' => $series->id,
+                'series_name' => $series->name,
+                'colors_count' => count($colors),
+                'colors' => $colors,
+                'sizes_count' => count($allSizes),
+                'sizes' => $allSizes,
+                'count' => $count
+            ]);
+            
             // Eğer renk varsa, her renk için ayrı beden etiketleri üret
             if (count($colors) > 0) {
-                foreach ($colors as $color) {
+                foreach ($colors as $colorIndex => $color) {
                     $colorSan = $this->sanitize($color);
-            // TÜM bedenler (tekrarlı olanlar dahil)
-            foreach ($allSizes as $size) {
-                $sizeSan = $this->sanitize((string)$size);
+                    \Log::info('ZPL Sizes mode - Processing color', [
+                        'color_index' => $colorIndex,
+                        'color' => $color,
+                        'sizes_count' => count($allSizes)
+                    ]);
+                    
+                    // TÜM bedenler (tekrarlı olanlar dahil) - her renk için
+                    foreach ($allSizes as $sizeIndex => $size) {
+                        $sizeSan = $this->sanitize((string)$size);
                         $one = "^XA\n" .
                                "^PW500\n" .
                                "^LL300\n" .
@@ -569,27 +603,39 @@ class PrintLabelController extends Controller
                                "^FO340,150^GB0,85,2^FS\n" .
                                "^XZ\n";
                         $blocks[] = str_repeat($one, max(1, $count));
+                        \Log::info('ZPL Sizes mode - Added label', [
+                            'color' => $color,
+                            'size' => $size,
+                            'blocks_count' => count($blocks)
+                        ]);
                     }
                 }
             } else {
                 // Renk yoksa normal beden etiketleri
                 foreach ($allSizes as $size) {
                     $sizeSan = $this->sanitize((string)$size);
-                $one = "^XA\n" .
-                       "^PW500\n" .
-                       "^LL300\n" .
-                       "^LH10,10\n" .
-                       "^FO10,10^GB480,280,2^FS\n" .
-                       "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
-                       "^FO20,56^A0N,26,26^FD{$sizeSan}^FS\n" .
-                       "^FO20,90^A0N,20,20^FD{$barcode}^FS\n" .
-                       "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
-                       "^BY3,2,85\n" .
-                       "^FO20,118^BCN,85,N,N,N^FD{$barcode}^FS\n" .
-                       "^XZ\n";
-                $blocks[] = str_repeat($one, max(1, $count));
+                    $one = "^XA\n" .
+                           "^PW500\n" .
+                           "^LL300\n" .
+                           "^LH10,10\n" .
+                           "^FO10,10^GB480,280,2^FS\n" .
+                           "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+                           "^FO20,56^A0N,26,26^FD{$sizeSan}^FS\n" .
+                           "^FO20,90^A0N,20,20^FD{$barcode}^FS\n" .
+                           "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
+                           "^BY3,2,85\n" .
+                           "^FO20,118^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                           "^XZ\n";
+                    $blocks[] = str_repeat($one, max(1, $count));
                 }
             }
+            
+            \Log::info('ZPL Sizes mode - Final result', [
+                'series_id' => $series->id,
+                'blocks_count' => count($blocks),
+                'result_length' => strlen(implode('', $blocks))
+            ]);
+            
             return implode('', $blocks);
         }
 
@@ -702,27 +748,82 @@ class PrintLabelController extends Controller
             $allSizes = $series->seriesItems->pluck('size')->filter()->all();
             $sizesCsv = $this->sanitize(implode(' ', $allSizes));
             
-            // Her renk varyantı için ayrı dış etiket + beden etiketleri + renk etiketi
-            foreach ($series->colorVariants as $cv) {
-                $color = $this->sanitize($cv->color ?? '');
-                
-                // 1) Dış etiket (her renk için ayrı)
+            // Renkleri al
+            $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
+            
+            // Eğer renk varsa, her renk için ayrı dış etiket + beden etiketleri + renk etiketi
+            if (count($colors) > 0) {
+                foreach ($colors as $color) {
+                    $colorSan = $this->sanitize($color);
+                    
+                    // 1) Dış etiket (her renk için ayrı)
+                    $outerOne = "^XA\n" .    
+                               "^PW500\n" .
+                               "^LL300\n" .
+                               "^LH10,10\n" .
+                               "^FO10,10^GB480,280,2^FS\n" .
+                               "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
+                               "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
+                               ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
+                               "^FO20,120^A0N,20,20^FD{$barcode}^FS\n" .
+                               "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
+                               "^BY4,2,90\n" .
+                               "^FO20,148^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                               "^XZ\n";
+                    $blocks[] = str_repeat($outerOne, max(1, $packages));
+                    
+                    // 2) Beden etiketleri (her renk için)
+                    foreach ($allSizes as $size) {
+                        $sizeSan = $this->sanitize((string)$size);
+                        $sizeOne = "^XA\n" .
+                                   "^PW500\n" .
+                                   "^LL300\n" .
+                                   "^LH10,10\n" .
+                                   "^FO10,10^GB480,280,2^FS\n" .
+                                   "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+                                   "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
+                                   "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
+                                   "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+                                   "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
+                                   "^BY3,2,85\n" .
+                                   "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                                   "^XZ\n";
+                        $blocks[] = str_repeat($sizeOne, max(1, $packages));
+                    }
+                    
+                    // 3) Renk etiketi (her renk için)
+                    $colorOne = "^XA\n" .
+                               "^PW500\n" .
+                               "^LL300\n" .
+                               "^LH10,10\n" .
+                               "^FO10,10^GB480,280,2^FS\n" .
+                               "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+                               "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
+                               "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
+                               "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
+                               "^BY3,2,85\n" .
+                               "^FO20,116^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                               "^XZ\n";
+                    $blocks[] = str_repeat($colorOne, max(1, $packages));
+                }
+            } else {
+                // Renk yoksa: dış etiket + beden etiketleri
+                // 1) Dış etiket
                 $outerOne = "^XA\n" .    
                            "^PW500\n" .
                            "^LL300\n" .
                            "^LH10,10\n" .
                            "^FO10,10^GB480,280,2^FS\n" .
                            "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
-                           "^FO20,58^A0N,24,24^FD{$color}^FS\n" .
-                           ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
-                           "^FO20,120^A0N,20,20^FD{$barcode}^FS\n" .
+                           ($sizesCsv !== '' ? "^FO20,58^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
+                           "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
                            "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
                            "^BY4,2,90\n" .
-                           "^FO20,148^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                           "^FO20,116^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                            "^XZ\n";
                 $blocks[] = str_repeat($outerOne, max(1, $packages));
                 
-                // 2) Beden etiketleri (her renk için)
+                // 2) Beden etiketleri
                 foreach ($allSizes as $size) {
                     $sizeSan = $this->sanitize((string)$size);
                     $sizeOne = "^XA\n" .
@@ -731,34 +832,53 @@ class PrintLabelController extends Controller
                                "^LH10,10\n" .
                                "^FO10,10^GB480,280,2^FS\n" .
                                "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
-                               "^FO20,56^A0N,24,24^FD{$color}^FS\n" .
-                               "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
-                               "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+                               "^FO20,56^A0N,26,26^FD{$sizeSan}^FS\n" .
+                               "^FO20,90^A0N,20,20^FD{$barcode}^FS\n" .
                                "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
                                "^BY3,2,85\n" .
-                               "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                               "^FO20,118^BCN,85,N,N,N^FD{$barcode}^FS\n" .
                                "^XZ\n";
                     $blocks[] = str_repeat($sizeOne, max(1, $packages));
                 }
-                
-                // 3) Renk etiketi (her renk için)
-                $colorOne = "^XA\n" .
-                           "^PW500\n" .
-                           "^LL300\n" .
-                           "^LH10,10\n" .
-                           "^FO10,10^GB480,280,2^FS\n" .
-                           "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
-                           "^FO20,56^A0N,24,24^FD{$color}^FS\n" .
-                           "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
-                           "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
-                           "^BY3,2,85\n" .
-                           "^FO20,116^BCN,85,N,N,N^FD{$barcode}^FS\n" .
-                           "^XZ\n";
-                $blocks[] = str_repeat($colorOne, max(1, $packages));
             }
         }
 
         return implode('', $blocks);
+    }
+
+    /**
+     * Build ZPL for a single size label (one color, one size)
+     */
+    private function buildSingleSizeZpl(int $seriesId, string $color, string $size): ?string
+    {
+        $series = ProductSeries::with(['seriesItems', 'colorVariants'])->find($seriesId);
+        if (!$series) return null;
+
+        $colorVariant = $series->colorVariants->firstWhere('color', $color);
+        if (!$colorVariant) return null;
+
+        $name = $this->sanitize($series->name ?? '');
+        $colorSan = $this->sanitize($color);
+        $sizeSan = $this->sanitize((string)$size);
+        $barcode = $this->sanitize($series->barcode ?: ($series->sku ?: ('S' . str_pad((string)$series->id, 4, '0', STR_PAD_LEFT))));
+        $qrSeries = url('/products/series/' . $series->id);
+
+        $one = "^XA\n" .
+               "^PW500\n" .
+               "^LL300\n" .
+               "^LH10,10\n" .
+               "^FO10,10^GB480,280,2^FS\n" .
+               "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+               "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
+               "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
+               "^FO370,10^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
+               "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+               "^BY3,2,85\n" .
+               "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+               "^FO340,150^GB0,85,2^FS\n" .
+               "^XZ\n";
+        
+        return $one;
     }
 
     /**
@@ -780,6 +900,18 @@ class PrintLabelController extends Controller
         
         $allSizes = $series->seriesItems->pluck('size')->filter()->all();
         $sizesCsv = $this->sanitize(implode(' ', $allSizes));
+        
+        \Log::info('ZPL ByColor - Series sizes', [
+            'series_id' => $series->id,
+            'color' => $color,
+            'mode' => $mode,
+            'series_items_count' => $series->seriesItems->count(),
+            'series_items' => $series->seriesItems->map(function($item) {
+                return ['id' => $item->id, 'size' => $item->size, 'quantity' => $item->quantity_per_series];
+            })->toArray(),
+            'all_sizes' => $allSizes,
+            'all_sizes_count' => count($allSizes)
+        ]);
 
         if ($mode === 'sizes') {
             // Beden etiketleri (sadece bu renk için)
@@ -801,6 +933,61 @@ class PrintLabelController extends Controller
                        "^XZ\n";
                 $blocks[] = str_repeat($one, max(1, $count));
             }
+            return implode('', $blocks);
+        } elseif ($mode === 'full') {
+            // Full modu: Dış etiket + Beden etiketleri + Renk etiketi (sadece bu renk için)
+            $blocks = [];
+            
+            // 1) Dış etiket (bu renk için)
+            $outerOne = "^XA\n" .    
+                       "^PW500\n" .
+                       "^LL300\n" .
+                       "^LH10,10\n" .
+                       "^FO10,10^GB480,280,2^FS\n" .
+                       "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
+                       "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
+                       ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
+                       "^FO20,120^A0N,20,20^FD{$barcode}^FS\n" .
+                       "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
+                       "^BY4,2,90\n" .
+                       "^FO20,148^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                       "^XZ\n";
+            $blocks[] = str_repeat($outerOne, max(1, $count));
+            
+            // 2) Beden etiketleri (bu renk için)
+            foreach ($allSizes as $size) {
+                $sizeSan = $this->sanitize((string)$size);
+                $sizeOne = "^XA\n" .
+                           "^PW500\n" .
+                           "^LL300\n" .
+                           "^LH10,10\n" .
+                           "^FO10,10^GB480,280,2^FS\n" .
+                           "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+                           "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
+                           "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
+                           "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+                           "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
+                           "^BY3,2,85\n" .
+                           "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                           "^XZ\n";
+                $blocks[] = str_repeat($sizeOne, max(1, $count));
+            }
+            
+            // 3) Renk etiketi (bu renk için)
+            $colorOne = "^XA\n" .
+                       "^PW500\n" .
+                       "^LL300\n" .
+                       "^LH10,10\n" .
+                       "^FO10,10^GB480,280,2^FS\n" .
+                       "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
+                       "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
+                       "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
+                       "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
+                       "^BY3,2,85\n" .
+                       "^FO20,116^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                       "^XZ\n";
+            $blocks[] = str_repeat($colorOne, max(1, $count));
+            
             return implode('', $blocks);
         } else {
             // Dış etiket (sadece bu renk için)
@@ -892,6 +1079,11 @@ class PrintLabelController extends Controller
     /**
      * Download all color images as ZIP file
      * POST: items array with type, id, mode, count
+     * 
+     * Generates:
+     * - outer mode: 1 PNG per color (outer label only)
+     * - sizes mode: 1 PNG per color per size combination
+     * - full mode: outer label per color + all size labels per color
      */
     public function downloadColorsZip(Request $request)
     {
@@ -909,6 +1101,7 @@ class PrintLabelController extends Controller
 
         $pngFiles = [];
         $delay = 333; // 333ms = saniyede 3 istek (Labelary limit)
+        $requestCount = 0;
 
         try {
             foreach ($items as $item) {
@@ -916,53 +1109,102 @@ class PrintLabelController extends Controller
                     continue;
                 }
 
-                $series = ProductSeries::with('colorVariants')->find($item['id']);
+                $series = ProductSeries::with(['colorVariants', 'seriesItems'])->find($item['id']);
                 if (!$series) {
                     continue;
                 }
 
+                $mode = $item['mode'] ?? 'outer';
                 $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
+                $sizes = $series->seriesItems->pluck('size')->filter()->all();
                 
-                if (empty($colors)) {
-                    continue;
-                }
-
-                // Her renk için PNG al ve kaydet
-                foreach ($colors as $index => $color) {
-                    $zpl = $this->buildSeriesZplByColor($series->id, $color, $item['mode'] ?? 'outer');
-                    if ($zpl === null) {
-                        continue;
-                    }
-
-                    // Labelary API'den PNG al
-                    try {
-                        $response = \Illuminate\Support\Facades\Http::timeout(10)
-                            ->withHeaders([
-                                'Accept' => 'image/png',
-                            ])
-                            ->withOptions([
-                                'verify' => false,
-                            ])
-                            ->withBody($zpl, 'application/x-www-form-urlencoded')
-                            ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
-
-                        if ($response->successful() && $response->body()) {
-                            $fileName = 'etiket_' . $series->id . '_' . str_replace(' ', '_', $color) . '.png';
-                            $filePath = $tempDir . '/' . $fileName;
-                            \File::put($filePath, $response->body());
-                            $pngFiles[] = $filePath;
+                \Log::info('downloadColorsZip - Processing', [
+                    'series_id' => $series->id,
+                    'mode' => $mode,
+                    'colors_count' => count($colors),
+                    'sizes_count' => count($sizes),
+                    'colors' => $colors,
+                    'sizes' => $sizes
+                ]);
+                
+                // Process based on mode
+                if ($mode === 'full') {
+                    // FULL mode: Outer label + all size labels for each color
+                    if (empty($colors)) {
+                        // No colors - generate single version
+                        $zpl = $this->buildSeriesZplFull($series->id, 1);
+                        if ($zpl !== null) {
+                            $pngFiles[] = $this->saveLabelPng($zpl, $tempDir, "full", $requestCount, $delay);
                         }
-                    } catch (\Exception $e) {
-                        \Log::error('Labelary API error for color ' . $color, ['error' => $e->getMessage()]);
-                        continue;
+                    } else {
+                        // Each color gets: outer + all sizes
+                        foreach ($colors as $color) {
+                            // 1. Outer label for this color
+                            $zpl = $this->buildSeriesZplByColor($series->id, $color, 'outer', 1);
+                            if ($zpl !== null) {
+                                $result = $this->saveLabelPng($zpl, $tempDir, "outer_" . str_replace(' ', '_', $color), $requestCount, $delay);
+                                if ($result) $pngFiles[] = $result;
+                            }
+                            
+                            // 2. Size labels for this color
+                            foreach ($sizes as $size) {
+                                $zpl = $this->buildSingleSizeZpl($series->id, $color, $size);
+                                if ($zpl !== null) {
+                                    $result = $this->saveLabelPng($zpl, $tempDir, str_replace(' ', '_', $color) . "_" . str_replace(' ', '_', $size), $requestCount, $delay);
+                                    if ($result) $pngFiles[] = $result;
+                                }
+                            }
+                        }
                     }
-
-                    // Rate limiting: son renk değilse bekle (333ms = saniyede 3 istek)
-                    if ($index < count($colors) - 1) {
-                        usleep($delay * 1000); // 333ms = 333000 microseconds
+                } elseif ($mode === 'sizes') {
+                    // SIZES mode: All size labels for each color (no outer label)
+                    if (empty($colors)) {
+                        // No colors - generate size labels without color
+                        foreach ($sizes as $size) {
+                            $zpl = $this->buildSeriesZpl($series->id, 'sizes', 1);
+                            if ($zpl !== null) {
+                                $result = $this->saveLabelPng($zpl, $tempDir, "size_" . str_replace(' ', '_', $size), $requestCount, $delay);
+                                if ($result) $pngFiles[] = $result;
+                            }
+                        }
+                    } else {
+                        // Each color x each size combination
+                        foreach ($colors as $color) {
+                            foreach ($sizes as $size) {
+                                $zpl = $this->buildSingleSizeZpl($series->id, $color, $size);
+                                if ($zpl !== null) {
+                                    $result = $this->saveLabelPng($zpl, $tempDir, str_replace(' ', '_', $color) . "_" . str_replace(' ', '_', $size), $requestCount, $delay);
+                                    if ($result) $pngFiles[] = $result;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // OUTER mode: Outer label for each color only
+                    if (empty($colors)) {
+                        // No colors - generate single outer label
+                        $zpl = $this->buildSeriesZpl($series->id, 'outer', 1);
+                        if ($zpl !== null) {
+                            $result = $this->saveLabelPng($zpl, $tempDir, "outer", $requestCount, $delay);
+                            if ($result) $pngFiles[] = $result;
+                        }
+                    } else {
+                        // Each color gets one outer label
+                        foreach ($colors as $color) {
+                            $zpl = $this->buildSeriesZplByColor($series->id, $color, 'outer', 1);
+                            if ($zpl !== null) {
+                                $result = $this->saveLabelPng($zpl, $tempDir, "outer_" . str_replace(' ', '_', $color), $requestCount, $delay);
+                                if ($result) $pngFiles[] = $result;
+                            }
+                        }
                     }
                 }
             }
+
+            \Log::info('downloadColorsZip - Final PNG files', [
+                'png_files_count' => count($pngFiles),
+                'png_files' => array_map('basename', $pngFiles)
+            ]);
 
             if (empty($pngFiles)) {
                 \File::deleteDirectory($tempDir);
@@ -982,7 +1224,9 @@ class PrintLabelController extends Controller
                 }
 
                 foreach ($pngFiles as $pngFile) {
-                    $zip->addFile($pngFile, basename($pngFile));
+                    if ($pngFile && \File::exists($pngFile)) {
+                        $zip->addFile($pngFile, basename($pngFile));
+                    }
                 }
 
                 $zip->close();
@@ -1023,6 +1267,56 @@ class PrintLabelController extends Controller
             }
             \Log::error('Download colors ZIP error', ['error' => $e->getMessage()]);
             return response()->json(['error' => 'Failed to create ZIP: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Helper method to save a ZPL as PNG via Labelary API
+     * Handles rate limiting automatically
+     */
+    private function saveLabelPng(string $zpl, string $tempDir, string $label, int &$requestCount, int $delay): ?string
+    {
+        try {
+            // Rate limiting: wait before each request
+            if ($requestCount > 0) {
+                usleep($delay * 1000); // Convert ms to microseconds
+            }
+            $requestCount++;
+
+            $response = \Illuminate\Support\Facades\Http::timeout(10)
+                ->withHeaders(['Accept' => 'image/png'])
+                ->withOptions(['verify' => false])
+                ->withBody($zpl, 'application/x-www-form-urlencoded')
+                ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
+
+            if ($response->successful() && $response->body()) {
+                // Sanitize filename
+                $safeLabel = preg_replace('/[^a-zA-Z0-9_-]/', '_', $label);
+                $fileName = 'etiket_' . $safeLabel . '.png';
+                $filePath = $tempDir . '/' . $fileName;
+                \File::put($filePath, $response->body());
+                
+                \Log::info('saveLabelPng - Success', [
+                    'label' => $label,
+                    'fileName' => $fileName,
+                    'fileSize' => strlen($response->body())
+                ]);
+                
+                return $filePath;
+            } else {
+                \Log::error('saveLabelPng - Labelary API error', [
+                    'label' => $label,
+                    'status' => $response->status(),
+                    'body' => substr($response->body(), 0, 500)
+                ]);
+                return null;
+            }
+        } catch (\Exception $e) {
+            \Log::error('saveLabelPng - Exception', [
+                'label' => $label,
+                'error' => $e->getMessage()
+            ]);
+            return null;
         }
     }
 

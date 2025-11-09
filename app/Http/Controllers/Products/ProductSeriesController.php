@@ -254,6 +254,7 @@ class ProductSeriesController extends Controller
             'image' => 'nullable|image',
             'is_active' => 'boolean',
             'color_variants' => 'array',
+            'color_variants.*.color' => 'nullable|string',
             'color_variants.*.stock_quantity' => 'integer|min:0',
             'color_variants.*.critical_stock' => 'integer|min:0',
             'color_variants.*.is_active' => 'boolean',
@@ -264,16 +265,34 @@ class ProductSeriesController extends Controller
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
-        // Renk varyantlarını güncelle
+        // Renk varyantlarını güncelle/oluştur
         if (isset($validated['color_variants'])) {
+            $existingColorNames = $series->colorVariants->pluck('color')->toArray();
+            
             foreach ($validated['color_variants'] as $variantId => $variantData) {
-                $variant = \App\Models\ProductSeriesColorVariant::find($variantId);
-                if ($variant && $variant->product_series_id == $series->id) {
-                    $variant->update([
-                        'stock_quantity' => $variantData['stock_quantity'] ?? 0,
-                        'critical_stock' => $variantData['critical_stock'] ?? 0,
-                        'is_active' => $variantData['is_active'] ?? true,
-                    ]);
+                // Eğer 'color' alanı varsa, bu yeni bir renktir
+                if (!empty($variantData['color'])) {
+                    $colorName = trim($variantData['color']);
+                    // Yeni renk varsa, oluştur
+                    if (!in_array($colorName, $existingColorNames)) {
+                        $series->colorVariants()->create([
+                            'color' => $colorName,
+                            'stock_quantity' => $variantData['stock_quantity'] ?? 0,
+                            'critical_stock' => $variantData['critical_stock'] ?? 0,
+                            'is_active' => $variantData['is_active'] ?? true,
+                        ]);
+                        $existingColorNames[] = $colorName; // Listeye ekle
+                    }
+                } else {
+                    // Mevcut rengi güncelle (ID ile)
+                    $variant = \App\Models\ProductSeriesColorVariant::find($variantId);
+                    if ($variant && $variant->product_series_id == $series->id) {
+                        $variant->update([
+                            'stock_quantity' => $variantData['stock_quantity'] ?? 0,
+                            'critical_stock' => $variantData['critical_stock'] ?? 0,
+                            'is_active' => $variantData['is_active'] ?? true,
+                        ]);
+                    }
                 }
             }
         }

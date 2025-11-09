@@ -131,6 +131,28 @@
                                 <option value="EUR" {{ (old('price_currency', $series->price_currency ?? 'TRY')) == 'EUR' ? 'selected' : '' }}>EUR</option>
                             </select>
                         </div>
+ß
+                        <!-- Renk Yönetimi -->
+                        <div class="col-12">
+                            <h6 class="fw-semibold text-primary mb-3">Renkler</h6>
+                            <div class="position-relative">
+                                <div id="colorTagsContainer" class="border rounded p-2 min-height-50" style="min-height: 50px; background: #f8f9fa;">
+                                    <div id="colorTags" class="d-flex flex-wrap gap-2 mb-2">
+                                        @foreach($series->colorVariants as $variant)
+                                            <span class="badge bg-primary d-inline-flex align-items-center gap-1" data-color="{{ $variant->color }}">
+                                                {{ $variant->color }}
+                                                <button type="button" class="btn-close btn-close-white" style="font-size: 0.7em;" onclick="removeColorTag('{{ $variant->color }}')"></button>
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                    <input type="text" id="colorInput" class="form-control border-0 bg-transparent" placeholder="Renk yazın ve Enter'a basın..." autocomplete="off" style="box-shadow: none;">
+                                </div>
+                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
+                                    <iconify-icon icon="solar:palette-outline" class="text-secondary-light"></iconify-icon>
+                                </div>
+                            </div>
+                            <small class="text-muted">Her renk için ayrı stok miktarı belirleyebilirsiniz.</small>
+                        </div>
 
                         <!-- Stok Bilgileri -->
                         <div class="col-12">
@@ -399,6 +421,37 @@
     </div>
 </div>
 
+<!-- Color Stock Modal -->
+<div class="modal fade" id="colorStockModal" tabindex="-1" aria-labelledby="colorStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="colorStockModalLabel">Renk Stok Ayarları</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Renk: <span id="selectedColorName" class="badge bg-primary"></span></label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Stok Miktarı <span class="text-danger">*</span></label>
+                    <input type="number" id="colorStockQuantity" class="form-control" placeholder="Stok miktarı" min="0" required>
+                    <small class="text-muted">Bu renk için stok miktarı (adet)</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Kritik Stok Miktarı</label>
+                    <input type="number" id="colorCriticalStock" class="form-control" placeholder="Kritik stok miktarı" min="0">
+                    <small class="text-muted">Bu miktarın altına düşünce uyarı gönderilir</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" id="saveColorStock">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Quick Stock Modal -->
 <div class="modal fade" id="quickStockModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -427,168 +480,253 @@
 
 @push('scripts')
 <script>
-// Color management variables
-let colorTags = [];
-let colorStocks = {};
-
-// Quick stock functionality
-document.getElementById('qsSaveBtn')?.addEventListener('click', function(){
-    const addStock = parseInt(document.getElementById('qsAddStock').value || '0', 10);
+document.addEventListener('DOMContentLoaded', function() {
+    // Renk sistemi - Create sayfasındaki gibi
+    let colorTags = []; // Only NEW colors added by user
+    let currentColorIndex = -1;
+    let colorStocks = {}; // Renk stok bilgilerini sakla
+    let existingColorNames = []; // Track existing colors from the series
     
-    if(addStock <= 0) {
-        alert('Lütfen eklenecek stok miktarını giriniz.');
-        return;
-    }
-    
-    fetch('{{ url('/products/series/' . $series->id . '/quick-stock') }}', {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json', 
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
-        },
-        body: JSON.stringify({ add_stock: addStock })
-    })
-    .then(r => r.json())
-    .then(resp => {
-        if (resp.success) {
-            alert('Stok güncellendi! Yeni stok: ' + resp.data.stock_quantity + ' adet');
-            location.reload();
-        } else {
-            alert('Güncelleme başarısız: ' + (resp.message || 'Bilinmeyen hata'));
+    // Initialize existing colors list
+    const tableRows = document.querySelectorAll('table tbody tr');
+    tableRows.forEach(row => {
+        const colorCell = row.querySelector('td:first-child .badge');
+        if (colorCell) {
+            const color = colorCell.textContent.trim();
+            if (color && !existingColorNames.includes(color)) {
+                existingColorNames.push(color);
+            }
         }
-    })
-    .catch(err => {
-        alert('Hata oluştu: ' + err.message);
     });
-});
-
-// Series size selection functionality
-document.getElementById('seriesSizeSelect')?.addEventListener('change', function() {
-    const customInput = document.getElementById('customSeriesSize');
-    if (this.value === 'custom') {
-        customInput.disabled = false;
-        customInput.required = true;
-    } else {
-        customInput.disabled = true;
-        customInput.required = false;
-        customInput.value = '';
-    }
-});
-
-// Color tag functionality
-document.getElementById('colorInput')?.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        addColorTag();
-    }
-});
-
-document.getElementById('addColorBtn')?.addEventListener('click', function() {
-    addColorTag();
-});
-
-function addColorTag() {
-    const colorInput = document.getElementById('colorInput');
-    const color = colorInput.value.trim();
     
-    if (color && !colorTags.includes(color)) {
-        colorTags.push(color);
-        colorStocks[color] = { stock_quantity: 0, critical_stock: 0 };
+    // Renk input event listeners
+    $('#colorInput').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const colorName = $(this).val().trim();
+            if (colorName && !colorTags.includes(colorName)) {
+                addColorTag(colorName);
+                $(this).val('');
+            }
+        }
+    });
+    
+    // Renk tag ekleme
+    function addColorTag(colorName) {
+        // Eğer bu renk zaten varsa (yeni veya mevcut), ekleme
+        if (colorTags.includes(colorName) || existingColorNames.includes(colorName)) {
+            alert('Bu renk zaten ekli!');
+            return;
+        }
         
-        const tagElement = document.createElement('span');
-        tagElement.className = 'badge bg-primary me-2 mb-2';
-        tagElement.innerHTML = `
-            ${color}
-            <button type="button" class="btn-close btn-close-white ms-1" onclick="removeColorTag('${color}')"></button>
+        colorTags.push(colorName);
+        const tagHtml = `
+            <span class="badge bg-primary d-inline-flex align-items-center gap-1" data-color="${colorName}">
+                ${colorName}
+                <button type="button" class="btn-close btn-close-white" style="font-size: 0.7em;" onclick="removeColorTag('${colorName}')"></button>
+            </span>
         `;
+        $('#colorTags').append(tagHtml);
         
-        document.getElementById('colorTagsContainer').appendChild(tagElement);
-        colorInput.value = '';
+        // Modal aç
+        openColorStockModal(colorName);
+    }
+    
+    // Renk tag silme
+    window.removeColorTag = function(colorName) {
+        colorTags = colorTags.filter(color => color !== colorName);
+        delete colorStocks[colorName]; // Stok bilgilerini de sil
+        $(`[data-color="${colorName}"]`).remove();
+        updateColorInputs();
+    }
+    
+    // Renk stok modalını aç
+    function openColorStockModal(colorName) {
+        $('#selectedColorName').text(colorName);
+        $('#colorStockQuantity').val('');
+        $('#colorCriticalStock').val('');
+        currentColorIndex = colorTags.indexOf(colorName);
         
-        // Open stock modal for this color
-        openColorStockModal(color);
+        const modal = new bootstrap.Modal(document.getElementById('colorStockModal'));
+        modal.show();
     }
-}
-
-function removeColorTag(color) {
-    colorTags = colorTags.filter(c => c !== color);
-    delete colorStocks[color];
     
-    // Remove from DOM
-    const tags = document.querySelectorAll('#colorTagsContainer .badge');
-    tags.forEach(tag => {
-        if (tag.textContent.trim().startsWith(color)) {
-            tag.remove();
+    // Renk stok kaydet
+    $('#saveColorStock').on('click', function() {
+        const colorName = $('#selectedColorName').text();
+        const stockQuantity = $('#colorStockQuantity').val();
+        const criticalStock = $('#colorCriticalStock').val();
+        
+        if (!stockQuantity) {
+            alert('Stok miktarı gereklidir!');
+            return;
         }
-    });
-}
-
-function openColorStockModal(color) {
-    const stockQuantity = prompt(`${color} rengi için stok miktarını girin:`, '0');
-    if (stockQuantity !== null) {
-        const criticalStock = prompt(`${color} rengi için kritik stok miktarını girin:`, '0');
-        if (criticalStock !== null) {
-            colorStocks[color] = {
-                stock_quantity: parseInt(stockQuantity) || 0,
-                critical_stock: parseInt(criticalStock) || 0
-            };
-        }
-    }
-}
-
-// Add series size form submission
-document.getElementById('addSeriesSizeForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const seriesSizeSelect = document.getElementById('seriesSizeSelect');
-    const customSeriesSize = document.getElementById('customSeriesSize');
-    
-    let seriesSize;
-    if (seriesSizeSelect.value === 'custom') {
-        seriesSize = parseInt(customSeriesSize.value);
-    } else {
-        seriesSize = parseInt(seriesSizeSelect.value);
-    }
-    
-    if (!seriesSize || seriesSize < 2) {
-        alert('Lütfen geçerli bir seri boyutu seçin.');
-        return;
-    }
-    
-    if (colorTags.length === 0) {
-        alert('Lütfen en az bir renk ekleyin.');
-        return;
-    }
-    
-    // Prepare form data
-    const formData = new FormData();
-    formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
-    formData.append('series_size', seriesSize);
-    
-    // Add color variants
-    colorTags.forEach((color, index) => {
-        formData.append(`color_variants[${index}][color]`, color);
-        formData.append(`color_variants[${index}][stock_quantity]`, colorStocks[color].stock_quantity);
-        formData.append(`color_variants[${index}][critical_stock]`, colorStocks[color].critical_stock);
+        
+        // Stok bilgilerini sakla
+        colorStocks[colorName] = {
+            stock: stockQuantity,
+            critical: criticalStock || '0'
+        };
+        
+        // Tag'i güncelle
+        const tagElement = $(`[data-color="${colorName}"]`);
+        tagElement.html(`
+            ${colorName} (${stockQuantity})
+            <button type="button" class="btn-close btn-close-white" style="font-size: 0.7em;" onclick="removeColorTag('${colorName}')"></button>
+        `);
+        
+        // Modal'ı kapat
+        const modal = bootstrap.Modal.getInstance(document.getElementById('colorStockModal'));
+        if (modal) modal.hide();
+        
+        // Input'ları güncelle
+        updateColorInputs();
     });
     
-    // Submit to add series size endpoint
-    fetch('{{ route("products.series.add-size", $series) }}', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Seri boyutu başarıyla eklendi!');
-            location.reload();
+    // Hidden input'ları güncelle
+    function updateColorInputs() {
+        // Mevcut hidden input'ları kaldır (sadece yeni eklenenler)
+        $('input[name^="color_variants"][name*="[color]"]').each(function() {
+            const name = $(this).attr('name');
+            if (name && name.includes('new_')) {
+                $(this).remove();
+                // İlgili stock_quantity ve critical_stock input'larını da kaldır
+                const index = name.match(/\[new_(\d+)\]/);
+                if (index) {
+                    $(`input[name="color_variants[new_${index[1]}][stock_quantity]"]`).remove();
+                    $(`input[name="color_variants[new_${index[1]}][critical_stock]"]`).remove();
+                }
+            }
+        });
+        
+        // Yeni input'ları ekle
+        colorTags.forEach((colorName, index) => {
+            const stockData = colorStocks[colorName] || { stock: '0', critical: '0' };
+            const stockQuantity = stockData.stock || '0';
+            const criticalStock = stockData.critical || '0';
+            
+            // Hidden input'lar ekle
+            $('<input>').attr({
+                type: 'hidden',
+                name: `color_variants[new_${index}][color]`,
+                value: colorName
+            }).appendTo('#colorTagsContainer');
+            
+            $('<input>').attr({
+                type: 'hidden',
+                name: `color_variants[new_${index}][stock_quantity]`,
+                value: stockQuantity
+            }).appendTo('#colorTagsContainer');
+            
+            $('<input>').attr({
+                type: 'hidden',
+                name: `color_variants[new_${index}][critical_stock]`,
+                value: criticalStock || '0'
+            }).appendTo('#colorTagsContainer');
+        });
+    }
+    
+    // Form submit öncesi hidden inputs'ları güncelle
+    $('form').on('submit', function(e) {
+        updateColorInputs();
+    });
+
+    // Quick stock functionality
+    $('#qsSaveBtn').on('click', function(){
+        const addStock = parseInt($('#qsAddStock').val() || '0', 10);
+        
+        if(addStock <= 0) {
+            alert('Lütfen eklenecek stok miktarını giriniz.');
+            return;
+        }
+        
+        fetch('{{ url('/products/series/' . $series->id . '/quick-stock') }}', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            },
+            body: JSON.stringify({ add_stock: addStock })
+        })
+        .then(r => r.json())
+        .then(resp => {
+            if (resp.success) {
+                alert('Stok güncellendi! Yeni stok: ' + resp.data.stock_quantity + ' adet');
+                location.reload();
+            } else {
+                alert('Güncelleme başarısız: ' + (resp.message || 'Bilinmeyen hata'));
+            }
+        })
+        .catch(err => {
+            alert('Hata oluştu: ' + err.message);
+        });
+    });
+
+    // Series size selection functionality
+    $('#seriesSizeSelect').on('change', function() {
+        const customInput = $('#customSeriesSize');
+        if ($(this).val() === 'custom') {
+            customInput.prop('disabled', false).prop('required', true);
         } else {
-            alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
+            customInput.prop('disabled', true).prop('required', false).val('');
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Bir hata oluştu.');
+    });
+
+    // Add series size form submission
+    $('#addSeriesSizeForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const seriesSizeSelect = $('#seriesSizeSelect');
+        const customSeriesSize = $('#customSeriesSize');
+        
+        let seriesSize;
+        if (seriesSizeSelect.val() === 'custom') {
+            seriesSize = parseInt(customSeriesSize.val());
+        } else {
+            seriesSize = parseInt(seriesSizeSelect.val());
+        }
+        
+        if (!seriesSize || seriesSize < 2) {
+            alert('Lütfen geçerli bir seri boyutu seçin.');
+            return;
+        }
+        
+        if (colorTags.length === 0) {
+            alert('Lütfen en az bir renk ekleyin.');
+            return;
+        }
+        
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('_token', $('meta[name="csrf-token"]').attr('content'));
+        formData.append('series_size', seriesSize);
+        
+        // Add color variants
+        colorTags.forEach((color, index) => {
+            const stockData = colorStocks[color] || { stock: '0', critical: '0' };
+            formData.append(`color_variants[${index}][color]`, color);
+            formData.append(`color_variants[${index}][stock_quantity]`, stockData.stock || '0');
+            formData.append(`color_variants[${index}][critical_stock]`, stockData.critical || '0');
+        });
+        
+        // Submit to add series size endpoint
+        fetch('{{ route("products.series.add-size", $series) }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Seri boyutu başarıyla eklendi!');
+                location.reload();
+            } else {
+                alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Bir hata oluştu.');
+        });
     });
 });
 </script>
