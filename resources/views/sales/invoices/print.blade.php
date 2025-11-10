@@ -28,8 +28,8 @@
         
         .invoice-header {
             display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
+            justify-content: center;
+            align-items: center;
             margin-bottom: 30px;
             padding-bottom: 20px;
             border-bottom: 2px solid #333;
@@ -47,7 +47,7 @@
         }
         
         .company-info {
-            text-align: right;
+            text-align: center;
         }
         
         .company-info img {
@@ -212,11 +212,6 @@
     <div class="invoice-container">
         <!-- Invoice Header -->
         <div class="invoice-header">
-            <div class="invoice-info">
-                <h1>{{ $translations['invoice'] }} {{ $translations['invoice_no'] }}{{ $invoice->invoice_number }}</h1>
-                <p>{{ $translations['invoice_date'] }}: {{ $invoice->invoice_date->format('d/m/Y') }}</p>
-                <p>{{ $translations['due_date'] }}: {{ $invoice->due_date->format('d/m/Y') }}</p>
-            </div>
             <div class="company-info">
                 <img src="{{ asset('assets/images/logo.png') }}" alt="Ronex Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                 <div style="display:none; font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px;">{{ config('company.name') }}</div>
