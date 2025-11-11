@@ -22,5 +22,19 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Gracefully handle CSRF token mismatch (419 Page Expired)
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+            // Try to regenerate a fresh CSRF token and redirect back
+            try {
+                if ($request->hasSession()) {
+                    $request->session()->regenerateToken();
+                }
+            } catch (\Throwable $t) {
+                // ignore
+            }
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Oturum yenilendi, lütfen işlemi tekrar deneyin.'], 419);
+            }
+            return redirect()->back()->with('status', 'Oturum yenilendi, lütfen işlemi tekrar deneyin.');
+        });
     })->create();
