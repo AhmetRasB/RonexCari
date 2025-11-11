@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fatura - {{ $invoice->invoice_number }}</title>
+    <title>{{ $translations['invoice'] }} - {{ $invoice->invoice_number }}</title>
     <style>
         * {
             margin: 0;
@@ -266,7 +266,7 @@
                         <td>: {{ $invoice->invoice_date->format('d.m.Y') }}</td>
                     </tr>
                     <tr>
-                        <td>Time</td>
+                        <td>{{ $translations['time'] }}</td>
                         <td>: {{ $invoice->invoice_time }}</td>
                     </tr>
                     <tr>

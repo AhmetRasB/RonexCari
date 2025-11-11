@@ -1349,11 +1349,12 @@ class InvoiceController extends Controller
     {
         $lang = strtolower($lang);
         $tr = [
-            'invoice' => 'Fatura',
+            'invoice' => 'Sipariş Fişi',
             'invoice_no' => 'Fatura #',
-            'invoice_date' => 'Fatura Tarihi',
+            'invoice_date' => 'Sipariş Tarihi',
             'due_date' => 'Vade Tarihi',
-            'billed_to' => 'Fatura Edilen',
+            'time' => 'Saat',
+            'billed_to' => 'Sipariş Fişi',
             'name' => 'Ad Soyad',
             'company' => 'Şirket',
             'address' => 'Adres',
@@ -1383,11 +1384,12 @@ class InvoiceController extends Controller
             'authorized_signature' => 'Yetkili İmzası',
         ];
         $en = [
-            'invoice' => 'Invoice',
+            'invoice' => 'Order Receipt',
             'invoice_no' => 'Invoice #',
-            'invoice_date' => 'Invoice Date',
+            'invoice_date' => 'Order Date',
             'due_date' => 'Due Date',
-            'billed_to' => 'Billed To',
+            'time' => 'Time',
+            'billed_to' => 'Order Receipt',
             'name' => 'Name',
             'company' => 'Company',
             'address' => 'Address',
@@ -1417,11 +1419,12 @@ class InvoiceController extends Controller
             'authorized_signature' => 'Authorized Signature',
         ];
         $ar = [
-            'invoice' => 'فاتورة',
+            'invoice' => 'سند الطلب',
             'invoice_no' => 'رقم الفاتورة',
-            'invoice_date' => 'تاريخ الفاتورة',
+            'invoice_date' => 'تاريخ الطلب',
             'due_date' => 'تاريخ الاستحقاق',
-            'billed_to' => 'إلى',
+            'time' => 'الوقت',
+            'billed_to' => 'سند الطلب',
             'name' => 'الاسم',
             'company' => 'الشركة',
             'address' => 'العنوان',
@@ -1451,11 +1454,12 @@ class InvoiceController extends Controller
             'authorized_signature' => 'توقيع المخول',
         ];
         $ru = [
-            'invoice' => 'Счёт-фактура',
+            'invoice' => 'Квитанция заказа',
             'invoice_no' => 'Счёт №',
-            'invoice_date' => 'Дата счёта',
+            'invoice_date' => 'Дата заказа',
             'due_date' => 'Срок оплаты',
-            'billed_to' => 'Плательщик',
+            'time' => 'Время',
+            'billed_to' => 'Квитанция заказа',
             'name' => 'Имя',
             'company' => 'Компания',
             'address' => 'Адрес',
