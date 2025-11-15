@@ -596,9 +596,8 @@ class PrintLabelController extends Controller
                                "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
                                "^FO370,10^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
                                "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
-                               "^BY3,2,85\n" .
-                               "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
-                               "^FO340,150^GB0,85,2^FS\n" .
+                               "^BY4,2,90\n" .
+                               "^FO20,150^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                                "^XZ\n";
                         $blocks[] = str_repeat($one, max(1, $count));
                         \Log::info('ZPL Sizes mode - Added label', [
@@ -622,8 +621,8 @@ class PrintLabelController extends Controller
                            "^FO20,56^A0N,26,26^FD{$sizeSan}^FS\n" .
                            "^FO20,90^A0N,20,20^FD{$barcode}^FS\n" .
                            "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
-                           "^BY3,2,85\n" .
-                           "^FO20,118^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                           "^BY4,2,90\n" .
+                           "^FO20,118^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                            "^XZ\n";
                     $blocks[] = str_repeat($one, max(1, $count));
                 }
@@ -788,8 +787,8 @@ class PrintLabelController extends Controller
                                    "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
                                    "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
                                    "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
-                                   "^BY3,2,85\n" .
-                                   "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                                   "^BY4,2,90\n" .
+                                   "^FO20,150^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                                    "^XZ\n";
                         $blocks[] = str_repeat($sizeOne, max(1, $packages));
                     }
@@ -805,8 +804,8 @@ class PrintLabelController extends Controller
                                "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                                "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
                                "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
-                               "^BY3,2,85\n" .
-                               "^FO20,116^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                               "^BY4,2,90\n" .
+                               "^FO20,116^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                                "^XZ\n";
                     $blocks[] = str_repeat($colorOne, max(1, $packages));
                 }
@@ -841,8 +840,8 @@ class PrintLabelController extends Controller
                                "^FO20,56^A0N,26,26^FD{$sizeSan}^FS\n" .
                                "^FO20,90^A0N,20,20^FD{$barcode}^FS\n" .
                                "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
-                               "^BY3,2,85\n" .
-                               "^FO20,118^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                               "^BY4,2,90\n" .
+                               "^FO20,118^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                                "^XZ\n";
                     $blocks[] = str_repeat($sizeOne, max(1, $packages));
                 }
@@ -880,9 +879,8 @@ class PrintLabelController extends Controller
                "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
                "^FO370,10^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
                "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
-               "^BY3,2,85\n" .
-               "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
-               "^FO340,150^GB0,85,2^FS\n" .
+               "^BY4,2,90\n" .
+               "^FO20,150^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                "^XZ\n";
         
         return $one;
@@ -936,8 +934,8 @@ class PrintLabelController extends Controller
                        "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
                        "^FO370,10^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
                        "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
-                       "^BY3,2,85\n" .
-                       "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                       "^BY4,2,90\n" .
+                       "^FO20,150^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                        "^XZ\n";
                 $blocks[] = str_repeat($one, max(1, $count));
             }
@@ -977,8 +975,8 @@ class PrintLabelController extends Controller
                            "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
                            "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
                            "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
-                           "^BY3,2,85\n" .
-                           "^FO20,150^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                           "^BY4,2,90\n" .
+                           "^FO20,150^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                            "^XZ\n";
                 $blocks[] = str_repeat($sizeOne, max(1, $count));
             }
@@ -994,8 +992,8 @@ class PrintLabelController extends Controller
                        "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                        "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
                        "^FO370,16^BQN,2,2^FDLA,{$qrSeries}^FS\n" .
-                       "^BY3,2,85\n" .
-                       "^FO20,116^BCN,85,N,N,N^FD{$barcode}^FS\n" .
+                       "^BY4,2,90\n" .
+                       "^FO20,116^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                        "^XZ\n";
             $blocks[] = str_repeat($colorOne, max(1, $count));
             
