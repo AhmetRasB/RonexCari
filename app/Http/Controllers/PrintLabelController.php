@@ -445,12 +445,7 @@ class PrintLabelController extends Controller
     private function sanitize(?string $value): string
     {
         if ($value === null) return '';
-        // ZPL basit ASCII ile daha stabil çalışır; problemli karakterleri sadeleştir.
-        $replacements = [
-            'Ş'=>'S','ş'=>'s','Ğ'=>'G','ğ'=>'g','İ'=>'I','ı'=>'i','Ö'=>'O','ö'=>'o','Ü'=>'U','ü'=>'u','Ç'=>'C','ç'=>'c',
-        ];
-        $value = strtr($value, $replacements);
-        // ZPL için ^, ~ gibi kontrol karakterlerini kaçır.
+        // UTF-8 desteği: Türkçe karakterleri koru, sadece ZPL kontrol karakterlerini kaçır
         return preg_replace('/[\^~]/', '-', $value);
     }
 
@@ -474,6 +469,7 @@ class PrintLabelController extends Controller
 
                 // Geliştirilmiş etiket formatı - Sadece bedenler, büyük barkod
                 $one = "^XA\n" .
+                       "^CI28\n" .
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
@@ -500,6 +496,7 @@ class PrintLabelController extends Controller
             $stock = $product->stock_quantity ?? 0;
 
             $one = "^XA\n" .
+                   "^CI28\n" .
                    "^PW500\n" .
                    "^LL300\n" .
                    "^LH10,10\n" .
@@ -589,6 +586,7 @@ class PrintLabelController extends Controller
                     foreach ($allSizes as $sizeIndex => $size) {
                         $sizeSan = $this->sanitize((string)$size);
                         $one = "^XA\n" .
+                               "^CI28\n" .
                                "^PW500\n" .
                                "^LL300\n" .
                                "^LH10,10\n" .
@@ -615,6 +613,7 @@ class PrintLabelController extends Controller
                 foreach ($allSizes as $size) {
                     $sizeSan = $this->sanitize((string)$size);
                     $one = "^XA\n" .
+                           "^CI28\n" .
                            "^PW500\n" .
                            "^LL300\n" .
                            "^LH10,10\n" .
@@ -661,6 +660,7 @@ class PrintLabelController extends Controller
             foreach ($colors as $colorIndex => $color) {
                 $colorSan = $this->sanitize($color);
                 $one = "^XA\n" .    
+                       "^CI28\n" .
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
@@ -684,6 +684,7 @@ class PrintLabelController extends Controller
         } else {
             // Renk yoksa normal dış etiket
         $one = "^XA\n" .    
+               "^CI28\n" .
                "^PW500\n" .
                "^LL300\n" .
                "^LH10,10\n" .
@@ -758,6 +759,7 @@ class PrintLabelController extends Controller
                     
                     // 1) Dış etiket (her renk için ayrı)
                     $outerOne = "^XA\n" .    
+                               "^CI28\n" .
                                "^PW500\n" .
                                "^LL300\n" .
                                "^LH10,10\n" .
@@ -776,6 +778,7 @@ class PrintLabelController extends Controller
                     foreach ($allSizes as $size) {
                         $sizeSan = $this->sanitize((string)$size);
                         $sizeOne = "^XA\n" .
+                                   "^CI28\n" .
                                    "^PW500\n" .
                                    "^LL300\n" .
                                    "^LH10,10\n" .
@@ -793,6 +796,7 @@ class PrintLabelController extends Controller
                     
                     // 3) Renk etiketi (her renk için)
                     $colorOne = "^XA\n" .
+                               "^CI28\n" .
                                "^PW500\n" .
                                "^LL300\n" .
                                "^LH10,10\n" .
@@ -810,6 +814,7 @@ class PrintLabelController extends Controller
                 // Renk yoksa: dış etiket + beden etiketleri
                 // 1) Dış etiket
                 $outerOne = "^XA\n" .    
+                           "^CI28\n" .
                            "^PW500\n" .
                            "^LL300\n" .
                            "^LH10,10\n" .
@@ -827,6 +832,7 @@ class PrintLabelController extends Controller
                 foreach ($allSizes as $size) {
                     $sizeSan = $this->sanitize((string)$size);
                     $sizeOne = "^XA\n" .
+                               "^CI28\n" .
                                "^PW500\n" .
                                "^LL300\n" .
                                "^LH10,10\n" .
@@ -864,6 +870,7 @@ class PrintLabelController extends Controller
         $qrSeries = url('/products/series/' . $series->id);
 
         $one = "^XA\n" .
+               "^CI28\n" .
                "^PW500\n" .
                "^LL300\n" .
                "^LH10,10\n" .
@@ -919,6 +926,7 @@ class PrintLabelController extends Controller
             foreach ($allSizes as $size) {
                 $sizeSan = $this->sanitize((string)$size);
                 $one = "^XA\n" .
+                       "^CI28\n" .
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
@@ -940,6 +948,7 @@ class PrintLabelController extends Controller
             
             // 1) Dış etiket (bu renk için)
             $outerOne = "^XA\n" .    
+                       "^CI28\n" .
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
@@ -958,6 +967,7 @@ class PrintLabelController extends Controller
             foreach ($allSizes as $size) {
                 $sizeSan = $this->sanitize((string)$size);
                 $sizeOne = "^XA\n" .
+                           "^CI28\n" .
                            "^PW500\n" .
                            "^LL300\n" .
                            "^LH10,10\n" .
@@ -975,6 +985,7 @@ class PrintLabelController extends Controller
             
             // 3) Renk etiketi (bu renk için)
             $colorOne = "^XA\n" .
+                       "^CI28\n" .
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
@@ -992,6 +1003,7 @@ class PrintLabelController extends Controller
         } else {
             // Dış etiket (sadece bu renk için)
             $one = "^XA\n" .    
+                   "^CI28\n" .
                    "^PW500\n" .
                    "^LL300\n" .
                    "^LH10,10\n" .
