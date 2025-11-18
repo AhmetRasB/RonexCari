@@ -93,7 +93,7 @@ class InvoiceController extends Controller
             $userId = $user ? $user->id : 1;
         }
 
-        // TEMP: Skip validation per user request
+        // Basic validation and item sanity checks
         $validated = [
             'account_id' => $accountId,
             'user_id' => $userId,
@@ -107,6 +107,31 @@ class InvoiceController extends Controller
             'payment_completed' => (bool) $request->input('payment_completed', false),
             'items' => $request->input('items', []),
         ];
+
+        // Validate items: non-service rows must have product_id; require color when product/series has variants
+        foreach (($validated['items'] ?? []) as $i => $it) {
+            $rowNo = $i + 1;
+            $type = $it['type'] ?? 'product';
+            if ($type !== 'service') {
+                $pidRaw = $it['product_id'] ?? null;
+                $pid = $pidRaw ? (int) str_replace(['product_', 'series_', 'service_'], '', (string)$pidRaw) : null;
+                if (!$pid) {
+                    return back()->withInput()->with('error', "Satır {$rowNo}: Lütfen bir ürün/seri seçin.");
+                }
+                // If product has color variants, enforce color selection
+                if ($type === 'product') {
+                    $p = \App\Models\Product::withCount('colorVariants')->find($pid);
+                    if ($p && $p->color_variants_count > 0 && empty($it['color_variant_id'])) {
+                        return back()->withInput()->with('error', "Satır {$rowNo}: Lütfen renk seçin.");
+                    }
+                } elseif ($type === 'series') {
+                    $s = \App\Models\ProductSeries::withCount('colorVariants')->find($pid);
+                    if ($s && $s->color_variants_count > 0 && empty($it['color_variant_id'])) {
+                        return back()->withInput()->with('error', "Satır {$rowNo}: Lütfen seri rengi seçin.");
+                    }
+                }
+            }
+        }
 
         DB::beginTransaction();
         try {
@@ -196,14 +221,27 @@ class InvoiceController extends Controller
                 // Clean product_id for database storage
                 $cleanProductId = $item['product_id'] ?? null;
                 if ($cleanProductId) {
-                    $cleanProductId = str_replace(['product_', 'series_'], '', $cleanProductId);
+                    $cleanProductId = str_replace(['product_', 'series_', 'service_'], '', $cleanProductId);
+                }
+
+                // Resolve selected color name from variant id if not provided
+                $selectedColorName = $item['selected_color'] ?? null;
+                if (empty($selectedColorName) && !empty($item['color_variant_id'])) {
+                    $itemType = $item['type'] ?? 'product';
+                    if ($itemType === 'series') {
+                        $v = \App\Models\ProductSeriesColorVariant::find($item['color_variant_id']);
+                        if ($v) { $selectedColorName = $v->color; }
+                    } elseif ($itemType === 'product') {
+                        $v = \App\Models\ProductColorVariant::find($item['color_variant_id']);
+                        if ($v) { $selectedColorName = $v->color; }
+                    }
                 }
                 
                 InvoiceItem::create([
                     'invoice_id' => $invoice->id,
                     'product_service_name' => $item['product_service_name'],
                     'description' => $item['description'] ?? null,
-                    'selected_color' => $item['selected_color'] ?? null,
+                    'selected_color' => $selectedColorName,
                     'color_variant_id' => $item['color_variant_id'] ?? null,
                     'product_id' => $cleanProductId,
                     'product_type' => $item['type'] ?? 'product',
@@ -577,7 +615,20 @@ class InvoiceController extends Controller
                 // Clean product_id
                 $cleanProductId = $item['product_id'] ?? null;
                 if ($cleanProductId) {
-                    $cleanProductId = str_replace(['product_', 'series_'], '', $cleanProductId);
+                    $cleanProductId = str_replace(['product_', 'series_', 'service_'], '', $cleanProductId);
+                }
+
+                // Resolve selected color name from variant id if not provided (edit flow)
+                $selectedColorName = $item['selected_color'] ?? null;
+                if (empty($selectedColorName) && !empty($item['color_variant_id'])) {
+                    $itemType = $item['type'] ?? 'product';
+                    if ($itemType === 'series') {
+                        $v = \App\Models\ProductSeriesColorVariant::find($item['color_variant_id']);
+                        if ($v) { $selectedColorName = $v->color; }
+                    } elseif ($itemType === 'product') {
+                        $v = \App\Models\ProductColorVariant::find($item['color_variant_id']);
+                        if ($v) { $selectedColorName = $v->color; }
+                    }
                 }
                 
                 // Debug: Log item data
@@ -600,7 +651,7 @@ class InvoiceController extends Controller
                     'invoice_id' => $invoice->id,
                     'product_service_name' => $item['product_service_name'],
                     'description' => $item['description'] ?? null,
-                    'selected_color' => $item['selected_color'] ?? null,
+                    'selected_color' => $selectedColorName,
                     'product_id' => $cleanProductId,
                     'color_variant_id' => $item['color_variant_id'] ?? null,
                     'product_type' => $item['type'] ?? 'product',
@@ -1169,20 +1220,37 @@ class InvoiceController extends Controller
             
             // Add stock back
             if ($validated['type'] === 'product') {
-                $product = \App\Models\Product::find($validated['product_id']);
+                $product = \App\Models\Product::with('colorVariants')->find($validated['product_id']);
                 if ($product) {
-                    if ($validated['color_variant_id']) {
+                    $handled = false;
+                    // Prefer variant by explicit id
+                    if (!empty($validated['color_variant_id'])) {
                         $colorVariant = \App\Models\ProductColorVariant::find($validated['color_variant_id']);
                         if ($colorVariant) {
                             $colorVariant->increment('stock_quantity', $quantity);
+                            $handled = true;
                             \Log::info('Color variant stock increased', [
                                 'color_variant_id' => $colorVariant->id,
                                 'quantity' => $quantity
                             ]);
                         }
-                    } else {
+                    }
+                    // If no id, try resolve by selected color name
+                    if (!$handled && !empty($validated['selected_color']) && $product->colorVariants && $product->colorVariants->count() > 0) {
+                        $resolved = $product->colorVariants()->where('color', $validated['selected_color'])->first();
+                        if ($resolved) {
+                            $resolved->increment('stock_quantity', $quantity);
+                            $handled = true;
+                            \Log::info('Color variant stock increased by name', [
+                                'color' => $validated['selected_color'],
+                                'quantity' => $quantity
+                            ]);
+                        }
+                    }
+                    // Fallback: increment product stock
+                    if (!$handled) {
                         $product->increment('stock_quantity', $quantity);
-                        \Log::info('Product stock increased', [
+                        \Log::info('Product stock increased (fallback)', [
                             'product_id' => $product->id,
                             'quantity' => $quantity
                         ]);

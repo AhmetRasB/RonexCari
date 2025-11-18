@@ -531,7 +531,28 @@ class ExchangeController extends Controller
                 
                 // Add back original item stock (only the exchanged quantity)
                 if ($originalItem->product_type === 'product') {
-                    // Product stock restore (same as return) - single products are not supported anymore
+                    // Product stock restore (variant-aware)
+                    $product = \App\Models\Product::with('colorVariants')->find($originalItem->product_id);
+                    if ($product) {
+                        $handled = false;
+                        if ($originalItem->color_variant_id) {
+                            $variant = $product->colorVariants()->where('id', $originalItem->color_variant_id)->first();
+                            if ($variant) {
+                                $variant->increment('stock_quantity', (int)$exchangeQuantity);
+                                $handled = true;
+                            }
+                        }
+                        if (!$handled && !empty($originalItem->selected_color) && $product->colorVariants && $product->colorVariants->count() > 0) {
+                            $variant = $product->colorVariants()->where('color', $originalItem->selected_color)->first();
+                            if ($variant) {
+                                $variant->increment('stock_quantity', (int)$exchangeQuantity);
+                                $handled = true;
+                            }
+                        }
+                        if (!$handled) {
+                            $product->increment('stock_quantity', (int)$exchangeQuantity);
+                        }
+                    }
                 } elseif ($originalItem->product_type === 'series') {
                     $series = \App\Models\ProductSeries::with('colorVariants')->find($originalItem->product_id);
                     if ($series) {
@@ -595,6 +616,37 @@ class ExchangeController extends Controller
                                     $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
                                     $series->save();
                                 }
+                            }
+                        }
+                    } elseif ($type === 'product') {
+                        $product = \App\Models\Product::with('colorVariants')->find($cleanProductId);
+                        if ($product) {
+                            $handled = false;
+                            if ($colorVariantId) {
+                                $variant = $product->colorVariants()->where('id', $colorVariantId)->first();
+                                if ($variant) {
+                                    if ($variant->stock_quantity < (int)$quantity) {
+                                        throw new \Exception("Yetersiz stok! {$product->name} ({$variant->color}) için stok: {$variant->stock_quantity}, istenen: {$quantity}");
+                                    }
+                                    $variant->decrement('stock_quantity', (int)$quantity);
+                                    $handled = true;
+                                }
+                            }
+                            if (!$handled && !empty($item['selected_color']) && $product->colorVariants && $product->colorVariants->count() > 0) {
+                                $variant = $product->colorVariants()->where('color', $item['selected_color'])->first();
+                                if ($variant) {
+                                    if ($variant->stock_quantity < (int)$quantity) {
+                                        throw new \Exception("Yetersiz stok! {$product->name} ({$variant->color}) için stok: {$variant->stock_quantity}, istenen: {$quantity}");
+                                    }
+                                    $variant->decrement('stock_quantity', (int)$quantity);
+                                    $handled = true;
+                                }
+                            }
+                            if (!$handled) {
+                                if ($product->stock_quantity < (int)$quantity) {
+                                    throw new \Exception("Yetersiz stok! {$product->name} için stok: {$product->stock_quantity}, istenen: {$quantity}");
+                                }
+                                $product->decrement('stock_quantity', (int)$quantity);
                             }
                         }
                     }

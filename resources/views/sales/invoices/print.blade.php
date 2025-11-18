@@ -22,16 +22,16 @@
         .invoice-container {
             max-width: 210mm;
             margin: 0 auto;
-            padding: 15mm;
+            padding: 10mm;
             background: white;
         }
         
         .invoice-header {
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
             border-bottom: 2px solid #333;
         }
         
@@ -47,69 +47,49 @@
         }
         
         .company-info {
-            text-align: center;
+            text-align: left;
         }
+        .logo-small img { height: 40px; width: auto; display: block; }
+        .company-line { font-size: 9px; line-height: 1.3; }
+        .company-sep { padding: 0 6px; color: #999; }
         
-        .company-info img {
-            max-height: 60px;
-            max-width: 168px;
-            margin-bottom: 10px;
-            display: block;
-        }
-        
-        .company-info p {
-            margin-bottom: 3px;
+        .company-inline {
             font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
-        .invoice-details {
+        .meta-bar {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 30px;
+            align-items: center;
+            font-size: 10px;
+            margin-bottom: 6px;
         }
-        
-        .billed-to h3 {
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 10px;
+        .meta-left, .meta-right {
+            display: flex;
+            gap: 10px;
+            flex-wrap: nowrap;
+            white-space: nowrap;
         }
-        
-        .billed-to table {
-            font-size: 11px;
-        }
-        
-        .billed-to td {
-            padding: 2px 0;
-        }
-        
-        .billed-to td:first-child {
-            padding-right: 10px;
-        }
-        
-        .invoice-summary table {
-            font-size: 11px;
-        }
-        
-        .invoice-summary td {
-            padding: 2px 0;
-        }
-        
-        .invoice-summary td:first-child {
-            padding-right: 10px;
+        .meta-item {
+            white-space: nowrap;
         }
         
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
         
         .items-table th,
         .items-table td {
             border: 1px solid #333;
-            padding: 8px;
+            padding: 4px 6px;
             text-align: left;
-            font-size: 11px;
+            font-size: 9.5px;
         }
         
         .items-table th {
@@ -129,7 +109,7 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
-            margin-top: 30px;
+            margin-top: 10px;
         }
         
         .notes {
@@ -170,7 +150,7 @@
         
         .thank-you {
             text-align: center;
-            margin: 30px 0;
+            margin: 12px 0;
             font-weight: bold;
             font-size: 12px;
         }
@@ -210,24 +190,74 @@
 </head>
 <body>
     <div class="invoice-container">
-        <!-- Invoice Header -->
+        @php
+            $itemsCount = $invoice->items->count();
+        @endphp
+        <!-- Compact Header (one-row) -->
         <div class="invoice-header">
-            <div class="company-info">
-                <img src="{{ asset('assets/images/logo.png') }}" alt="Ronex Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <div style="display:none; font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px;">{{ config('company.name') }}</div>
-                <p><strong>{{ config('company.full_name') }}</strong></p>
-                <p>{{ config('company.address.street') }}</p>
-                <p>{{ config('company.address.street2') }}</p>
-                <p>{{ config('company.address.district') }}, {{ config('company.address.postal_code') }} {{ config('company.address.city') }}/{{ config('company.address.province') }}</p>
-                <p>Tel: {{ config('company.contact.phone') }}</p>
-                <p>E-mail: {{ config('company.contact.email') }}</p>
+            <div class="company-info" style="display:flex; align-items:center; gap:10px; width: 80%;">
+                <div class="logo-small">
+                    <img src="{{ asset('assets/images/logo.png') }}" alt="Logo" onerror="this.style.display='none'">
+                </div>
+                <div>
+                    <div class="company-inline">{{ config('company.full_name') }}</div>
+                    <div class="company-line">
+                        {{ trim(config('company.address.street') . ' ' . (config('company.address.street2') ?? '')) }}
+                        <span class="company-sep">•</span>
+                        {{ config('company.address.district') }}, {{ config('company.address.postal_code') }} {{ config('company.address.city') }}/{{ config('company.address.province') }}
+                        <span class="company-sep">•</span>
+                        Tel: {{ config('company.contact.phone') }}
+                        <span class="company-sep">•</span>
+                        {{ config('company.contact.email') }}
+                    </div>
+                </div>
+            </div>
+            <div class="meta-right" style="font-size:11px; text-align:right; width: 20%;">
+                <span class="meta-item">{{ $translations['invoice'] }} #{{ $invoice->invoice_number }}</span>
             </div>
         </div>
 
-        <!-- Invoice Details -->
-        <div class="invoice-details">
+        <!-- Compact meta bar (customer + order info in one line) -->
+        @if($itemsCount > 10)
+        <div class="meta-bar">
+            <div class="meta-left">
+                <span class="meta-item"><strong>{{ $translations['billed_to'] }}:</strong> {{ $invoice->customer?->name ?? '-' }}</span>
+                    @if($invoice->customer && $invoice->customer->company_name)
+                <span class="meta-item">| {{ $invoice->customer->company_name }}</span>
+                    @endif
+            </div>
+            <div class="meta-right">
+                <span class="meta-item">{{ $translations['invoice_date'] }}: {{ $invoice->invoice_date->format('d.m.Y') }}</span>
+                <span class="meta-item">| {{ $translations['time'] }}: {{ $invoice->invoice_time }}</span>
+                <span class="meta-item">| {{ $translations['due_date'] }}: {{ $invoice->due_date->format('d.m.Y') }}</span>
+                <span class="meta-item">| {{ $translations['currency'] }}:
+                    @if($invoice->currency === 'USD') USD
+                    @elseif($invoice->currency === 'EUR') EUR
+                    @else TRY @endif
+                </span>
+            </div>
+        </div>
+        <!-- Mini customer details under meta for compact layout -->
+        <div style="font-size:9px; margin: 4px 0 6px 0;">
+            <span class="meta-item"><strong>{{ $translations['name'] }}:</strong> {{ $invoice->customer?->name ?? '-' }}</span>
+            @if($invoice->customer && $invoice->customer->company_name)
+                <span class="company-sep">•</span><span class="meta-item"><strong>{{ $translations['company'] }}:</strong> {{ $invoice->customer->company_name }}</span>
+            @endif
+            @if($invoice->customer && $invoice->customer->phone)
+                <span class="company-sep">•</span><span class="meta-item"><strong>{{ $translations['phone'] }}:</strong> {{ $invoice->customer->phone }}</span>
+            @endif
+            @if($invoice->customer && $invoice->customer->email)
+                <span class="company-sep">•</span><span class="meta-item"><strong>{{ $translations['email'] }}:</strong> {{ $invoice->customer->email }}</span>
+            @endif
+            @if($invoice->customer && $invoice->customer->address)
+                <span class="company-sep">•</span><span class="meta-item"><strong>{{ $translations['address'] }}:</strong> {{ $invoice->customer->address }}</span>
+            @endif
+        </div>
+        @else
+        <!-- Original detailed layout when few items -->
+        <div class="invoice-details" style="margin-bottom: 12px;">
             <div class="billed-to">
-                <h3>{{ $translations['billed_to'] }}:</h3>
+                <h3 style="margin-bottom:6px;">{{ $translations['billed_to'] }}:</h3>
                 <table>
                     <tr>
                         <td>{{ $translations['name'] }}</td>
@@ -304,6 +334,7 @@
                 </table>
             </div>
         </div>
+        @endif
 
         <!-- Items Table -->
         <table class="items-table">

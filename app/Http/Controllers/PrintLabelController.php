@@ -473,7 +473,6 @@ class PrintLabelController extends Controller
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
-                       "^FO10,10^GB480,280,2^FS\n" .
                        "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
                        "^FO20,48^A0N,28,28^FD{$name}^FS\n" .
                        "^FO360,15^BQN,2,3^FDLA,{$qr}^FS\n" .
@@ -500,7 +499,7 @@ class PrintLabelController extends Controller
                    "^PW500\n" .
                    "^LL300\n" .
                    "^LH10,10\n" .
-                   "^FO10,10^GB480,280,2^FS\n" .
+                   
                    "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
                    "^FO20,48^A0N,28,28^FD{$name}^FS\n" .
                    "^FO360,15^BQN,2,3^FDLA,{$qr}^FS\n" .
@@ -590,7 +589,7 @@ class PrintLabelController extends Controller
                                "^PW500\n" .
                                "^LL300\n" .
                                "^LH10,10\n" .
-                               "^FO10,10^GB480,280,2^FS\n" .
+                               
                                "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                                "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                                "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
@@ -616,7 +615,7 @@ class PrintLabelController extends Controller
                            "^PW500\n" .
                            "^LL300\n" .
                            "^LH10,10\n" .
-                           "^FO10,10^GB480,280,2^FS\n" .
+                           
                            "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                            "^FO20,56^A0N,26,26^FD{$sizeSan}^FS\n" .
                            "^FO20,90^A0N,20,20^FD{$barcode}^FS\n" .
@@ -663,7 +662,7 @@ class PrintLabelController extends Controller
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
-                       "^FO10,10^GB480,280,2^FS\n" .
+                       
                        "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
                        "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
                        ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
@@ -687,7 +686,7 @@ class PrintLabelController extends Controller
                "^PW500\n" .
                "^LL300\n" .
                "^LH10,10\n" .
-               "^FO10,10^GB480,280,2^FS\n" .
+               
                "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
                ($sizesCsv !== '' ? "^FO20,58^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
                "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
@@ -762,7 +761,7 @@ class PrintLabelController extends Controller
                                "^PW500\n" .
                                "^LL300\n" .
                                "^LH10,10\n" .
-                               "^FO10,10^GB480,280,2^FS\n" .
+                               
                                "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
                                "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
                                ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
@@ -781,7 +780,7 @@ class PrintLabelController extends Controller
                                    "^PW500\n" .
                                    "^LL300\n" .
                                    "^LH10,10\n" .
-                                   "^FO10,10^GB480,280,2^FS\n" .
+                                   
                                    "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                                    "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                                    "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
@@ -799,7 +798,7 @@ class PrintLabelController extends Controller
                                "^PW500\n" .
                                "^LL300\n" .
                                "^LH10,10\n" .
-                               "^FO10,10^GB480,280,2^FS\n" .
+                               
                                "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                                "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                                "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
@@ -817,7 +816,7 @@ class PrintLabelController extends Controller
                            "^PW500\n" .
                            "^LL300\n" .
                            "^LH10,10\n" .
-                           "^FO10,10^GB480,280,2^FS\n" .
+                           
                            "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
                            ($sizesCsv !== '' ? "^FO20,58^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
                            "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
@@ -835,7 +834,7 @@ class PrintLabelController extends Controller
                                "^PW500\n" .
                                "^LL300\n" .
                                "^LH10,10\n" .
-                               "^FO10,10^GB480,280,2^FS\n" .
+                               
                                "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                                "^FO20,56^A0N,26,26^FD{$sizeSan}^FS\n" .
                                "^FO20,90^A0N,20,20^FD{$barcode}^FS\n" .
@@ -873,7 +872,7 @@ class PrintLabelController extends Controller
                "^PW500\n" .
                "^LL300\n" .
                "^LH10,10\n" .
-               "^FO10,10^GB480,280,2^FS\n" .
+               
                "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
@@ -928,7 +927,7 @@ class PrintLabelController extends Controller
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
-                       "^FO10,10^GB480,280,2^FS\n" .
+                       
                        "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                        "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                        "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
@@ -950,7 +949,7 @@ class PrintLabelController extends Controller
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
-                       "^FO10,10^GB480,280,2^FS\n" .
+                       
                        "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
                        "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
                        ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
@@ -969,7 +968,7 @@ class PrintLabelController extends Controller
                            "^PW500\n" .
                            "^LL300\n" .
                            "^LH10,10\n" .
-                           "^FO10,10^GB480,280,2^FS\n" .
+                           
                            "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                            "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                            "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
@@ -987,7 +986,7 @@ class PrintLabelController extends Controller
                        "^PW500\n" .
                        "^LL300\n" .
                        "^LH10,10\n" .
-                       "^FO10,10^GB480,280,2^FS\n" .
+                       
                        "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                        "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                        "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
@@ -1005,7 +1004,7 @@ class PrintLabelController extends Controller
                    "^PW500\n" .
                    "^LL300\n" .
                    "^LH10,10\n" .
-                   "^FO10,10^GB480,280,2^FS\n" .
+                   
                    "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
                    "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
                    ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .

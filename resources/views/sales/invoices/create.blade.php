@@ -2463,6 +2463,15 @@ function forceHideAllDropdowns() {
 // Handle product/service search input (works for table rows and mobile cards)
 $(document).on('input', '.product-service-search', function() {
     const query = $(this).val();
+    // Typing means the previous selection is no longer valid - clear hidden ids and color
+    const container = $(this).closest('tr').length ? $(this).closest('tr') : $(this).closest('.card');
+    if (container && container.length) {
+        container.find('input[name*="[product_id]"]').val('');
+        container.find('input[name*="[type]"]').val('');
+        container.find('input[name*="[selected_color]"]').val('');
+        container.find('.color-variant-select').val('');
+        container.find('.color-cell').hide();
+    }
     let rowIndex;
     const row = $(this).closest('tr');
     if (row.length) {
@@ -2578,6 +2587,12 @@ function addColorCellToRow(row, colorVariants) {
         const colorName = selectedOption.length ? (selectedOption.text().split(' (')[0]) : '';
         row.find(`input[name="items[${rowIndex}][selected_color]"]`).val(colorName);
     });
+
+    // If there is exactly one color variant, preselect it and persist its name
+    if (colorVariants.length === 1) {
+        const v = colorVariants[0];
+        colorSelect.val(v.id).trigger('change');
+    }
 }
 
 // Stock validation function
@@ -2824,10 +2839,32 @@ $('#invoiceForm').on('submit', function(e) {
     console.log('Stok Hatası Var mı?', hasStockError);
     console.log('Hata Mesajları:', errorMessages);
     
-    if (hasStockError) {
+    // Ek doğrulama: ürün seçimi ve renk seçimi
+    let metaError = false;
+    $('#invoiceItemsBody tr').each(function(idx){
+        const r = $(this);
+        const pName = r.find('input[name*="[product_service_name]"]').val() || '';
+        const pId = (r.find('input[name*="[product_id]"]').val() || '').toString();
+        const pType = r.find('input[name*="[type]"]').val() || r.data('product-type') || 'product';
+        if (pName.trim() !== '' && pType !== 'service' && !pId) {
+            errorMessages.push(`Satır ${idx+1}: Lütfen listeden bir ürün/seri seçin.`);
+            metaError = true;
+        }
+        const colorSel = r.find('.color-variant-select');
+        if (pType !== 'service' && colorSel.length > 0) {
+            const hasOptions = colorSel.find('option').length > 1;
+            const val = colorSel.val();
+            if (hasOptions && !val) {
+                errorMessages.push(`Satır ${idx+1}: Renk seçiniz.`);
+                metaError = true;
+            }
+        }
+    });
+
+    if (hasStockError || metaError) {
         console.log('FORM SUBMIT ENGELLENDİ - Stok hatası var');
         e.preventDefault();
-        alert('Yetersiz Stok Uyarısı:\n\n' + errorMessages.join('\n') + '\n\nLütfen miktarları kontrol edin.');
+        alert(errorMessages.join('\n'));
         return false;
     }
     

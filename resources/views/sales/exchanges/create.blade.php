@@ -962,7 +962,7 @@ $(document).ready(function() {
 
     // Initialize rows on load
     $('.exchange-item-checkbox').each(function() { toggleExchangeRowState($(this)); });
-
+    
     // Exchange item checkbox change handler
     $(document).on('change', '.exchange-item-checkbox', function() {
         toggleExchangeRowState($(this));
