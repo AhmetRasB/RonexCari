@@ -22,13 +22,38 @@
   });
 
   $(".sidebar-mobile-toggle").on("click", function(){
-    $(".sidebar").addClass("sidebar-open");
-    $("body").addClass("overlay-active");
+    // Toggle open/close on mobile button
+    const isOpen = $(".sidebar").hasClass("sidebar-open") || $("body").hasClass("overlay-active");
+    if (isOpen) {
+      $(".sidebar").removeClass("sidebar-open");
+      $("body").removeClass("overlay-active");
+    } else {
+      $(".sidebar").addClass("sidebar-open");
+      $("body").addClass("overlay-active");
+    }
   });
 
   $(".sidebar-close-btn").on("click", function(){
     $(".sidebar").removeClass("sidebar-open");
     $("body").removeClass("overlay-active");
+  });
+
+  // Close sidebar when clicking outside (mobile overlay behavior)
+  $(document).on("click touchstart pointerdown", function(e){
+    if (!$("body").hasClass("overlay-active")) return;
+    var $target = $(e.target);
+    // ignore clicks inside sidebar or on toggles
+    if ($target.closest(".sidebar, .sidebar-mobile-toggle, .sidebar-toggle").length) return;
+    $(".sidebar").removeClass("sidebar-open");
+    $("body").removeClass("overlay-active");
+  });
+
+  // If desktop toggle is clicked while mobile overlay is active, close overlay first
+  $(".sidebar-toggle").on("click", function(){
+    if ($("body").hasClass("overlay-active")) {
+      $(".sidebar").removeClass("sidebar-open");
+      $("body").removeClass("overlay-active");
+    }
   });
 
   //to keep the current page active
