@@ -463,8 +463,20 @@ class PrintLabelController extends Controller
                 $name = $this->sanitize($product->name ?? '');
                 $color = $this->sanitize($colorVariant->color ?? '');
                 $size = $this->sanitize($product->size ?? '');
-                $barcode = $this->sanitize($product->barcode ?: ($product->sku ?: ('P' . str_pad((string)$product->id, 4, '0', STR_PAD_LEFT))));
-                $qr = url('/products/' . $product->id);
+                $baseBarcode = $this->sanitize($product->barcode ?: ($product->sku ?: ('P' . str_pad((string)$product->id, 4, '0', STR_PAD_LEFT))));
+                $labelBarcode = $colorVariant->barcode ?: ('PV' . str_pad((string)$colorVariant->id, 6, '0', STR_PAD_LEFT));
+                if (!$colorVariant->barcode) {
+                    $colorVariant->barcode = $labelBarcode;
+                }
+                // Per-variant QR URL: /products/{product}/color/{variant}
+                $qr = $colorVariant->qr_code_value ?: route('products.color', ['product' => $product->id, 'variant' => $colorVariant->id]);
+                if (empty($colorVariant->qr_code_value)) {
+                    $colorVariant->qr_code_value = $qr;
+                }
+                // Persist any newly set codes once
+                if ($colorVariant->isDirty(['barcode','qr_code_value'])) {
+                    $colorVariant->save();
+                }
                 $stock = $colorVariant->stock_quantity ?? 0;
 
                 // Geliştirilmiş etiket formatı - Sadece bedenler, büyük barkod
@@ -478,9 +490,9 @@ class PrintLabelController extends Controller
                        "^FO360,15^BQN,2,3^FDLA,{$qr}^FS\n" .
                        ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
                        "^FO20," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
-                       "^FO20," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$barcode}^FS\n" .
+                       "^FO20," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$labelBarcode}^FS\n" .
                        "^BY4,2,100\n" .
-                       "^FO20," . ($size !== '' ? '165' : '135') . "^BCN,100,N,N,N^FD{$barcode}^FS\n" .
+                       "^FO20," . ($size !== '' ? '165' : '135') . "^BCN,100,N,N,N^FD{$labelBarcode}^FS\n" .
                        "^XZ\n";
                 $blocks[] = str_repeat($one, max(1, $count));
             }
@@ -544,6 +556,7 @@ class PrintLabelController extends Controller
         
         // Renkleri al - TÜM renkleri al, aktif/pasif fark etmez
         $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
+        $variantByColor = $series->colorVariants->keyBy('color');
         
         // Eğer renk yoksa, colorVariants ilişkisini tekrar yükle
         if (empty($colors) && $series->relationLoaded('colorVariants')) {
@@ -551,7 +564,18 @@ class PrintLabelController extends Controller
             $colors = $series->colorVariants->pluck('color')->filter()->values()->all();
         }
         
-        $qrSeries = url('/products/series/' . $series->id);
+        // Per-variant QR URL for single size
+        $qrSeries = $colorVariant->qr_code_value ?: route('products.series.color', ['series' => $series->id, 'variant' => $colorVariant->id]);
+        if (empty($colorVariant->qr_code_value)) {
+            $colorVariant->qr_code_value = $qrSeries;
+            $colorVariant->save();
+        }
+        // Prefer variant-specific barcode; fallback to series base barcode
+        $variantBarcode = $colorVariant->barcode ?: ('SV' . str_pad((string)$colorVariant->id, 6, '0', STR_PAD_LEFT));
+        if (!$colorVariant->barcode) {
+            $colorVariant->barcode = $variantBarcode;
+            $colorVariant->save();
+        }
 
         // Dış pakette TÜM bedenler gösterilecek (tekrarlılar dahil!)
         $sizesCsv = $this->sanitize(implode(' ', $allSizes));
@@ -584,6 +608,23 @@ class PrintLabelController extends Controller
                     // TÜM bedenler (tekrarlı olanlar dahil) - her renk için
                     foreach ($allSizes as $sizeIndex => $size) {
                         $sizeSan = $this->sanitize((string)$size);
+                        $variant = $variantByColor->get($color);
+                        $labelBarcode = $variant && $variant->barcode ? $this->sanitize($variant->barcode) : $barcode;
+                        if ($variant && empty($variant->barcode)) {
+                            $variant->barcode = 'SV' . str_pad((string)$variant->id, 6, '0', STR_PAD_LEFT);
+                            $labelBarcode = $variant->barcode;
+                        }
+                        // Per-variant QR URL when variant exists
+                        $qrValue = $qrSeries;
+                        if ($variant) {
+                            $qrValue = $variant->qr_code_value ?: route('products.series.color', ['series' => $series->id, 'variant' => $variant->id]);
+                            if (empty($variant->qr_code_value)) {
+                                $variant->qr_code_value = $qrValue;
+                            }
+                            if ($variant->isDirty(['barcode','qr_code_value'])) {
+                                $variant->save();
+                            }
+                        }
                         $one = "^XA\n" .
                                "^CI28\n" .
                                "^PW500\n" .
@@ -593,10 +634,10 @@ class PrintLabelController extends Controller
                                "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                                "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                                "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
-                               "^FO370,10^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
-                               "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+                               "^FO370,10^BQN,2,3^FDLA,{$qrValue}^FS\n" .
+                           "^FO20,122^A0N,20,20^FD{$labelBarcode}^FS\n" .
                                "^BY4,2,90\n" .
-                               "^FO20,150^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                           "^FO20,150^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
                                "^XZ\n";
                         $blocks[] = str_repeat($one, max(1, $count));
                         \Log::info('ZPL Sizes mode - Added label', [
@@ -657,6 +698,23 @@ class PrintLabelController extends Controller
         if (count($colors) > 0) {
             foreach ($colors as $colorIndex => $color) {
                 $colorSan = $this->sanitize($color);
+                $variant = $variantByColor->get($color);
+                $labelBarcode = $variant && $variant->barcode ? $this->sanitize($variant->barcode) : $barcode;
+                if ($variant && empty($variant->barcode)) {
+                    $variant->barcode = 'SV' . str_pad((string)$variant->id, 6, '0', STR_PAD_LEFT);
+                    $labelBarcode = $variant->barcode;
+                }
+                // Variant-specific QR if possible
+                $qrValue = $qrSeries;
+                if ($variant) {
+                    $qrValue = $variant->qr_code_value ?: route('products.series.color', ['series' => $series->id, 'variant' => $variant->id]);
+                    if (empty($variant->qr_code_value)) {
+                        $variant->qr_code_value = $qrValue;
+                    }
+                    if ($variant->isDirty(['barcode','qr_code_value'])) {
+                        $variant->save();
+                    }
+                }
                 $one = "^XA\n" .    
                        "^CI28\n" .
                        "^PW500\n" .
@@ -667,7 +725,7 @@ class PrintLabelController extends Controller
                        "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
                        ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
                        "^FO20,120^A0N,20,20^FD{$barcode}^FS\n" .
-                       "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
+                       "^FO360,15^BQN,2,3^FDLA,{$qrValue}^FS\n" .
                        "^BY4,2,90\n" .
                        "^FO20,148^BCN,90,N,N,N^FD{$barcode}^FS\n" .
                        "^XZ\n";
@@ -754,6 +812,13 @@ class PrintLabelController extends Controller
             if (count($colors) > 0) {
                 foreach ($colors as $color) {
                     $colorSan = $this->sanitize($color);
+                    $variant = $series->colorVariants->firstWhere('color', $color);
+                    $labelBarcode = $variant && $variant->barcode ? $this->sanitize($variant->barcode) : $barcode;
+                    if ($variant && empty($variant->barcode)) {
+                        $variant->barcode = 'SV' . str_pad((string)$variant->id, 6, '0', STR_PAD_LEFT);
+                        $variant->save();
+                        $labelBarcode = $variant->barcode;
+                    }
                     
                     // 1) Dış etiket (her renk için ayrı)
                     $outerOne = "^XA\n" .    
@@ -765,10 +830,10 @@ class PrintLabelController extends Controller
                                "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
                                "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
                                ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
-                               "^FO20,120^A0N,20,20^FD{$barcode}^FS\n" .
+                               "^FO20,120^A0N,20,20^FD{$labelBarcode}^FS\n" .
                                "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
                                "^BY4,2,90\n" .
-                               "^FO20,148^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                               "^FO20,148^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
                                "^XZ\n";
                     $blocks[] = str_repeat($outerOne, max(1, $packages));
                     
@@ -784,10 +849,10 @@ class PrintLabelController extends Controller
                                    "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                                    "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                                    "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
-                                   "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+                                   "^FO20,122^A0N,20,20^FD{$labelBarcode}^FS\n" .
                                    "^FO370,16^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
                                    "^BY4,2,90\n" .
-                                   "^FO20,150^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                                   "^FO20,150^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
                                    "^XZ\n";
                         $blocks[] = str_repeat($sizeOne, max(1, $packages));
                     }
@@ -801,10 +866,10 @@ class PrintLabelController extends Controller
                                
                                "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                                "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
-                               "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
+                               "^FO20,88^A0N,20,20^FD{$labelBarcode}^FS\n" .
                                "^FO370,16^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
                                "^BY4,2,90\n" .
-                               "^FO20,116^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                               "^FO20,116^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
                                "^XZ\n";
                     $blocks[] = str_repeat($colorOne, max(1, $packages));
                 }
@@ -865,7 +930,17 @@ class PrintLabelController extends Controller
         $colorSan = $this->sanitize($color);
         $sizeSan = $this->sanitize((string)$size);
         $barcode = $this->sanitize($series->barcode ?: ($series->sku ?: ('S' . str_pad((string)$series->id, 4, '0', STR_PAD_LEFT))));
-        $qrSeries = url('/products/series/' . $series->id);
+        // Variant-specific QR for this color
+        $qrSeries = $colorVariant->qr_code_value ?: route('products.series.color', ['series' => $series->id, 'variant' => $colorVariant->id]);
+        if (empty($colorVariant->qr_code_value)) {
+            $colorVariant->qr_code_value = $qrSeries;
+            $colorVariant->save();
+        }
+        $variantBarcode = $colorVariant->barcode ?: ('SV' . str_pad((string)$colorVariant->id, 6, '0', STR_PAD_LEFT));
+        if (!$colorVariant->barcode) {
+            $colorVariant->barcode = $variantBarcode;
+            $colorVariant->save();
+        }
 
         $one = "^XA\n" .
                "^CI28\n" .
@@ -877,9 +952,9 @@ class PrintLabelController extends Controller
                "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
                "^FO370,10^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
-               "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+               "^FO20,122^A0N,20,20^FD{$variantBarcode}^FS\n" .
                "^BY4,2,90\n" .
-               "^FO20,150^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+               "^FO20,150^BCN,90,N,N,N^FD{$variantBarcode}^FS\n" .
                "^XZ\n";
         
         return $one;
@@ -900,7 +975,17 @@ class PrintLabelController extends Controller
         $name = $this->sanitize($series->name ?? '');
         $colorSan = $this->sanitize($color);
         $barcode = $this->sanitize($series->barcode ?: ($series->sku ?: ('S' . str_pad((string)$series->id, 4, '0', STR_PAD_LEFT))));
-        $qrSeries = url('/products/series/' . $series->id);
+        // Variant-specific QR for this color
+        $qrSeries = $colorVariant->qr_code_value ?: route('products.series.color', ['series' => $series->id, 'variant' => $colorVariant->id]);
+        if (empty($colorVariant->qr_code_value)) {
+            $colorVariant->qr_code_value = $qrSeries;
+            $colorVariant->save();
+        }
+        $labelBarcode = $colorVariant->barcode ?: ('SV' . str_pad((string)$colorVariant->id, 6, '0', STR_PAD_LEFT));
+        if (!$colorVariant->barcode) {
+            $colorVariant->barcode = $labelBarcode;
+            $colorVariant->save();
+        }
         
         $allSizes = $series->seriesItems->pluck('size')->filter()->all();
         $sizesCsv = $this->sanitize(implode(' ', $allSizes));
@@ -953,10 +1038,10 @@ class PrintLabelController extends Controller
                        "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
                        "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
                        ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
-                       "^FO20,120^A0N,20,20^FD{$barcode}^FS\n" .
+                       "^FO20,120^A0N,20,20^FD{$labelBarcode}^FS\n" .
                        "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
                        "^BY4,2,90\n" .
-                       "^FO20,148^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                       "^FO20,148^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
                        "^XZ\n";
             $blocks[] = str_repeat($outerOne, max(1, $count));
             
@@ -972,10 +1057,10 @@ class PrintLabelController extends Controller
                            "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                            "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
                            "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
-                           "^FO20,122^A0N,20,20^FD{$barcode}^FS\n" .
+                           "^FO20,122^A0N,20,20^FD{$labelBarcode}^FS\n" .
                            "^FO370,16^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
                            "^BY4,2,90\n" .
-                           "^FO20,150^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                           "^FO20,150^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
                            "^XZ\n";
                 $blocks[] = str_repeat($sizeOne, max(1, $count));
             }
@@ -989,10 +1074,10 @@ class PrintLabelController extends Controller
                        
                        "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
                        "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
-                       "^FO20,88^A0N,20,20^FD{$barcode}^FS\n" .
+                       "^FO20,88^A0N,20,20^FD{$labelBarcode}^FS\n" .
                        "^FO370,16^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
                        "^BY4,2,90\n" .
-                       "^FO20,116^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                       "^FO20,116^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
                        "^XZ\n";
             $blocks[] = str_repeat($colorOne, max(1, $count));
             
@@ -1008,10 +1093,10 @@ class PrintLabelController extends Controller
                    "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
                    "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
                    ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
-                   "^FO20,120^A0N,20,20^FD{$barcode}^FS\n" .
+                   "^FO20,120^A0N,20,20^FD{$labelBarcode}^FS\n" .
                    "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
                    "^BY4,2,90\n" .
-                   "^FO20,148^BCN,90,N,N,N^FD{$barcode}^FS\n" .
+                   "^FO20,148^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
                    "^XZ\n";
             return str_repeat($one, max(1, $count));
         }

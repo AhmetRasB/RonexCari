@@ -964,105 +964,130 @@ class InvoiceController extends Controller
                 return response()->json([]);
             }
             $currentAccountId = session('current_account_id');
+
+            // Try exact match on series color-variant barcode (scanner use-case)
+            $matchedSeriesId = null;
+            $matchedVariantId = null;
+            try {
+                $mv = \App\Models\ProductSeriesColorVariant::query()
+                    ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                        $q->whereHas('productSeries', function($qq) use ($currentAccountId) {
+                            $qq->where('account_id', $currentAccountId);
+                        });
+                    })
+                    ->where('barcode', $query)
+                    ->first();
+                if ($mv) {
+                    $matchedSeriesId = $mv->product_series_id;
+                    $matchedVariantId = $mv->id;
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Variant barcode lookup failed', ['error' => $e->getMessage()]);
+            }
         
-        // Tekli ürünler kaldırıldı - sadece seri ürünler ve hizmetler gösteriliyor
-        $products = collect([]);
-        
-        // Search in product series - search in all relevant fields
-        $productSeries = \App\Models\ProductSeries::with(['seriesItems', 'colorVariants'])
-            ->where('is_active', true)
-            ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
-                $q->where('account_id', $currentAccountId);
-            })
-            ->when($currentAccountId === null, function($q) {
-                // Eğer hesap seçili değilse, tüm ürünleri getir
-                $q->whereNotNull('account_id');
-            })
-            ->where(function($q) use ($query) {
-                $q->where('name', 'like', "%{$query}%")
-                  ->orWhere('sku', 'like', "%{$query}%")
-                  ->orWhere('barcode', 'like', "%{$query}%")
-                  ->orWhere('category', 'like', "%{$query}%")
-                  ->orWhere('brand', 'like', "%{$query}%")
-                  ->orWhere('description', 'like', "%{$query}%");
-            })
-            ->select('id', 'name', 'sku', 'category', 'brand', 'price', 'price_currency', 'cost', 'cost_currency', 'series_size', 'stock_quantity')
-            ->limit(10)
-            ->get()
-            ->map(function ($series) {
-                $colorVariants = $series->colorVariants->map(function($variant) {
+            // Tekli ürünler kaldırıldı - sadece seri ürünler ve hizmetler gösteriliyor
+            $products = collect([]);
+            
+            // Search in product series - search in all relevant fields
+            $productSeries = \App\Models\ProductSeries::with(['seriesItems', 'colorVariants'])
+                ->where('is_active', true)
+                ->when($currentAccountId !== null, function($q) use ($currentAccountId) {
+                    $q->where('account_id', $currentAccountId);
+                })
+                ->when($currentAccountId === null, function($q) {
+                    // Eğer hesap seçili değilse, tüm ürünleri getir
+                    $q->whereNotNull('account_id');
+                })
+                ->where(function($q) use ($query) {
+                    $q->where('name', 'like', "%{$query}%")
+                      ->orWhere('sku', 'like', "%{$query}%")
+                      ->orWhere('barcode', 'like', "%{$query}%")
+                      ->orWhere('category', 'like', "%{$query}%")
+                      ->orWhere('brand', 'like', "%{$query}%")
+                      ->orWhere('description', 'like', "%{$query}%")
+                      ->orWhereHas('colorVariants', function($qq) use ($query) {
+                          $qq->where('color', 'like', "%{$query}%")
+                             ->orWhere('barcode', 'like', "%{$query}%");
+                      });
+                })
+                ->select('id', 'name', 'sku', 'category', 'brand', 'price', 'price_currency', 'cost', 'cost_currency', 'series_size', 'stock_quantity')
+                ->get()
+                ->map(function ($series) use ($matchedSeriesId, $matchedVariantId) {
+                    $colorVariants = $series->colorVariants->map(function($variant) {
+                        return [
+                            'id' => $variant->id,
+                            'color' => $variant->color,
+                            'barcode' => $variant->barcode,
+                            'stock_quantity' => $variant->stock_quantity,
+                        ];
+                    });
+                    
+                    // Seri boyutunu hesapla: kayıtlı değer; yoksa seri içeriğindeki miktarların toplamı; o da yoksa beden sayısı
+                    $seriesItemsSum = $series->seriesItems->sum('quantity_per_series');
+                    $seriesSize = $series->series_size ?: ($seriesItemsSum ?: $series->seriesItems->count());
+                    
                     return [
-                        'id' => $variant->id,
-                        'color' => $variant->color,
-                        'stock_quantity' => $variant->stock_quantity
+                        'id' => 'series_' . $series->id,
+                        'name' => $series->name . ($seriesSize > 0 ? ' (' . $seriesSize . 'li Seri)' : ''),
+                        'product_code' => $series->sku,
+                        'category' => $series->category,
+                        'brand' => $series->brand,
+                        'size' => $seriesSize > 0 ? $seriesSize . 'li Seri' : 'Seri Boyutu Belirlenmemiş',
+                        'color' => null,
+                        'price' => $series->price,
+                        'purchase_price' => $series->cost,
+                        'vat_rate' => 20, // Default VAT rate
+                        // Display currency for UI should follow selling price currency
+                        'currency' => $series->price_currency ?? 'TRY',
+                        'type' => 'series',
+                        'stock_quantity' => $series->stock_quantity,
+                        'series_size' => $series->series_size,
+                        'sizes' => $series->seriesItems->pluck('size')->toArray(),
+                        'has_color_variants' => $colorVariants->count() > 0,
+                        'color_variants' => $colorVariants,
+                        'preferred_color_variant_id' => ($matchedSeriesId === $series->id) ? $matchedVariantId : null,
                     ];
                 });
-                
-                // Seri boyutunu hesapla: kayıtlı değer; yoksa seri içeriğindeki miktarların toplamı; o da yoksa beden sayısı
-                $seriesItemsSum = $series->seriesItems->sum('quantity_per_series');
-                $seriesSize = $series->series_size ?: ($seriesItemsSum ?: $series->seriesItems->count());
-                
-                return [
-                    'id' => 'series_' . $series->id,
-                    'name' => $series->name . ($seriesSize > 0 ? ' (' . $seriesSize . 'li Seri)' : ''),
-                    'product_code' => $series->sku,
-                    'category' => $series->category,
-                    'brand' => $series->brand,
-                    'size' => $seriesSize > 0 ? $seriesSize . 'li Seri' : 'Seri Boyutu Belirlenmemiş',
-                    'color' => null,
-                    'price' => $series->price,
-                    'purchase_price' => $series->cost,
-                    'vat_rate' => 20, // Default VAT rate
-                    // Display currency for UI should follow selling price currency
-                    'currency' => $series->price_currency ?? 'TRY',
-                    'type' => 'series',
-                    'stock_quantity' => $series->stock_quantity,
-                    'series_size' => $series->series_size,
-                    'sizes' => $series->seriesItems->pluck('size')->toArray(),
-                    'has_color_variants' => $colorVariants->count() > 0,
-                    'color_variants' => $colorVariants
-                ];
-            });
-        
-        // Search in services - search in all relevant fields
-        $services = \App\Models\Service::where('is_active', true)
-            ->where(function($q) use ($query) {
-                $q->where('name', 'like', "%{$query}%")
-                  ->orWhere('code', 'like', "%{$query}%")
-                  ->orWhere('category', 'like', "%{$query}%")
-                  ->orWhere('description', 'like', "%{$query}%");
-            })
-            ->select('id', 'name', 'code', 'category', 'price')
-            ->limit(10)
-            ->get()
-            ->map(function ($service) {
-                return [
-                    'id' => 'service_' . $service->id,
-                    'name' => $service->name,
-                    'product_code' => $service->code,
-                    'category' => $service->category,
-                    'brand' => null,
-                    'size' => null,
-                    'color' => null,
-                    'price' => $service->price,
-                    'purchase_price' => null,
-                    'vat_rate' => 20, // Default VAT rate
-                    'currency' => 'TRY',
-                    'type' => 'service'
-                ];
-            });
-        
-        // Combine and return (tekli ürünler hariç - sadece seri ürünler ve hizmetler)
-        $results = $productSeries->concat($services)->take(20);
-        
-        \Log::info('Search results:', [
-            'query' => $query,
-            'series_count' => $productSeries->count(),
-            'services_count' => $services->count(),
-            'total_results' => $results->count()
-        ]);
-        
-        return response()->json($results);
+            
+            // Search in services - search in all relevant fields
+            $services = \App\Models\Service::where('is_active', true)
+                ->where(function($q) use ($query) {
+                    $q->where('name', 'like', "%{$query}%")
+                      ->orWhere('code', 'like', "%{$query}%")
+                      ->orWhere('category', 'like', "%{$query}%")
+                      ->orWhere('description', 'like', "%{$query}%");
+                })
+                ->select('id', 'name', 'code', 'category', 'price')
+                ->limit(10)
+                ->get()
+                ->map(function ($service) {
+                    return [
+                        'id' => 'service_' . $service->id,
+                        'name' => $service->name,
+                        'product_code' => $service->code,
+                        'category' => $service->category,
+                        'brand' => null,
+                        'size' => null,
+                        'color' => null,
+                        'price' => $service->price,
+                        'purchase_price' => null,
+                        'vat_rate' => 20, // Default VAT rate
+                        'currency' => 'TRY',
+                        'type' => 'service'
+                    ];
+                });
+            
+            // Combine and return (tekli ürünler hariç - sadece seri ürünler ve hizmetler)
+            $results = $productSeries->concat($services)->take(20);
+            
+            \Log::info('Search results:', [
+                'query' => $query,
+                'series_count' => $productSeries->count(),
+                'services_count' => $services->count(),
+                'total_results' => $results->count()
+            ]);
+            
+            return response()->json($results);
         } catch (\Throwable $e) {
             \Log::error('searchProducts failed', ['error' => $e->getMessage(), 'q' => $request->get('q')]);
             return response()->json(['message' => 'Server Error'], 500);

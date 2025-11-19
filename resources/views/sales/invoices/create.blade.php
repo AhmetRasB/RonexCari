@@ -2180,6 +2180,7 @@ function searchProductsServices(query, rowIndex) {
                              data-stock-quantity="${item.stock_quantity || 0}"
                              data-has-color-variants="${item.has_color_variants || false}"
                              data-color-variants='${JSON.stringify(item.color_variants || [])}'
+                             data-preferred-variant-id="${item.preferred_color_variant_id || ''}"
                              style="cursor: pointer; padding: 16px 20px; border-bottom: 1px solid #f0f0f0;">
                             <div class="row">
                                 <div class="col-8">
@@ -2343,11 +2344,18 @@ $(document).on('click', '.product-service-item', function(e) {
     
     // Handle color variants
     if (hasColorVariants && colorVariants && colorVariants.length > 0) {
+        const preferredVariantId = $(this).data('preferred-variant-id') || null;
         if (row.length) {
             // Desktop table row
             addColorColumnToTable();
             addColorCellToRow(row, colorVariants);
             row.data('color-variants', colorVariants);
+            if (preferredVariantId) {
+                const colorSelect = row.find('.color-variant-select');
+                if (colorSelect.length) {
+                    colorSelect.val(preferredVariantId).trigger('change');
+                }
+            }
         } else if (card.length) {
             // Mobile card
             card.find('.color-selection-mobile').show();
@@ -2358,6 +2366,9 @@ $(document).on('click', '.product-service-item', function(e) {
                 colorSelect.append(`<option value="${variant.id}" data-stock="${variant.stock_quantity}">${variant.color}${stockText}</option>`);
             });
             card.data('color-variants', colorVariants);
+            if (preferredVariantId) {
+                colorSelect.val(preferredVariantId).trigger('change');
+            }
         }
     }
     

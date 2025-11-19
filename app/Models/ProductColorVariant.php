@@ -13,6 +13,8 @@ class ProductColorVariant extends Model
         'product_id',
         'color',
         'color_code',
+        'barcode',
+        'qr_code_value',
         'stock_quantity',
         'critical_stock',
         'image',

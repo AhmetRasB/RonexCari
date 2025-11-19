@@ -10,6 +10,8 @@ class ProductSeriesColorVariant extends Model
     protected $fillable = [
         'product_series_id',
         'color',
+        'barcode',
+        'qr_code_value',
         'stock_quantity',
         'critical_stock',
         'is_active'
