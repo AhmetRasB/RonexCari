@@ -468,8 +468,8 @@ class PrintLabelController extends Controller
                 if (!$colorVariant->barcode) {
                     $colorVariant->barcode = $labelBarcode;
                 }
-                // Per-variant QR URL: /products/{product}/color/{variant}
-                $qr = $colorVariant->qr_code_value ?: route('products.color', ['product' => $product->id, 'variant' => $colorVariant->id]);
+                // Product color variant QR is no longer routed; fall back to product show
+                $qr = $colorVariant->qr_code_value ?: route('products.show', $product->id);
                 if (empty($colorVariant->qr_code_value)) {
                     $colorVariant->qr_code_value = $qr;
                 }

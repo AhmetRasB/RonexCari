@@ -121,13 +121,9 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     Route::post('products/series/{series}/quick-stock', [\App\Http\Controllers\Products\ProductSeriesController::class, 'quickStockUpdate'])->name('products.series.quick-stock');
     // Variant-focused landing routes (for QR scans)
     // ID-based (variant id)
-    Route::get('products/{product}/color/{variant}', [ProductVariantController::class, 'productColor'])
-        ->whereNumber('variant')->name('products.color');
     Route::get('products/series/{series}/color/{variant}', [ProductVariantController::class, 'seriesColor'])
         ->whereNumber('variant')->name('products.series.color');
     // Color-name based (non-numeric color string)
-    Route::get('products/{product}/color/{color}', [ProductVariantController::class, 'productColorByName'])
-        ->where('color', '^(?!\\d+$).+')->name('products.color.byName');
     Route::get('products/series/{series}/color/{color}', [ProductVariantController::class, 'seriesColorByName'])
         ->where('color', '^(?!\\d+$).+')->name('products.series.color.byName');
     // Product Categories (per account) - resource under separate prefix

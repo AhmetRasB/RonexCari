@@ -161,6 +161,34 @@ class BarcodeController extends Controller
 
             $currentAccountId = session('current_account_id');
 
+            // 1) Try to resolve SERIES COLOR VARIANT directly by its own barcode
+            $seriesVariant = \App\Models\ProductSeriesColorVariant::query()
+                ->where('barcode', $barcode)
+                ->where('is_active', true)
+                ->whereHas('productSeries', function($q) use ($currentAccountId) {
+                    $q->where('is_active', true);
+                    if ($currentAccountId !== null) {
+                        $q->where('account_id', $currentAccountId);
+                    } else {
+                        $q->whereNotNull('account_id');
+                    }
+                })
+                ->first();
+
+            if ($seriesVariant) {
+                return response()->json([
+                    'type' => 'series_variant',
+                    'id' => $seriesVariant->id,
+                    'name' => $seriesVariant->color,
+                    'redirect_url' => route('products.series.color', [
+                        'series' => $seriesVariant->product_series_id,
+                        'variant' => $seriesVariant->id
+                    ])
+                ]);
+            }
+
+            // 2) We no longer resolve single product color variants by barcode (series only)
+
             // Yalnızca seri ürünlerde arama yap
             $series = ProductSeries::where('barcode', $barcode)
                 ->where('is_active', true)
