@@ -1418,48 +1418,55 @@ class PrintLabelController extends Controller
      */
     private function saveLabelPng(string $zpl, string $tempDir, string $label, int &$requestCount, int $delay): ?string
     {
-        try {
-            // Rate limiting: wait before each request
-            if ($requestCount > 0) {
-                usleep($delay * 1000); // Convert ms to microseconds
-            }
-            $requestCount++;
+        $attempts = 0;
+        $maxAttempts = 3;
+        $backoffMs = [0, 1000, 2000];
+        while ($attempts < $maxAttempts) {
+            try {
+                if ($requestCount > 0) {
+                    usleep($delay * 1000);
+                }
+                if (!empty($backoffMs[$attempts])) {
+                    usleep($backoffMs[$attempts] * 1000);
+                }
+                $requestCount++;
 
-            $response = \Illuminate\Support\Facades\Http::timeout(15)
-                ->withHeaders(['Accept' => 'image/png'])
-                ->withOptions(['verify' => false])
-                ->withBody($zpl, 'application/x-www-form-urlencoded')
-                ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
+                $response = \Illuminate\Support\Facades\Http::timeout(15)
+                    ->withHeaders(['Accept' => 'image/png'])
+                    ->withOptions(['verify' => false])
+                    ->withBody($zpl, 'application/x-www-form-urlencoded')
+                    ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
 
-            if ($response->successful() && $response->body()) {
-                // Sanitize filename
-                $safeLabel = preg_replace('/[^a-zA-Z0-9_-]/', '_', $label);
-                $fileName = 'etiket_' . $safeLabel . '.png';
-                $filePath = $tempDir . '/' . $fileName;
-                \File::put($filePath, $response->body());
-                
-                \Log::info('saveLabelPng - Success', [
-                    'label' => $label,
-                    'fileName' => $fileName,
-                    'fileSize' => strlen($response->body())
-                ]);
-                
-                return $filePath;
-            } else {
-                \Log::error('saveLabelPng - Labelary API error', [
+                if ($response->successful() && $response->body()) {
+                    $safeLabel = preg_replace('/[^a-zA-Z0-9_-]/', '_', $label);
+                    $fileName = 'etiket_' . $safeLabel . '.png';
+                    $filePath = $tempDir . '/' . $fileName;
+                    \File::put($filePath, $response->body());
+                    \Log::info('saveLabelPng - Success', [
+                        'label' => $label,
+                        'fileName' => $fileName,
+                        'fileSize' => strlen($response->body())
+                    ]);
+                    return $filePath;
+                }
+
+                \Log::warning('saveLabelPng - API non-success (will retry if possible)', [
                     'label' => $label,
                     'status' => $response->status(),
-                    'body' => substr($response->body(), 0, 500)
+                    'body_head' => substr((string)$response->body(), 0, 200),
+                    'attempt' => $attempts + 1
                 ]);
-                return null;
+            } catch (\Throwable $e) {
+                \Log::error('saveLabelPng - Exception (will retry if possible)', [
+                    'label' => $label,
+                    'attempt' => $attempts + 1,
+                    'error' => $e->getMessage()
+                ]);
             }
-        } catch (\Exception $e) {
-            \Log::error('saveLabelPng - Exception', [
-                'label' => $label,
-                'error' => $e->getMessage()
-            ]);
-            return null;
+            $attempts++;
         }
+        \Log::error('saveLabelPng - Failed after retries', ['label' => $label, 'attempts' => $attempts]);
+        return null;
     }
 
     /**
