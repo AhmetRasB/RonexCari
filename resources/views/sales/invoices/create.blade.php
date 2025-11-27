@@ -840,16 +840,100 @@ $(document).ready(function() {
     // Add scanned product button
     $('#addScannedProduct').on('click', function(){
         if (scannedProductData) {
-            appendInvoiceItemFromResult(scannedProductData);
-            alert(scannedProductData.name + ' eklendi');
+            // Collect overrides from modal inputs
+            const overrides = {
+                description: ($('#modalDescription').val() || '').trim(),
+                quantity: parseFloat($('#modalQuantity').val()) || 1,
+                discount_rate: parseFloat($('#modalDiscountAmount').val()) || 0,
+                unit_price: parseFloat($('#modalUnitPrice').val()) || (parseFloat(scannedProductData.price || 0) || 0),
+                unit_currency: $('#modalUnitCurrency').val() || (scannedProductData.currency || $('#currency').val()),
+                tax_rate: parseFloat($('#modalTaxRate').val()) || (parseFloat(scannedProductData.vat_rate || 10) || 10),
+                color_variant_id: $('#modalColorVariant').length ? ($('#modalColorVariant').val() || null) : null,
+            };
+            
+            // Build item to append with price/currency/tax and preferred color
+            const item = Object.assign({}, scannedProductData, {
+                price: overrides.unit_price,
+                vat_rate: overrides.tax_rate,
+                currency: overrides.unit_currency,
+                preferred_color_variant_id: overrides.color_variant_id || scannedProductData.preferred_color_variant_id || null
+            });
+            
+            appendInvoiceItemFromResult(item);
+            
+            // After row/card created, set description/qty/discount and color name
+            setTimeout(() => {
+                const index = itemCounter - 1;
+                const row = $(`tr[data-item-index="${index}"]`);
+                const card = $(`.card[data-item-index="${index}"]`);
+                const selectedVariantId = overrides.color_variant_id;
+                const selectedVariant = (scannedProductData.color_variants || []).find(v => (v.id+'' === (selectedVariantId||'')+''));
+                const selectedColorName = selectedVariant ? selectedVariant.color : '';
+                
+                if (row.length) {
+                    if (overrides.description) row.find('textarea[name*="[description]"]').val(overrides.description);
+                    row.find('input[name*="[quantity]"]').val(overrides.quantity);
+                    row.find('input[name*="[discount_rate]"]').val(overrides.discount_rate);
+                    row.find('.unit-currency').val(overrides.unit_currency).trigger('change');
+                    if (selectedVariantId) {
+                        const colorSelect = row.find('.color-variant-select');
+                        if (colorSelect.length) {
+                            colorSelect.val(selectedVariantId).trigger('change');
+                            colorSelect.prop('disabled', true).addClass('bg-light');
+                        }
+                        row.find('input[name*="[selected_color]"]').val(selectedColorName);
+                        // Ensure disabled select value is submitted by adding a hidden mirror input
+                        if (row.find('input.color-variant-id-hidden').length === 0) {
+                            row.find('.color-cell').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${index}][color_variant_id]" value="${selectedVariantId}">`);
+                        } else {
+                            row.find('input.color-variant-id-hidden').val(selectedVariantId);
+                        }
+                    }
+                    calculateLineTotal.call(row.find('.unit-price')[0]);
+                } else if (card.length) {
+                    if (overrides.description) card.find('textarea[name*="[description]"]').val(overrides.description);
+                    card.find('input[name*="[quantity]"]').val(overrides.quantity).trigger('input');
+                    card.find('input[name*="[discount_rate]"]').val(overrides.discount_rate);
+                    card.find('.unit-currency').val(overrides.unit_currency).trigger('change');
+                    if (selectedVariantId) {
+                        const colorSelect = card.find('.color-variant-select');
+                        if (colorSelect.length) {
+                            colorSelect.val(selectedVariantId).trigger('change');
+                            colorSelect.prop('disabled', true).addClass('bg-light');
+                        }
+                        card.find('input[name*="[selected_color]"]').val(selectedColorName);
+                        // Ensure disabled select value is submitted by adding a hidden mirror input
+                        if (card.find('input.color-variant-id-hidden').length === 0) {
+                            card.find('.color-selection-mobile').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${index}][color_variant_id]" value="${selectedVariantId}">`);
+                        } else {
+                            card.find('input.color-variant-id-hidden').val(selectedVariantId);
+                        }
+                    }
+                    calculateMobileLineTotal.call(card.find('.unit-price')[0]);
+                }
+            }, 120);
+            
+            toastr.success(scannedProductData.name + ' eklendi');
             
             // Close modal using Bootstrap method
-            const modal = bootstrap.Modal.getInstance(document.getElementById('scannedProductModal'));
-            if (modal) {
-                modal.hide();
-            } else {
-                $('#scannedProductModal').modal('hide');
-            }
+            (function(){
+                try {
+                    const m = bootstrap.Modal.getInstance(document.getElementById('scannedProductModal'));
+                    if (m) m.hide();
+                } catch(e){}
+                // Fallback for jQuery plugin
+                try { $('#scannedProductModal').modal('hide'); } catch(e){}
+                // Also ensure any scanner modal/backdrop is removed if still present
+                try {
+                    const gs = bootstrap.Modal.getInstance(document.getElementById('globalScannerModal'));
+                    if (gs) gs.hide();
+                } catch(e){}
+                setTimeout(function(){
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open').css('padding-right','');
+                    $('#scannedProductModal').attr('aria-hidden','true');
+                }, 150);
+            })();
             scannedProductData = null;
         }
     });
@@ -978,6 +1062,8 @@ window.addScannedProductByCode = function(code){
 
 // Global variable to store the scanned product data
 let scannedProductData = null;
+// Guard to prevent multiple quick clicks on "Ekle"
+let scannedAddInProgress = false;
 
 function showScannedProductModal(item) {
     scannedProductData = item;
@@ -1053,6 +1139,77 @@ function showScannedProductModal(item) {
     
     $('#scannedProductContent').html(modalContent);
     $('#scannedProductModal').modal('show');
+    
+    // Append line settings (inputs) into modal
+    const settingsHtml = `
+        <div class="row g-3 mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="fw-semibold text-primary mb-3">Satır Ayarları</h6>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Açıklama</label>
+                                <textarea id="modalDescription" class="form-control" rows="2" placeholder="Açıklama girin"></textarea>
+                            </div>
+                            ${item.has_color_variants && item.color_variants && item.color_variants.length > 0 ? `
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Renk</label>
+                                <select id="modalColorVariant" class="form-select">
+                                    <option value="">Renk Seçin</option>
+                                    ${(item.color_variants || []).map(v => `<option value="${v.id}">${v.color}${v.stock_quantity ? ' ('+v.stock_quantity+' adet)' : ''}</option>`).join('')}
+                                </select>
+                            </div>` : ``}
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Miktar</label>
+                                <input type="number" id="modalQuantity" class="form-control" value="1" min="0.01" step="0.01">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">İndirim (Tutar)</label>
+                                <input type="number" id="modalDiscountAmount" class="form-control" value="0" min="0" step="0.01">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Birim Fiyat</label>
+                                <input type="number" id="modalUnitPrice" class="form-control" value="${parseFloat(item.price || 0).toFixed(2)}" min="0" step="0.01">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Para Birimi</label>
+                                <select id="modalUnitCurrency" class="form-select">
+                                    <option value="TRY" ${(item.currency || $('#currency').val()) === 'TRY' ? 'selected' : ''}>₺ TRY</option>
+                                    <option value="USD" ${(item.currency || $('#currency').val()) === 'USD' ? 'selected' : ''}>$ USD</option>
+                                    <option value="EUR" ${(item.currency || $('#currency').val()) === 'EUR' ? 'selected' : ''}>€ EUR</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">KDV</label>
+                                <select id="modalTaxRate" class="form-select">
+                                    <option value="0" ${(+item.vat_rate === 0 ? 'selected' : '')}>KDV %0</option>
+                                    <option value="1" ${(+item.vat_rate === 1 ? 'selected' : '')}>KDV %1</option>
+                                    <option value="10" ${(+item.vat_rate === 10 || item.vat_rate === undefined ? 'selected' : '')}>KDV %10</option>
+                                    <option value="20" ${(+item.vat_rate === 20 ? 'selected' : '')}>KDV %20</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    $('#scannedProductContent').append(settingsHtml);
+    // Auto-select preferred or single color
+    if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {
+        const preferred = item.preferred_color_variant_id || (item.color_variants.length === 1 ? item.color_variants[0].id : null);
+        if (preferred) {
+            setTimeout(() => { 
+                $('#modalColorVariant').val(preferred).trigger('change');
+                // Lock selection when color comes from scanned variant
+                $('#modalColorVariant').prop('disabled', true).addClass('bg-light');
+                if ($('#modalColorVariant').next('.form-text').length === 0) {
+                    $('#modalColorVariant').after('<div class="form-text text-success">Renk barkoddan otomatik belirlendi.</div>');
+                }
+            }, 50);
+        }
+    }
 }
 
 function appendInvoiceItemFromResult(item){
@@ -1087,6 +1244,23 @@ function appendInvoiceItemFromResult(item){
             // Store color variants data
             card.data('color-variants', item.color_variants);
             
+            // Auto-select preferred color if provided
+            if (item.preferred_color_variant_id) {
+                colorSelect.val(item.preferred_color_variant_id).trigger('change');
+                const selected = item.color_variants.find(v => v.id == item.preferred_color_variant_id);
+                if (selected) {
+                    card.find('input[name*="[selected_color]"]').val(selected.color);
+                }
+                // Lock color selection on mobile when scanned variant defines color
+                colorSelect.prop('disabled', true).addClass('bg-light');
+                // Add hidden mirror input so disabled select value is submitted
+                const idx = card.data('item-index');
+                if (card.find('input.color-variant-id-hidden').length === 0) {
+                    card.find('.color-selection-mobile').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${idx}][color_variant_id]" value="${item.preferred_color_variant_id}">`);
+                } else {
+                    card.find('input.color-variant-id-hidden').val(item.preferred_color_variant_id);
+                }
+            } else 
             // If there's only one color, auto-select it and show stock info
             if (item.color_variants.length === 1) {
                 const variant = item.color_variants[0];
@@ -1150,6 +1324,22 @@ function appendInvoiceItemFromResult(item){
         
         // Store color variants data
         row.data('color-variants', item.color_variants);
+        // Auto-select preferred color if provided
+        if (item.preferred_color_variant_id) {
+            const colorSelect = row.find('.color-variant-select');
+            if (colorSelect.length) {
+                colorSelect.val(item.preferred_color_variant_id).trigger('change');
+                // Lock color selection on desktop when scanned variant defines color
+                colorSelect.prop('disabled', true).addClass('bg-light');
+                // Add hidden mirror input so disabled select value is submitted
+                const idx = row.data('item-index');
+                if (row.find('input.color-variant-id-hidden').length === 0) {
+                    row.find('.color-cell').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${idx}][color_variant_id]" value="${item.preferred_color_variant_id}">`);
+                } else {
+                    row.find('input.color-variant-id-hidden').val(item.preferred_color_variant_id);
+                }
+            }
+        }
     }
     
     // Set unit currency from item currency (EUR/USD/TRY)

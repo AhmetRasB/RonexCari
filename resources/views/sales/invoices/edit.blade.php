@@ -858,80 +858,37 @@ window.addScannedProductById = function(id){
 }
 
 window.addScannedProductByCode = function(code){
-    // Use the dedicated barcode lookup endpoint for better accuracy
-    $.get('{{ route("barcode.lookup") }}', { barcode: code })
-        .done(function(data){
-            if (data.redirect_url) {
-                // Convert the lookup result to invoice item format
+    // Directly use search endpoint with scanned code to leverage preferred_color_variant_id
+    $.get('{{ route("sales.invoices.search.products") }}', { q: code })
+        .done(function(list){
+            if (list && list.length > 0) {
+                const detailedItem = list[0];
                 const item = {
-                    id: (data.type === 'series' ? 'series_' : 'product_') + data.id,
-                    name: data.name,
-                    product_code: code,
-                    type: data.type,
-                    price: 0, // Will be filled from the actual product/series data
-                    vat_rate: 20,
-                    currency: 'TRY'
+                    id: detailedItem.id,
+                    name: detailedItem.name,
+                    product_code: detailedItem.product_code || code,
+                    type: detailedItem.type,
+                    price: detailedItem.price || 0,
+                    purchase_price: detailedItem.purchase_price || 0,
+                    vat_rate: detailedItem.vat_rate || 20,
+                    currency: detailedItem.currency || 'TRY',
+                    stock_quantity: detailedItem.stock_quantity || 0,
+                    category: detailedItem.category,
+                    brand: detailedItem.brand,
+                    size: detailedItem.size,
+                    color: detailedItem.color,
+                    has_color_variants: detailedItem.has_color_variants,
+                    color_variants: detailedItem.color_variants,
+                    preferred_color_variant_id: detailedItem.preferred_color_variant_id || null
                 };
-                
-                // Get detailed product/series information for pricing
-                $.get('{{ route("sales.invoices.search.products") }}', { q: data.id })
-                    .done(function(list){
-                        // Find the exact product by matching ID and type
-                        const detailedItem = list.find(p => {
-                            if (data.type === 'series') {
-                                return p.type === 'series' && p.id === ('series_' + data.id);
-                            } else {
-                                return p.type === 'product' && p.product_id == data.id;
-                            }
-                        });
-                        
-                        if (detailedItem) {
-                            item.price = detailedItem.price;
-                            item.purchase_price = detailedItem.purchase_price;
-                            item.stock_quantity = detailedItem.stock_quantity;
-                            item.category = detailedItem.category;
-                            item.brand = detailedItem.brand;
-                            item.size = detailedItem.size;
-                            item.color = detailedItem.color;
-                            
-                            // Pass color variants data for products with multiple colors
-                            item.has_color_variants = detailedItem.has_color_variants;
-                            item.color_variants = detailedItem.color_variants;
-                            
-                            console.log('Barcode scan - Product found with color variants:', item.has_color_variants, item.color_variants);
-                            
-                            appendInvoiceItemFromResult(item);
-                            toastr.success(item.name + ' eklendi');
-                        } else {
-                            console.warn('Barcode scan - Product not found in search results, using basic info');
-                            // Fallback: add with basic info
-                            appendInvoiceItemFromResult(item);
-                            toastr.success(item.name + ' eklendi');
-                        }
-                    })
-                    .fail(function(){
-                        // Fallback: add with basic info
-                        appendInvoiceItemFromResult(item);
-                        toastr.success(item.name + ' eklendi');
-                    });
-            } else if (data.error) {
-                toastr.error('Barkod bulunamadı: ' + code);
+                appendInvoiceItemFromResult(item);
+                toastr.success(item.name + ' eklendi');
+            } else {
+                toastr.error('Kod ile ürün bulunamadı: ' + code);
             }
         })
         .fail(function(){
-            // Fallback to old search method if barcode lookup fails
-            $.get('{{ route("sales.invoices.search.products") }}', { q: code })
-                .done(function(list){
-                    if (list.length > 0) {
-                        appendInvoiceItemFromResult(list[0]);
-                        toastr.success(list[0].name + ' eklendi');
-                    } else {
-                        toastr.error('Kod ile ürün bulunamadı: ' + code);
-                    }
-                })
-                .fail(function(){
-                    toastr.error('Ürün arama hatası');
-                });
+            toastr.error('Ürün arama hatası');
         });
 }
 
@@ -958,6 +915,13 @@ function appendInvoiceItemFromResult(item){
         // Add color cell to current row - wait for DOM to be ready
         setTimeout(() => {
             addColorCellToRow(row, item.color_variants);
+            // Auto-select preferred color if provided
+            if (item.preferred_color_variant_id) {
+                const colorSelect = row.find('.color-variant-select');
+                if (colorSelect.length) {
+                    colorSelect.val(item.preferred_color_variant_id).trigger('change');
+                }
+            }
         }, 100);
         
         // Store color variants data

@@ -530,7 +530,21 @@ class ExchangeController extends Controller
                 }
                 
                 // Add back original item stock (only the exchanged quantity)
-                if ($originalItem->product_type === 'product') {
+                // Normalize product type by probing actual records (guards against wrong saved type)
+                $normalizedType = $originalItem->product_type;
+                try {
+                    $probeSeries = \App\Models\ProductSeries::find($originalItem->product_id);
+                    $probeProduct = \App\Models\Product::find($originalItem->product_id);
+                    if ($probeSeries && !$probeProduct) {
+                        $normalizedType = 'series';
+                    } elseif ($probeProduct && !$probeSeries) {
+                        $normalizedType = 'product';
+                    }
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+
+                if ($normalizedType === 'product') {
                     // Product stock restore (variant-aware)
                     $product = \App\Models\Product::with('colorVariants')->find($originalItem->product_id);
                     if ($product) {
@@ -553,7 +567,7 @@ class ExchangeController extends Controller
                             $product->increment('stock_quantity', (int)$exchangeQuantity);
                         }
                     }
-                } elseif ($originalItem->product_type === 'series') {
+                } elseif ($normalizedType === 'series') {
                     $series = \App\Models\ProductSeries::with('colorVariants')->find($originalItem->product_id);
                     if ($series) {
                         // Seri ürünlerde değişim miktarı birebir alınır (çarpan uygulanmaz)
@@ -588,6 +602,18 @@ class ExchangeController extends Controller
                 
                 if ($productId) {
                     $cleanProductId = str_replace(['product_', 'series_', 'service_'], '', $productId);
+                    // Normalize requested type by probing actual records
+                    try {
+                        $probeSeries = \App\Models\ProductSeries::find($cleanProductId);
+                        $probeProduct = \App\Models\Product::find($cleanProductId);
+                        if ($probeSeries && !$probeProduct) {
+                            $type = 'series';
+                        } elseif ($probeProduct && !$probeSeries) {
+                            $type = 'product';
+                        }
+                    } catch (\Throwable $e) {
+                        // ignore
+                    }
                     
                     if ($type === 'series') {
                         $series = \App\Models\ProductSeries::with('colorVariants')->find($cleanProductId);

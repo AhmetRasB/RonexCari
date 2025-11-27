@@ -1138,6 +1138,20 @@ class InvoiceController extends Controller
                 'description' => $request->input('description', 'İade - ' . $originalItem->product_service_name)
             ]);
             
+            // Normalize/auto-correct product type by probing actual records
+            try {
+                $probingSeries = \App\Models\ProductSeries::find($validated['product_id']);
+                $probingProduct = \App\Models\Product::find($validated['product_id']);
+                if ($validated['type'] !== 'series' && $probingSeries && !$probingProduct) {
+                    // Mis-typed series as product: fix it up to ensure stock restoration works
+                    $validated['type'] = 'series';
+                } elseif ($validated['type'] !== 'product' && $probingProduct && !$probingSeries) {
+                    $validated['type'] = 'product';
+                }
+            } catch (\Throwable $e) {
+                // ignore probing failures; continue with provided type
+            }
+
             // Calculate return item totals (negative)
             $quantity = (float) $validated['quantity'];
             $unitPrice = (float) $validated['unit_price'];
@@ -1320,6 +1334,46 @@ class InvoiceController extends Controller
                             $series->save();
                         }
                         \Log::info('Series stock increased (no variant)', [
+                            'series_id' => $series->id,
+                            'quantity' => $unitsToChange
+                        ]);
+                    }
+                }
+            } else {
+                // Final safety net: try series branch if id belongs to a series but type wasn't set properly
+                $series = \App\Models\ProductSeries::with('colorVariants')->find($validated['product_id']);
+                if ($series) {
+                    $unitsToChange = (int) $quantity;
+                    $variantId = $validated['color_variant_id'] ?? null;
+                    if (!$variantId && !empty($validated['selected_color'])) {
+                        $resolved = $series->colorVariants()->where('color', $validated['selected_color'])->first();
+                        if ($resolved) {
+                            $variantId = $resolved->id;
+                        }
+                    }
+                    if ($variantId) {
+                        $seriesColorVariant = \App\Models\ProductSeriesColorVariant::find($variantId);
+                        if ($seriesColorVariant) {
+                            $seriesColorVariant->increment('stock_quantity', $unitsToChange);
+                            $series->refresh();
+                            $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                            $series->save();
+                            \Log::warning('Return: corrected type to series during stock restore', [
+                                'original_type' => $validated['type'],
+                                'series_id' => $series->id,
+                                'series_color_variant_id' => $seriesColorVariant->id,
+                                'quantity' => $unitsToChange
+                            ]);
+                        }
+                    } else {
+                        $series->increment('stock_quantity', $unitsToChange);
+                        $series->refresh();
+                        if ($series->colorVariants && $series->colorVariants->count() > 0) {
+                            $series->stock_quantity = $series->colorVariants->sum('stock_quantity');
+                            $series->save();
+                        }
+                        \Log::warning('Return: corrected type to series (no variant) during stock restore', [
+                            'original_type' => $validated['type'],
                             'series_id' => $series->id,
                             'quantity' => $unitsToChange
                         ]);

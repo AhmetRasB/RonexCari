@@ -168,7 +168,7 @@
                 }
                 
                 // Close scanner modal immediately after successful scan
-                const modal = bootstrap.Modal.getInstance(document.getElementById('scannerModal'));
+                const modal = bootstrap.Modal.getInstance(document.getElementById('globalScannerModal'));
                 if (modal) {
                     modal.hide();
                 }
