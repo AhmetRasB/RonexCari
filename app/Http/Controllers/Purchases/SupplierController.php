@@ -44,7 +44,7 @@ class SupplierController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'company_name' => 'nullable|string|max:255',
-                'email' => 'required|email|unique:suppliers,email|max:255',
+                'email' => 'nullable|email|unique:suppliers,email|max:255',
                 'phone' => 'nullable|string|max:20',
                 'address' => 'nullable|string|max:1000',
                 'tax_number' => 'nullable|string|max:50',
@@ -55,7 +55,6 @@ class SupplierController extends Controller
                 'name.required' => 'Tedarikçi adı zorunludur.',
                 'name.max' => 'Tedarikçi adı çok uzun.',
                 'company_name.max' => 'Şirket adı çok uzun.',
-                'email.required' => 'E-posta adresi zorunludur.',
                 'email.email' => 'Geçerli bir e-posta adresi girin.',
                 'email.unique' => 'Bu e-posta adresi zaten kullanılıyor.',
                 'email.max' => 'E-posta adresi çok uzun.',
@@ -143,7 +142,7 @@ class SupplierController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'company_name' => 'nullable|string|max:255',
-            'email' => 'required|email|unique:suppliers,email,' . $supplier->id . '|max:255',
+            'email' => 'nullable|email|unique:suppliers,email,' . $supplier->id . '|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:1000',
             'tax_number' => 'nullable|string|max:50',
@@ -154,7 +153,6 @@ class SupplierController extends Controller
             'name.required' => 'Tedarikçi adı zorunludur.',
             'name.max' => 'Tedarikçi adı çok uzun.',
             'company_name.max' => 'Şirket adı çok uzun.',
-            'email.required' => 'E-posta adresi zorunludur.',
             'email.email' => 'Geçerli bir e-posta adresi girin.',
             'email.unique' => 'Bu e-posta adresi zaten kullanılıyor.',
             'email.max' => 'E-posta adresi çok uzun.',
