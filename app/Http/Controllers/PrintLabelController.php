@@ -55,6 +55,62 @@ class PrintLabelController extends Controller
             return $candidate;
         }
     }
+
+    /**
+     * Ensure a series' color variants use short base+counter barcodes.
+     * Also fills missing QR values.
+     */
+    private function normalizeSeriesVariantBarcodes(\App\Models\ProductSeries $series): void
+    {
+        $base = (string)($series->barcode ?: ($series->sku ?: ('S' . $series->id)));
+        $base = preg_replace('/\s+/', '', $base);
+        if ($base === '') {
+            $base = 'S' . $series->id;
+        }
+
+        // Determine next suffix from already normalized barcodes in this series
+        $existingSuffixes = \App\Models\ProductSeriesColorVariant::where('product_series_id', $series->id)
+            ->whereNotNull('barcode')
+            ->pluck('barcode')
+            ->map(function ($code) use ($base) {
+                if (strpos($code, $base) === 0) {
+                    $suffix = substr($code, strlen($base));
+                    return ctype_digit($suffix) && $suffix !== '' ? (int)$suffix : null;
+                }
+                return null;
+            })
+            ->filter()
+            ->values()
+            ->all();
+        $next = empty($existingSuffixes) ? 1 : (max($existingSuffixes) + 1);
+
+        foreach ($series->colorVariants()->orderBy('id')->get() as $variant) {
+            $code = (string)($variant->barcode ?? '');
+            $needsRecode = ($code === '')
+                || preg_match('/^(SV|PV)/', $code) === 1
+                || strpos($code, $base) !== 0;
+
+            if ($needsRecode) {
+                // Find an available candidate
+                $candidate = $base . $next;
+                while (\App\Models\ProductSeriesColorVariant::where('barcode', $candidate)->where('id', '!=', $variant->id)->exists()) {
+                    $next++;
+                    $candidate = $base . $next;
+                }
+                $variant->barcode = $candidate;
+                if (empty($variant->qr_code_value)) {
+                    $variant->qr_code_value = route('products.series.color', ['series' => $series->id, 'variant' => $variant->id]);
+                }
+                $variant->save();
+                \Log::info('normalizeSeriesVariantBarcodes - updated', [
+                    'series_id' => $series->id,
+                    'variant_id' => $variant->id,
+                    'barcode' => $variant->barcode
+                ]);
+                $next++;
+            }
+        }
+    }
     /**
      * Generate ZPL for product or series labels (300dpi, 50x30mm).
      * Query params:
@@ -1285,7 +1341,12 @@ class PrintLabelController extends Controller
                             $zpl = $this->buildSeriesZplByColor($series->id, $color, 'outer', 1);
                             if ($zpl !== null) {
                                 $result = $this->saveLabelPng($zpl, $tempDir, "outer_" . str_replace(' ', '_', $color), $requestCount, $delay);
-                                if ($result) $pngFiles[] = $result;
+                                if ($result) {
+                                    $pngFiles[] = $result;
+                                    \Log::info('downloadColorsZip - Outer label rendered', ['series_id' => $series->id, 'color' => $color, 'file' => basename($result)]);
+                                } else {
+                                    \Log::error('downloadColorsZip - Outer label render failed', ['series_id' => $series->id, 'color' => $color]);
+                                }
                             }
                             
                             // 2. Size labels for this color
@@ -1293,7 +1354,12 @@ class PrintLabelController extends Controller
                                 $zpl = $this->buildSingleSizeZpl($series->id, $color, $size);
                                 if ($zpl !== null) {
                                     $result = $this->saveLabelPng($zpl, $tempDir, str_replace(' ', '_', $color) . "_" . str_replace(' ', '_', $size), $requestCount, $delay);
-                                    if ($result) $pngFiles[] = $result;
+                                    if ($result) {
+                                        $pngFiles[] = $result;
+                                        \Log::info('downloadColorsZip - Size label rendered', ['series_id' => $series->id, 'color' => $color, 'size' => $size, 'file' => basename($result)]);
+                                    } else {
+                                        \Log::error('downloadColorsZip - Size label render failed', ['series_id' => $series->id, 'color' => $color, 'size' => $size]);
+                                    }
                                 }
                             }
                         }
@@ -1306,7 +1372,12 @@ class PrintLabelController extends Controller
                             $zpl = $this->buildSeriesZpl($series->id, 'sizes', 1);
                             if ($zpl !== null) {
                                 $result = $this->saveLabelPng($zpl, $tempDir, "size_" . str_replace(' ', '_', $size), $requestCount, $delay);
-                                if ($result) $pngFiles[] = $result;
+                                if ($result) {
+                                    $pngFiles[] = $result;
+                                    \Log::info('downloadColorsZip - No-color size label rendered', ['series_id' => $series->id, 'size' => $size, 'file' => basename($result)]);
+                                } else {
+                                    \Log::error('downloadColorsZip - No-color size label render failed', ['series_id' => $series->id, 'size' => $size]);
+                                }
                             }
                         }
                     } else {
@@ -1316,7 +1387,12 @@ class PrintLabelController extends Controller
                                 $zpl = $this->buildSingleSizeZpl($series->id, $color, $size);
                                 if ($zpl !== null) {
                                     $result = $this->saveLabelPng($zpl, $tempDir, str_replace(' ', '_', $color) . "_" . str_replace(' ', '_', $size), $requestCount, $delay);
-                                    if ($result) $pngFiles[] = $result;
+                                    if ($result) {
+                                        $pngFiles[] = $result;
+                                        \Log::info('downloadColorsZip - Size label rendered', ['series_id' => $series->id, 'color' => $color, 'size' => $size, 'file' => basename($result)]);
+                                    } else {
+                                        \Log::error('downloadColorsZip - Size label render failed', ['series_id' => $series->id, 'color' => $color, 'size' => $size]);
+                                    }
                                 }
                             }
                         }
@@ -1328,7 +1404,12 @@ class PrintLabelController extends Controller
                         $zpl = $this->buildSeriesZpl($series->id, 'outer', 1);
                         if ($zpl !== null) {
                             $result = $this->saveLabelPng($zpl, $tempDir, "outer", $requestCount, $delay);
-                            if ($result) $pngFiles[] = $result;
+                            if ($result) {
+                                $pngFiles[] = $result;
+                                \Log::info('downloadColorsZip - Single outer label rendered', ['series_id' => $series->id, 'file' => basename($result)]);
+                            } else {
+                                \Log::error('downloadColorsZip - Single outer label render failed', ['series_id' => $series->id]);
+                            }
                         }
                     } else {
                         // Each color gets one outer label
@@ -1336,7 +1417,12 @@ class PrintLabelController extends Controller
                             $zpl = $this->buildSeriesZplByColor($series->id, $color, 'outer', 1);
                             if ($zpl !== null) {
                                 $result = $this->saveLabelPng($zpl, $tempDir, "outer_" . str_replace(' ', '_', $color), $requestCount, $delay);
-                                if ($result) $pngFiles[] = $result;
+                                if ($result) {
+                                    $pngFiles[] = $result;
+                                    \Log::info('downloadColorsZip - Outer label rendered', ['series_id' => $series->id, 'color' => $color, 'file' => basename($result)]);
+                                } else {
+                                    \Log::error('downloadColorsZip - Outer label render failed', ['series_id' => $series->id, 'color' => $color]);
+                                }
                             }
                         }
                     }
