@@ -577,6 +577,10 @@ class PrintLabelController extends Controller
     {
         $series = ProductSeries::with(['seriesItems', 'colorVariants'])->find($seriesId);
         if (!$series) return null;
+        $this->normalizeSeriesVariantBarcodes($series);
+        $this->normalizeSeriesVariantBarcodes($series);
+        // Normalize barcodes to short form for all variants before rendering
+        $this->normalizeSeriesVariantBarcodes($series);
 
         $category = $this->sanitize($series->category ?? '');
         $seriesSize = (int) ($series->series_size ?? 0);
@@ -616,8 +620,8 @@ class PrintLabelController extends Controller
             $colorVariant->qr_code_value = $qrSeries;
             $colorVariant->save();
         }
-        // Prefer variant-specific barcode; fallback to series base barcode
-        $variantBarcode = $colorVariant->barcode ?: ('SV' . str_pad((string)$colorVariant->id, 6, '0', STR_PAD_LEFT));
+        // Prefer variant-specific barcode; fallback to short incremental based on base barcode
+        $variantBarcode = $colorVariant->barcode ?: $this->generateShortVariantBarcode($barcode, 'series', $colorVariant->id);
         if (!$colorVariant->barcode) {
             $colorVariant->barcode = $variantBarcode;
             $colorVariant->save();
@@ -657,7 +661,7 @@ class PrintLabelController extends Controller
                         $variant = $variantByColor->get($color);
                         $labelBarcode = $variant && $variant->barcode ? $this->sanitize($variant->barcode) : $barcode;
                         if ($variant && empty($variant->barcode)) {
-                            $variant->barcode = 'SV' . str_pad((string)$variant->id, 6, '0', STR_PAD_LEFT);
+                            $variant->barcode = $this->generateShortVariantBarcode($barcode, 'series', $variant->id);
                             $labelBarcode = $variant->barcode;
                         }
                         // Per-variant QR URL when variant exists
@@ -747,7 +751,7 @@ class PrintLabelController extends Controller
                 $variant = $variantByColor->get($color);
                 $labelBarcode = $variant && $variant->barcode ? $this->sanitize($variant->barcode) : $barcode;
                 if ($variant && empty($variant->barcode)) {
-                    $variant->barcode = 'SV' . str_pad((string)$variant->id, 6, '0', STR_PAD_LEFT);
+                    $variant->barcode = $this->generateShortVariantBarcode($barcode, 'series', $variant->id);
                     $labelBarcode = $variant->barcode;
                 }
                 // Variant-specific QR if possible
@@ -817,6 +821,7 @@ class PrintLabelController extends Controller
         $root = ProductSeries::with(['seriesItems', 'colorVariants', 'children.colorVariants', 'children.seriesItems'])
             ->find($seriesId);
         if (!$root) return null;
+        $this->normalizeSeriesVariantBarcodes($root);
 
         // Build group: parent + children if exists, else children of root, else fallback same barcode
         $group = collect();
@@ -824,6 +829,7 @@ class PrintLabelController extends Controller
             $parent = ProductSeries::with(['children.colorVariants','children.seriesItems','seriesItems','colorVariants'])
                 ->find($root->parent_series_id);
             if ($parent) {
+                $this->normalizeSeriesVariantBarcodes($parent);
                 $group = $parent->children->push($parent);
             }
         } else {
@@ -968,6 +974,7 @@ class PrintLabelController extends Controller
     {
         $series = ProductSeries::with(['seriesItems', 'colorVariants'])->find($seriesId);
         if (!$series) return null;
+        $this->normalizeSeriesVariantBarcodes($series);
 
         $colorVariant = $series->colorVariants->firstWhere('color', $color);
         if (!$colorVariant) return null;
@@ -982,11 +989,8 @@ class PrintLabelController extends Controller
             $colorVariant->qr_code_value = $qrSeries;
             $colorVariant->save();
         }
-        $variantBarcode = $colorVariant->barcode ?: ('SV' . str_pad((string)$colorVariant->id, 6, '0', STR_PAD_LEFT));
-        if (!$colorVariant->barcode) {
-            $colorVariant->barcode = $variantBarcode;
-            $colorVariant->save();
-        }
+        $variantBarcode = $colorVariant->barcode ?: $this->generateShortVariantBarcode($barcode, 'series', $colorVariant->id);
+        if (!$colorVariant->barcode) { $colorVariant->barcode = $variantBarcode; $colorVariant->save(); }
 
         $one = "^XA\n" .
                "^CI28\n" .

@@ -119,6 +119,8 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     Route::post('products/series/bulk-delete', [\App\Http\Controllers\Products\ProductSeriesController::class, 'bulkDelete'])->name('products.series.bulk-delete');
     Route::post('products/{product}/quick-stock', [ProductController::class, 'quickStockUpdate'])->name('products.quick-stock');
     Route::post('products/series/{series}/quick-stock', [\App\Http\Controllers\Products\ProductSeriesController::class, 'quickStockUpdate'])->name('products.series.quick-stock');
+    // Normalize short variant barcodes for a series (manual trigger)
+    Route::post('products/series/{series}/normalize-barcodes', [\App\Http\Controllers\Products\ProductSeriesController::class, 'normalizeBarcodes'])->name('products.series.normalize-barcodes');
     // Variant-focused landing routes (for QR scans)
     // ID-based (variant id)
     Route::get('products/series/{series}/color/{variant}', [ProductVariantController::class, 'seriesColor'])

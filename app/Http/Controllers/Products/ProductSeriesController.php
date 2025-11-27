@@ -298,6 +298,24 @@ class ProductSeriesController extends Controller
                     }
                 }
             }
+            
+            // Kullanıcı arayüzünde silinmiş olan renk varyantlarını kalıcı olarak kaldır
+            // (Formda gönderilmeyen mevcut ID'ler silinmiş kabul edilir)
+            $incomingExistingIds = collect(array_keys($validated['color_variants']))
+                ->filter(fn($k) => is_numeric($k))
+                ->map(fn($k) => (int)$k)
+                ->values()
+                ->all();
+            
+            $series->colorVariants()
+                ->when(!empty($incomingExistingIds), function($q) use ($incomingExistingIds) {
+                    $q->whereNotIn('id', $incomingExistingIds);
+                }, function($q) {
+                    // Eğer hiç mevcut ID gelmediyse ve form renk alanları içeriyorsa, tüm mevcutları sil
+                    // (Sadece yeni eklenenler kalır)
+                    // Not: Bu davranış istenmiyorsa, bu blok kaldırılabilir
+                })
+                ->delete();
         }
 
         // Güncel seri için eksik varyant barkodlarını ata (seri barkodunu temel alarak kısaltılmış)
@@ -338,7 +356,7 @@ class ProductSeriesController extends Controller
         if ($variants->isEmpty()) {
             return;
         }
-        // Mevcut suffix numaralarını topla
+        // Mevcut suffix numaralarını topla ve uygunsuz (SV..., PV..., base ile başlamayan) barkodları normalize et
         $existing = \App\Models\ProductSeriesColorVariant::where('product_series_id', $series->id)
             ->whereNotNull('barcode')
             ->pluck('barcode')
@@ -354,7 +372,10 @@ class ProductSeriesController extends Controller
         $next = empty($existing) ? 1 : (max($existing) + 1);
 
         foreach ($variants as $variant) {
-            if (empty($variant->barcode)) {
+            $needsRecode = empty($variant->barcode)
+                || preg_match('/^(SV|PV)/', (string)$variant->barcode) === 1
+                || strpos((string)$variant->barcode, $base) !== 0;
+            if ($needsRecode) {
                 $candidate = $base . $next;
                 // Benzersizliği garanti et
                 while (\App\Models\ProductSeriesColorVariant::where('barcode', $candidate)->exists()) {
@@ -370,6 +391,15 @@ class ProductSeriesController extends Controller
                 $next++;
             }
         }
+    }
+
+    /**
+     * Manually normalize variant barcodes for a specific series (short base+counter format).
+     */
+    public function normalizeBarcodes(ProductSeries $series)
+    {
+        $this->ensureVariantBarcodes($series);
+        return back()->with('success', 'Varyant barkodları kısa formata dönüştürüldü.');
     }
 
     /**
