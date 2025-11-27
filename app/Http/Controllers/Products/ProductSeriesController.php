@@ -200,6 +200,9 @@ class ProductSeriesController extends Controller
             }
         }
 
+        // Yeni oluşturulan seri için eksik varyant barkodlarını ata (seri barkodunu temel alarak kısaltılmış)
+        $this->ensureVariantBarcodes($series);
+
         $successMessage = 'Seri başarıyla oluşturuldu.';
         if (!empty($colors)) {
             $successMessage = 'Seri ' . count($colors) . ' renk varyasyonu ile oluşturuldu.';
@@ -297,6 +300,9 @@ class ProductSeriesController extends Controller
             }
         }
 
+        // Güncel seri için eksik varyant barkodlarını ata (seri barkodunu temel alarak kısaltılmış)
+        $this->ensureVariantBarcodes($series);
+
         // Marka güncelle: varsa oluştur/bul
         if (!empty($validated['brand'])) {
             $brandName = trim($validated['brand']);
@@ -315,6 +321,55 @@ class ProductSeriesController extends Controller
 
         return redirect()->route('products.series.index')
             ->with('success', 'Seri başarıyla güncellendi.');
+    }
+
+    /**
+     * Eksik renk varyant barkodlarını seri barkodunu temel alarak kısa formatta üretir.
+     * Ör: Seri barkodu GF01 ise varyantlar GF011, GF012, GF013 ... şeklinde atanır.
+     */
+    private function ensureVariantBarcodes(ProductSeries $series): void
+    {
+        $base = $series->barcode ?: ($series->sku ?: ('S' . $series->id));
+        $base = preg_replace('/\s+/', '', (string)$base);
+        if ($base === '') {
+            $base = 'S' . $series->id;
+        }
+        $variants = $series->colorVariants()->get();
+        if ($variants->isEmpty()) {
+            return;
+        }
+        // Mevcut suffix numaralarını topla
+        $existing = \App\Models\ProductSeriesColorVariant::where('product_series_id', $series->id)
+            ->whereNotNull('barcode')
+            ->pluck('barcode')
+            ->map(function ($code) use ($base) {
+                if (strpos($code, $base) === 0) {
+                    $suffix = substr($code, strlen($base));
+                    return ctype_digit($suffix) && $suffix !== '' ? (int)$suffix : null;
+                }
+                return null;
+            })
+            ->filter()
+            ->all();
+        $next = empty($existing) ? 1 : (max($existing) + 1);
+
+        foreach ($variants as $variant) {
+            if (empty($variant->barcode)) {
+                $candidate = $base . $next;
+                // Benzersizliği garanti et
+                while (\App\Models\ProductSeriesColorVariant::where('barcode', $candidate)->exists()) {
+                    $next++;
+                    $candidate = $base . $next;
+                }
+                $variant->barcode = $candidate;
+                // Varyanta özel QR URL de üret
+                if (empty($variant->qr_code_value)) {
+                    $variant->qr_code_value = route('products.series.color', ['series' => $series->id, 'variant' => $variant->id]);
+                }
+                $variant->save();
+                $next++;
+            }
+        }
     }
 
     /**

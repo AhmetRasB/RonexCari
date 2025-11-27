@@ -995,7 +995,38 @@ $(document).ready(function() {
         console.log('=== FORM SUBMIT HANDLER 1 (Müşteri ve Ürün Kontrolü) ===');
         console.log('Form submit triggered');
         console.log('Customer ID:', $('#customerId').val());
-        console.log('Invoice items count:', $('#invoiceItemsBody tr').length);
+        console.log('Invoice items count (desktop):', $('#invoiceItemsBody tr').length, ' (mobile):', $('#mobileInvoiceItems .card').length);
+        
+        // Ensure mobile hidden fields are filled (in case something cleared them)
+        $('#mobileInvoiceItems .card').each(function(){
+            const card = $(this);
+            const idx = card.data('item-index');
+            const pidInput = card.find(`input[name="items[${idx}][product_id]"]`);
+            const typeInput = card.find(`input[name="items[${idx}][type]"]`);
+            // If missing or empty, try to infer from stored data attributes
+            if (!pidInput.val()) {
+                const rawId = card.attr('data-raw-id');
+                if (rawId) {
+                    const cleaned = (''+rawId).replace(/^(product_|series_|service_)/,'');
+                    pidInput.val(cleaned);
+                }
+            }
+            if (!typeInput.val()) {
+                const t = card.attr('data-type');
+                if (t) typeInput.val(t);
+            }
+            // Mirror disabled color select value to hidden input (if user changed before)
+            const colorSelect = card.find('.color-variant-select');
+            const hiddenColor = card.find('input.color-variant-id-hidden');
+            if (colorSelect.length && colorSelect.is(':disabled')) {
+                const currentVal = colorSelect.val();
+                if (hiddenColor.length === 0) {
+                    card.find('.color-selection-mobile').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${idx}][color_variant_id]" value="${currentVal||''}">`);
+                } else {
+                    hiddenColor.val(currentVal||'');
+                }
+            }
+        });
         
         if ($('#customerId').val() === '') {
             console.log('FORM SUBMIT ENGELLENDİ - Müşteri seçilmemiş');
@@ -1004,7 +1035,9 @@ $(document).ready(function() {
             return false;
         }
         
-        if ($('#invoiceItemsBody tr').length === 0) {
+        const desktopCount = $('#invoiceItemsBody tr').length;
+        const mobileCount = $('#mobileInvoiceItems .card').length;
+        if ((desktopCount + mobileCount) === 0) {
             console.log('FORM SUBMIT ENGELLENDİ - Ürün/hizmet eklenmemiş');
             e.preventDefault();
             alert('En az bir ürün/hizmet eklemelisiniz.');
@@ -1227,6 +1260,9 @@ function appendInvoiceItemFromResult(item){
         card.find('select[name*="[tax_rate]"]').val(item.vat_rate);
         card.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
         card.find('input[name*="[type]"]').val(item.type);
+        // Persist raw id/type for robustness on submit
+        card.attr('data-raw-id', item.id);
+        card.attr('data-type', item.type);
         
         // Handle color variants - EXACTLY like manual selection
         if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {

@@ -9,6 +9,53 @@ use App\Models\ProductSeries;
 class PrintLabelController extends Controller
 {
     /**
+     * Generate a short incremental variant barcode from a base code.
+     * Example: base GF01 -> GF011, GF012, ...
+     * Type: 'series'|'product'
+     */
+    private function generateShortVariantBarcode(string $base, string $type, int $variantId): string
+    {
+        $base = preg_replace('/\s+/', '', $base);
+        if ($base === '') {
+            $base = ($type === 'series' ? 'S' : 'P') . $variantId;
+        }
+        if ($type === 'series') {
+            $existing = \App\Models\ProductSeriesColorVariant::where('barcode', 'like', $base . '%')
+                ->pluck('barcode')
+                ->map(function ($code) use ($base) {
+                    if (strpos($code, $base) === 0) {
+                        $suffix = substr($code, strlen($base));
+                        return ctype_digit($suffix) && $suffix !== '' ? (int)$suffix : null;
+                    }
+                    return null;
+                })->filter()->all();
+            $next = empty($existing) ? 1 : (max($existing) + 1);
+            $candidate = $base . $next;
+            while (\App\Models\ProductSeriesColorVariant::where('barcode', $candidate)->exists()) {
+                $next++;
+                $candidate = $base . $next;
+            }
+            return $candidate;
+        } else {
+            $existing = \App\Models\ProductColorVariant::where('barcode', 'like', $base . '%')
+                ->pluck('barcode')
+                ->map(function ($code) use ($base) {
+                    if (strpos($code, $base) === 0) {
+                        $suffix = substr($code, strlen($base));
+                        return ctype_digit($suffix) && $suffix !== '' ? (int)$suffix : null;
+                    }
+                    return null;
+                })->filter()->all();
+            $next = empty($existing) ? 1 : (max($existing) + 1);
+            $candidate = $base . $next;
+            while (\App\Models\ProductColorVariant::where('barcode', $candidate)->exists()) {
+                $next++;
+                $candidate = $base . $next;
+            }
+            return $candidate;
+        }
+    }
+    /**
      * Generate ZPL for product or series labels (300dpi, 50x30mm).
      * Query params:
      * - type: product|series
@@ -463,11 +510,10 @@ class PrintLabelController extends Controller
                 $name = $this->sanitize($product->name ?? '');
                 $color = $this->sanitize($colorVariant->color ?? '');
                 $size = $this->sanitize($product->size ?? '');
-                $baseBarcode = $this->sanitize($product->barcode ?: ($product->sku ?: ('P' . str_pad((string)$product->id, 4, '0', STR_PAD_LEFT))));
-                $labelBarcode = $colorVariant->barcode ?: ('PV' . str_pad((string)$colorVariant->id, 6, '0', STR_PAD_LEFT));
-                if (!$colorVariant->barcode) {
-                    $colorVariant->barcode = $labelBarcode;
-                }
+                $baseBarcode = $this->sanitize($product->barcode ?: ($product->sku ?: ('P' . $product->id)));
+                // Variant barcode: short incremental based on product base
+                $labelBarcode = $colorVariant->barcode ?: $this->generateShortVariantBarcode($baseBarcode, 'product', $colorVariant->id);
+                if (!$colorVariant->barcode) { $colorVariant->barcode = $labelBarcode; }
                 // Product color variant QR is no longer routed; fall back to product show
                 $qr = $colorVariant->qr_code_value ?: route('products.show', $product->id);
                 if (empty($colorVariant->qr_code_value)) {
@@ -981,11 +1027,9 @@ class PrintLabelController extends Controller
             $colorVariant->qr_code_value = $qrSeries;
             $colorVariant->save();
         }
-        $labelBarcode = $colorVariant->barcode ?: ('SV' . str_pad((string)$colorVariant->id, 6, '0', STR_PAD_LEFT));
-        if (!$colorVariant->barcode) {
-            $colorVariant->barcode = $labelBarcode;
-            $colorVariant->save();
-        }
+        // Use short incremental based on series base barcode
+        $labelBarcode = $colorVariant->barcode ?: $this->generateShortVariantBarcode($barcode, 'series', $colorVariant->id);
+        if (!$colorVariant->barcode) { $colorVariant->barcode = $labelBarcode; $colorVariant->save(); }
         
         $allSizes = $series->seriesItems->pluck('size')->filter()->all();
         $sizesCsv = $this->sanitize(implode(' ', $allSizes));
