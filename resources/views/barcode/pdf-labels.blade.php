@@ -274,7 +274,7 @@
                                             }
                                         @endphp
                                         @if(!empty($barcodeDataUri))
-                                            <img src="{{ $barcodeDataUri }}" alt="Barkod" style="width: 100%; height: 50px; object-fit: contain;">
+                                            <img src="{{ $barcodeDataUri }}" alt="Barkod" style="height: 50px; width: auto; image-rendering: pixelated; image-rendering: crisp-edges;">
                                         @else
                                             <div style="width: 100%; height: 50px; background: #f0f0f0; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 12px;">
                                                 {{ $labelData['barcode'] }}

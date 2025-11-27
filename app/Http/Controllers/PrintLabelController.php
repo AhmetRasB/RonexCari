@@ -107,7 +107,7 @@ class PrintLabelController extends Controller
                     'verify' => false, // Dev ortamında SSL doğrulamasını atla
                 ])
                 ->withBody($zpl, 'application/x-www-form-urlencoded')
-                ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
+                ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
 
             if ($response->successful() && $response->body()) {
                 return response($response->body(), 200, [
@@ -162,7 +162,7 @@ class PrintLabelController extends Controller
                     'verify' => false, // Dev ortamında SSL doğrulamasını atla
                 ])
                 ->withBody($zpl, 'application/x-www-form-urlencoded')
-                ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
+                ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
 
             if ($response->successful() && $response->body()) {
                 return response($response->body(), 200, [
@@ -482,17 +482,17 @@ class PrintLabelController extends Controller
                 // Geliştirilmiş etiket formatı - Sadece bedenler, büyük barkod
                 $one = "^XA\n" .
                        "^CI28\n" .
-                       "^PW500\n" .
-                       "^LL300\n" .
+                       "^PW600\n" .
+                       "^LL320\n" .
                        "^LH10,10\n" .
-                       "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
-                       "^FO20,48^A0N,28,28^FD{$name}^FS\n" .
-                       "^FO360,15^BQN,2,3^FDLA,{$qr}^FS\n" .
+                       "^FO30,20^A0N,24,24^FD{$category}^FS\n" .
+                       "^FO30,48^A0N,28,28^FD{$name}^FS\n" .
+                       "^FO420,15^BQN,2,2^FDLA,{$qr}^FS\n" .
                        ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
-                       "^FO20," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
-                       "^FO20," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$labelBarcode}^FS\n" .
-                       "^BY4,2,100\n" .
-                       "^FO20," . ($size !== '' ? '165' : '135') . "^BCN,100,N,N,N^FD{$labelBarcode}^FS\n" .
+                       "^FO30," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
+                       "^FO30," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$labelBarcode}^FS\n" .
+                       "^BY3,2,120\n" .
+                       "^FO30," . ($size !== '' ? '168' : '138') . "^BCN,120,N,N,N^FD{$labelBarcode}^FS\n" .
                        "^XZ\n";
                 $blocks[] = str_repeat($one, max(1, $count));
             }
@@ -508,18 +508,18 @@ class PrintLabelController extends Controller
 
             $one = "^XA\n" .
                    "^CI28\n" .
-                   "^PW500\n" .
-                   "^LL300\n" .
+                   "^PW600\n" .
+                   "^LL320\n" .
                    "^LH10,10\n" .
                    
-                   "^FO20,20^A0N,24,24^FD{$category}^FS\n" .
-                   "^FO20,48^A0N,28,28^FD{$name}^FS\n" .
-                   "^FO360,15^BQN,2,3^FDLA,{$qr}^FS\n" .
+                   "^FO30,20^A0N,24,24^FD{$category}^FS\n" .
+                   "^FO30,48^A0N,28,28^FD{$name}^FS\n" .
+                   "^FO420,15^BQN,2,2^FDLA,{$qr}^FS\n" .
                    ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
-                   "^FO20," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
-                   "^FO20," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$barcode}^FS\n" .
-                   "^BY4,2,100\n" .
-                   "^FO20," . ($size !== '' ? '165' : '135') . "^BCN,100,N,N,N^FD{$barcode}^FS\n" .
+                   "^FO30," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
+                   "^FO30," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$barcode}^FS\n" .
+                   "^BY3,2,120\n" .
+                   "^FO30," . ($size !== '' ? '168' : '138') . "^BCN,120,N,N,N^FD{$barcode}^FS\n" .
                    "^XZ\n";
             $blocks[] = str_repeat($one, max(1, $count));
         }
@@ -627,17 +627,17 @@ class PrintLabelController extends Controller
                         }
                         $one = "^XA\n" .
                                "^CI28\n" .
-                               "^PW500\n" .
-                               "^LL300\n" .
+                               "^PW600\n" .
+                               "^LL320\n" .
                                "^LH10,10\n" .
                                
-                               "^FO20,20^A0N,28,28^FD{$name}^FS\n" .
-                               "^FO20,56^A0N,24,24^FD{$colorSan}^FS\n" .
-                               "^FO20,88^A0N,26,26^FD{$sizeSan}^FS\n" .
-                               "^FO370,10^BQN,2,3^FDLA,{$qrValue}^FS\n" .
-                           "^FO20,122^A0N,20,20^FD{$labelBarcode}^FS\n" .
-                               "^BY4,2,90\n" .
-                           "^FO20,150^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
+                               "^FO30,20^A0N,28,28^FD{$name}^FS\n" .
+                               "^FO30,56^A0N,24,24^FD{$colorSan}^FS\n" .
+                               "^FO30,88^A0N,26,26^FD{$sizeSan}^FS\n" .
+                               "^FO420,10^BQN,2,2^FDLA,{$qrValue}^FS\n" .
+                               "^FO30,122^A0N,20,20^FD{$labelBarcode}^FS\n" .
+                               "^BY3,2,120\n" .
+                               "^FO30,150^BCN,120,N,N,N^FD{$labelBarcode}^FS\n" .
                                "^XZ\n";
                         $blocks[] = str_repeat($one, max(1, $count));
                         \Log::info('ZPL Sizes mode - Added label', [
@@ -1377,11 +1377,11 @@ class PrintLabelController extends Controller
             }
             $requestCount++;
 
-            $response = \Illuminate\Support\Facades\Http::timeout(10)
+            $response = \Illuminate\Support\Facades\Http::timeout(15)
                 ->withHeaders(['Accept' => 'image/png'])
                 ->withOptions(['verify' => false])
                 ->withBody($zpl, 'application/x-www-form-urlencoded')
-                ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
+                ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
 
             if ($response->successful() && $response->body()) {
                 // Sanitize filename
