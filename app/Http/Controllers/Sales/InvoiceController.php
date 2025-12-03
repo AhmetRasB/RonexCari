@@ -1151,7 +1151,7 @@ class InvoiceController extends Controller
             } catch (\Throwable $e) {
                 // ignore probing failures; continue with provided type
             }
-
+            
             // Calculate return item totals (negative)
             $quantity = (float) $validated['quantity'];
             $unitPrice = (float) $validated['unit_price'];

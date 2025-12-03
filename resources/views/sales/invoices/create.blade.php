@@ -885,7 +885,7 @@ $(document).ready(function() {
                         // Ensure disabled select value is submitted by adding a hidden mirror input
                         if (row.find('input.color-variant-id-hidden').length === 0) {
                             row.find('.color-cell').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${index}][color_variant_id]" value="${selectedVariantId}">`);
-                        } else {
+            } else {
                             row.find('input.color-variant-id-hidden').val(selectedVariantId);
                         }
                     }

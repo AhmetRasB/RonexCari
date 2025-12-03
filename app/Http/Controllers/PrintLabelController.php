@@ -210,11 +210,10 @@ class PrintLabelController extends Controller
                     'verify' => false, // Dev ortamında SSL doğrulamasını atla
                 ])
                 ->withBody($zpl, 'application/x-www-form-urlencoded')
-                ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
+                ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
 
             if ($response->successful() && $response->body()) {
-                $cropped = $this->trimPngWhitespace($response->body());
-                return response($cropped, 200, [
+                return response($response->body(), 200, [
                     'Content-Type' => 'image/png',
                 ]);
             }
@@ -266,11 +265,10 @@ class PrintLabelController extends Controller
                     'verify' => false, // Dev ortamında SSL doğrulamasını atla
                 ])
                 ->withBody($zpl, 'application/x-www-form-urlencoded')
-                ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
+                ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
 
             if ($response->successful() && $response->body()) {
-                $cropped = $this->trimPngWhitespace($response->body());
-                return response($cropped, 200, [
+                return response($response->body(), 200, [
                     'Content-Type' => 'image/png',
                 ]);
             }
@@ -595,8 +593,8 @@ class PrintLabelController extends Controller
                        ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
                        "^FO30," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
                        "^FO30," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$labelBarcode}^FS\n" .
-                       "^BY2,2,80\n" .
-                       "^FO30," . ($size !== '' ? '160' : '132') . "^BCN,80,N,N,N^FD{$labelBarcode}^FS\n" .
+                       "^BY3,2,120\n" .
+                       "^FO30," . ($size !== '' ? '168' : '138') . "^BCN,120,N,N,N^FD{$labelBarcode}^FS\n" .
                        "^XZ\n";
                 $blocks[] = str_repeat($one, max(1, $count));
             }
@@ -622,8 +620,8 @@ class PrintLabelController extends Controller
                    ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
                    "^FO30," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
                    "^FO30," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$barcode}^FS\n" .
-                   "^BY2,2,80\n" .
-                   "^FO30," . ($size !== '' ? '160' : '132') . "^BCN,80,N,N,N^FD{$barcode}^FS\n" .
+                   "^BY3,2,120\n" .
+                   "^FO30," . ($size !== '' ? '168' : '138') . "^BCN,120,N,N,N^FD{$barcode}^FS\n" .
                    "^XZ\n";
             $blocks[] = str_repeat($one, max(1, $count));
         }
@@ -1189,20 +1187,20 @@ class PrintLabelController extends Controller
             
             return implode('', $blocks);
         } else {
-            // Dış etiket (sadece bu renk için) - 3x5cm alanı daha dolu kullan
+            // Dış etiket (sadece bu renk için)
             $one = "^XA\n" .    
                    "^CI28\n" .
                    "^PW500\n" .
                    "^LL300\n" .
                    "^LH10,10\n" .
                    
-                   "^FO20,10^A0N,32,32^FD{$name}^FS\n" .
-                   "^FO20,46^A0N,24,24^FD{$colorSan}^FS\n" .
-                   ($sizesCsv !== '' ? "^FO20,78^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
-                   "^FO20,108^A0N,20,20^FD{$labelBarcode}^FS\n" .
-                   "^FO360,10^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
-                   "^BY3,2,110\n" .
-                   "^FO20,140^BCN,110,N,N,N^FD{$labelBarcode}^FS\n" .
+                   "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
+                   "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
+                   ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
+                   "^FO20,120^A0N,20,20^FD{$labelBarcode}^FS\n" .
+                   "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
+                   "^BY4,2,90\n" .
+                   "^FO20,148^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
                    "^XZ\n";
             return str_repeat($one, max(1, $count));
         }
@@ -1438,6 +1436,11 @@ class PrintLabelController extends Controller
 
             if (empty($pngFiles)) {
                 \File::deleteDirectory($tempDir);
+                \Log::error('downloadColorsZip - No PNG files generated', [
+                    'series_id' => $series->id ?? null,
+                    'mode' => $mode ?? null,
+                    'items_count' => count($items)
+                ]);
                 return response()->json(['error' => 'No PNG files generated'], 404);
             }
 
@@ -1448,18 +1451,56 @@ class PrintLabelController extends Controller
             // Check if ZipArchive is available
             if (class_exists('ZipArchive')) {
                 $zip = new \ZipArchive();
-                if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== TRUE) {
+                $openResult = $zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+                if ($openResult !== TRUE) {
                     \File::deleteDirectory($tempDir);
+                    \Log::error('downloadColorsZip - ZIP open failed', [
+                        'zip_path' => $zipPath,
+                        'error_code' => $openResult,
+                        'png_files_count' => count($pngFiles)
+                    ]);
                     return response()->json(['error' => 'Failed to create ZIP file'], 500);
                 }
 
+                $addedCount = 0;
                 foreach ($pngFiles as $pngFile) {
                     if ($pngFile && \File::exists($pngFile)) {
                         $zip->addFile($pngFile, basename($pngFile));
+                        $addedCount++;
+                    } else {
+                        \Log::warning('downloadColorsZip - PNG file missing or invalid', [
+                            'png_file' => $pngFile,
+                            'exists' => $pngFile ? \File::exists($pngFile) : false
+                        ]);
                     }
                 }
 
-                $zip->close();
+                if ($addedCount === 0) {
+                    $zip->close();
+                    \File::deleteDirectory($tempDir);
+                    \Log::error('downloadColorsZip - No valid PNG files added to ZIP', [
+                        'png_files_count' => count($pngFiles),
+                        'added_count' => $addedCount
+                    ]);
+                    return response()->json(['error' => 'No valid PNG files to add to ZIP'], 404);
+                }
+
+                $closeResult = $zip->close();
+                if ($closeResult !== TRUE) {
+                    \File::deleteDirectory($tempDir);
+                    \Log::error('downloadColorsZip - ZIP close failed', [
+                        'zip_path' => $zipPath,
+                        'added_count' => $addedCount
+                    ]);
+                    return response()->json(['error' => 'Failed to finalize ZIP file'], 500);
+                }
+
+                \Log::info('downloadColorsZip - ZIP created successfully', [
+                    'zip_path' => $zipPath,
+                    'zip_size' => \File::exists($zipPath) ? \File::size($zipPath) : 0,
+                    'added_count' => $addedCount,
+                    'total_png_files' => count($pngFiles)
+                ]);
             } else {
                 // Alternative: Use command line zip if available (Windows/Linux/Mac)
                 // Try PowerShell on Windows, zip command on Linux/Mac
@@ -1474,28 +1515,97 @@ class PrintLabelController extends Controller
                 
                 if (!empty($zipCommand)) {
                     exec($zipCommand, $output, $returnVar);
+                    \Log::info('downloadColorsZip - Command line ZIP attempt', [
+                        'command' => $zipCommand,
+                        'return_var' => $returnVar,
+                        'output' => $output
+                    ]);
                 }
                 
                 if (empty($zipCommand) || $returnVar !== 0) {
+                    \Log::warning('downloadColorsZip - Command line ZIP failed, using fallback', [
+                        'return_var' => $returnVar ?? null,
+                        'command' => $zipCommand
+                    ]);
                     // Fallback: Create ZIP manually using simple method
                     // This is a basic ZIP implementation
                     $zipContent = $this->createSimpleZip($pngFiles);
-                    \File::put($zipPath, $zipContent);
+                    $written = \File::put($zipPath, $zipContent);
+                    if ($written === false || !\File::exists($zipPath)) {
+                        \File::deleteDirectory($tempDir);
+                        \Log::error('downloadColorsZip - Fallback ZIP creation failed', [
+                            'zip_path' => $zipPath,
+                            'written' => $written,
+                            'exists' => \File::exists($zipPath)
+                        ]);
+                        return response()->json(['error' => 'Failed to create ZIP file (fallback method)'], 500);
+                    }
+                    \Log::info('downloadColorsZip - Fallback ZIP created successfully', [
+                        'zip_path' => $zipPath,
+                        'zip_size' => \File::size($zipPath)
+                    ]);
+                } else {
+                    if (!\File::exists($zipPath)) {
+                        \File::deleteDirectory($tempDir);
+                        \Log::error('downloadColorsZip - Command line ZIP file not found after creation', [
+                            'zip_path' => $zipPath,
+                            'return_var' => $returnVar
+                        ]);
+                        return response()->json(['error' => 'ZIP file not found after creation'], 404);
+                    }
+                    \Log::info('downloadColorsZip - Command line ZIP created successfully', [
+                        'zip_path' => $zipPath,
+                        'zip_size' => \File::size($zipPath)
+                    ]);
                 }
             }
 
             // Geçici PNG dosyalarını sil
             \File::deleteDirectory($tempDir);
 
+            // ZIP dosyasının varlığını kontrol et
+            if (!\File::exists($zipPath)) {
+                \Log::error('downloadColorsZip - ZIP file not found before download', [
+                    'zip_path' => $zipPath,
+                    'zip_file_name' => $zipFileName
+                ]);
+                return response()->json(['error' => 'ZIP file not found'], 404);
+            }
+
+            $zipSize = \File::size($zipPath);
+            if ($zipSize === 0 || $zipSize === false) {
+                \Log::error('downloadColorsZip - ZIP file is empty or invalid', [
+                    'zip_path' => $zipPath,
+                    'zip_size' => $zipSize
+                ]);
+                \File::delete($zipPath);
+                return response()->json(['error' => 'ZIP file is empty or invalid'], 500);
+            }
+
+            \Log::info('downloadColorsZip - Preparing ZIP download', [
+                'zip_path' => $zipPath,
+                'zip_file_name' => $zipFileName,
+                'zip_size' => $zipSize
+            ]);
+
             // ZIP dosyasını indir
             return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
 
         } catch (\Exception $e) {
             // Hata durumunda temizlik
-            if (\File::exists($tempDir)) {
+            if (isset($tempDir) && \File::exists($tempDir)) {
                 \File::deleteDirectory($tempDir);
             }
-            \Log::error('Download colors ZIP error', ['error' => $e->getMessage()]);
+            if (isset($zipPath) && \File::exists($zipPath)) {
+                \File::delete($zipPath);
+            }
+            \Log::error('downloadColorsZip - Exception occurred', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'items_count' => count($items ?? []),
+                'temp_dir' => $tempDir ?? null,
+                'zip_path' => $zipPath ?? null
+            ]);
             return response()->json(['error' => 'Failed to create ZIP: ' . $e->getMessage()], 500);
         }
     }
@@ -1510,33 +1620,32 @@ class PrintLabelController extends Controller
         $maxAttempts = 3;
         $backoffMs = [0, 1000, 2000];
         while ($attempts < $maxAttempts) {
-            try {
-                if ($requestCount > 0) {
+        try {
+            if ($requestCount > 0) {
                     usleep($delay * 1000);
                 }
                 if (!empty($backoffMs[$attempts])) {
                     usleep($backoffMs[$attempts] * 1000);
-                }
-                $requestCount++;
+            }
+            $requestCount++;
 
                 $response = \Illuminate\Support\Facades\Http::timeout(15)
-                    ->withHeaders(['Accept' => 'image/png'])
-                    ->withOptions(['verify' => false])
-                    ->withBody($zpl, 'application/x-www-form-urlencoded')
-                    ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
+                ->withHeaders(['Accept' => 'image/png'])
+                ->withOptions(['verify' => false])
+                ->withBody($zpl, 'application/x-www-form-urlencoded')
+                    ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
 
-                if ($response->successful() && $response->body()) {
-                    $pngData = $this->trimPngWhitespace($response->body());
-                    $safeLabel = preg_replace('/[^a-zA-Z0-9_-]/', '_', $label);
-                    $fileName = 'etiket_' . $safeLabel . '.png';
-                    $filePath = $tempDir . '/' . $fileName;
-                    \File::put($filePath, $pngData);
-                    \Log::info('saveLabelPng - Success', [
-                        'label' => $label,
-                        'fileName' => $fileName,
-                        'fileSize' => strlen($pngData)
-                    ]);
-                    return $filePath;
+            if ($response->successful() && $response->body()) {
+                $safeLabel = preg_replace('/[^a-zA-Z0-9_-]/', '_', $label);
+                $fileName = 'etiket_' . $safeLabel . '.png';
+                $filePath = $tempDir . '/' . $fileName;
+                \File::put($filePath, $response->body());
+                \Log::info('saveLabelPng - Success', [
+                    'label' => $label,
+                    'fileName' => $fileName,
+                    'fileSize' => strlen($response->body())
+                ]);
+                return $filePath;
                 }
 
                 \Log::warning('saveLabelPng - API non-success (will retry if possible)', [
@@ -1547,239 +1656,15 @@ class PrintLabelController extends Controller
                 ]);
             } catch (\Throwable $e) {
                 \Log::error('saveLabelPng - Exception (will retry if possible)', [
-                    'label' => $label,
+                'label' => $label,
                     'attempt' => $attempts + 1,
-                    'error' => $e->getMessage()
-                ]);
-            }
+                'error' => $e->getMessage()
+            ]);
+        }
             $attempts++;
         }
         \Log::error('saveLabelPng - Failed after retries', ['label' => $label, 'attempts' => $attempts]);
         return null;
-    }
-
-    /**
-     * Kırpma: PNG içindeki tüm arka plan rengini (beyaz, mavi, vs.) transparent yap ve sadece içeriği bırak.
-     * Kenarlardaki pikselleri kontrol edip en yaygın rengi arka plan olarak tespit eder.
-     */
-    private function trimPngWhitespace(string $pngBinary): string
-    {
-        if (!function_exists('imagecreatefromstring')) {
-            return $pngBinary;
-        }
-
-        $img = @imagecreatefromstring($pngBinary);
-        if (!$img) {
-            return $pngBinary;
-        }
-
-        $w = imagesx($img);
-        $h = imagesy($img);
-
-        // Alpha channel'ı aktif et (sunucu için kritik)
-        // Ubuntu sunucularda GD library'nin PNG alpha desteğini zorla aktif et
-        if (function_exists('imagealphablending') && function_exists('imagesavealpha')) {
-            imagesavealpha($img, true);
-            imagealphablending($img, false);
-        }
-
-        // Kenarlardaki pikselleri örnekle ve en yaygın rengi bul (arka plan rengi)
-        $edgeColors = [];
-        $sampleSize = min(50, max(10, min($w, $h) / 10)); // Kenarlardan örnekleme sayısı
-        
-        // Üst kenar
-        for ($x = 0; $x < $w; $x += max(1, intval($w / $sampleSize))) {
-            $rgba = imagecolorat($img, $x, 0);
-            $r = ($rgba >> 16) & 0xFF;
-            $g = ($rgba >> 8) & 0xFF;
-            $b = $rgba & 0xFF;
-            $key = "$r,$g,$b";
-            $edgeColors[$key] = ($edgeColors[$key] ?? 0) + 1;
-        }
-        
-        // Alt kenar
-        for ($x = 0; $x < $w; $x += max(1, intval($w / $sampleSize))) {
-            $rgba = imagecolorat($img, $x, $h - 1);
-            $r = ($rgba >> 16) & 0xFF;
-            $g = ($rgba >> 8) & 0xFF;
-            $b = $rgba & 0xFF;
-            $key = "$r,$g,$b";
-            $edgeColors[$key] = ($edgeColors[$key] ?? 0) + 1;
-        }
-        
-        // Sol kenar
-        for ($y = 0; $y < $h; $y += max(1, intval($h / $sampleSize))) {
-            $rgba = imagecolorat($img, 0, $y);
-            $r = ($rgba >> 16) & 0xFF;
-            $g = ($rgba >> 8) & 0xFF;
-            $b = $rgba & 0xFF;
-            $key = "$r,$g,$b";
-            $edgeColors[$key] = ($edgeColors[$key] ?? 0) + 1;
-        }
-        
-        // Sağ kenar
-        for ($y = 0; $y < $h; $y += max(1, intval($h / $sampleSize))) {
-            $rgba = imagecolorat($img, $w - 1, $y);
-            $r = ($rgba >> 16) & 0xFF;
-            $g = ($rgba >> 8) & 0xFF;
-            $b = $rgba & 0xFF;
-            $key = "$r,$g,$b";
-            $edgeColors[$key] = ($edgeColors[$key] ?? 0) + 1;
-        }
-
-        // En yaygın rengi bul (arka plan)
-        arsort($edgeColors);
-        $bgColorKey = array_key_first($edgeColors);
-        list($bgR, $bgG, $bgB) = explode(',', $bgColorKey);
-        $bgR = (int)$bgR;
-        $bgG = (int)$bgG;
-        $bgB = (int)$bgB;
-
-        // Yeni transparent arka planlı görüntü oluştur
-        $transparent = imagecreatetruecolor($w, $h);
-        imagesavealpha($transparent, true);
-        imagealphablending($transparent, false);
-        $transparentColor = imagecolorallocatealpha($transparent, 255, 255, 255, 127);
-        imagefill($transparent, 0, 0, $transparentColor);
-
-        $minX = $w;
-        $minY = $h;
-        $maxX = 0;
-        $maxY = 0;
-        $hasContent = false;
-        $tolerance = 8; // Daha agresif tolerans (15'ten 8'e düşürüldü)
-
-        // Tüm pikselleri kontrol et ve arka plan rengini transparent yap
-        for ($y = 0; $y < $h; $y++) {
-            for ($x = 0; $x < $w; $x++) {
-                $rgba = imagecolorat($img, $x, $y);
-                $a = ($rgba & 0x7F000000) >> 24;
-                $r = ($rgba >> 16) & 0xFF;
-                $g = ($rgba >> 8) & 0xFF;
-                $b = $rgba & 0xFF;
-
-                // Arka plan rengine yakın mı kontrol et (daha agresif tolerans)
-                $isBackground = ($a >= 120) || 
-                    (abs($r - $bgR) <= $tolerance && 
-                     abs($g - $bgG) <= $tolerance && 
-                     abs($b - $bgB) <= $tolerance);
-
-                if (!$isBackground) {
-                    $hasContent = true;
-                    if ($x < $minX) $minX = $x;
-                    if ($y < $minY) $minY = $y;
-                    if ($x > $maxX) $maxX = $x;
-                    if ($y > $maxY) $maxY = $y;
-                    
-                    // Orijinal pikseli yeni görüntüye kopyala
-                    $color = imagecolorallocatealpha($transparent, $r, $g, $b, $a);
-                    imagesetpixel($transparent, $x, $y, $color);
-                }
-            }
-        }
-
-        imagedestroy($img);
-
-        if (!$hasContent || $maxX <= $minX || $maxY <= $minY) {
-            imagedestroy($transparent);
-            return $pngBinary;
-        }
-
-        // Kırpma yap
-        $cropWidth = $maxX - $minX + 1;
-        $cropHeight = $maxY - $minY + 1;
-        $cropped = imagecrop($transparent, [
-            'x' => $minX,
-            'y' => $minY,
-            'width' => $cropWidth,
-            'height' => $cropHeight
-        ]);
-        imagedestroy($transparent);
-
-        if (!$cropped) {
-            return $pngBinary;
-        }
-
-        // Kırpma sonrası kenarlardaki kalan arka plan piksellerini temizle
-        $cw = imagesx($cropped);
-        $ch = imagesy($cropped);
-        
-        // Alpha channel desteğini kesinlikle aktif et (sunucu için kritik)
-        imagesavealpha($cropped, true);
-        imagealphablending($cropped, false);
-        
-        $edgeCleanWidth = 5; // Kenarlardan kaç piksel temizlenecek (3'ten 5'e çıkarıldı)
-        
-        // Tüm görüntüyü tekrar tarayıp arka plan piksellerini tamamen temizle
-        // Bu özellikle sunucuda GD library'nin alpha desteği için kritik
-        for ($y = 0; $y < $ch; $y++) {
-            for ($x = 0; $x < $cw; $x++) {
-                $rgba = imagecolorat($cropped, $x, $y);
-                $a = ($rgba & 0x7F000000) >> 24;
-                $r = ($rgba >> 16) & 0xFF;
-                $g = ($rgba >> 8) & 0xFF;
-                $b = $rgba & 0xFF;
-                
-                // Arka plan rengine yakın mı kontrol et
-                $isBackground = ($a >= 120) || 
-                    (abs($r - $bgR) <= $tolerance && 
-                     abs($g - $bgG) <= $tolerance && 
-                     abs($b - $bgB) <= $tolerance);
-                
-                // Kenarlarda veya arka plan rengine yakınsa tamamen transparent yap
-                $isEdge = ($x < $edgeCleanWidth || $x >= $cw - $edgeCleanWidth || 
-                          $y < $edgeCleanWidth || $y >= $ch - $edgeCleanWidth);
-                
-                if ($isBackground || ($isEdge && abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance)) {
-                    // Alpha değerini 127 (tam transparent) yap
-                    // Sunucuda GD library için manuel alpha ayarı kritik
-                    $transparentPix = imagecolorallocatealpha($cropped, 0, 0, 0, 127);
-                    imagesetpixel($cropped, $x, $y, $transparentPix);
-                }
-            }
-        }
-
-        // Sunucuda alpha channel'ın kaybolmaması için görüntüyü yeniden oluştur
-        // Bu Ubuntu sunucularda GD library'nin PNG alpha desteği için kritik
-        $final = imagecreatetruecolor($cw, $ch);
-        imagesavealpha($final, true);
-        imagealphablending($final, false);
-        
-        // Tamamen transparent arka plan oluştur
-        $transparentBg = imagecolorallocatealpha($final, 0, 0, 0, 127);
-        imagefill($final, 0, 0, $transparentBg);
-        
-        // Tüm pikselleri kopyala ve alpha channel'ı koru
-        for ($y = 0; $y < $ch; $y++) {
-            for ($x = 0; $x < $cw; $x++) {
-                $rgba = imagecolorat($cropped, $x, $y);
-                $a = ($rgba & 0x7F000000) >> 24;
-                $r = ($rgba >> 16) & 0xFF;
-                $g = ($rgba >> 8) & 0xFF;
-                $b = $rgba & 0xFF;
-                
-                // Alpha değerini koru ve pikseli kopyala
-                $color = imagecolorallocatealpha($final, $r, $g, $b, $a);
-                imagesetpixel($final, $x, $y, $color);
-            }
-        }
-        
-        imagedestroy($cropped);
-        
-        // PNG kaydetmeden önce alpha ayarlarını tekrar kontrol et (sunucu için kritik)
-        imagesavealpha($final, true);
-        imagealphablending($final, false);
-        
-        // PNG olarak kaydet (compression level 9 = maksimum kalite)
-        ob_start();
-        // Alpha blending'i kesinlikle kapalı tut
-        imagealphablending($final, false);
-        imagesavealpha($final, true);
-        imagepng($final, null, 9);
-        imagedestroy($final);
-        $data = ob_get_clean();
-
-        return $data !== false ? $data : $pngBinary;
     }
 
     /**

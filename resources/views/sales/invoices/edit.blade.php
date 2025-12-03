@@ -881,14 +881,14 @@ window.addScannedProductByCode = function(code){
                     color_variants: detailedItem.color_variants,
                     preferred_color_variant_id: detailedItem.preferred_color_variant_id || null
                 };
-                appendInvoiceItemFromResult(item);
-                toastr.success(item.name + ' eklendi');
-            } else {
-                toastr.error('Kod ile ürün bulunamadı: ' + code);
-            }
-        })
-        .fail(function(){
-            toastr.error('Ürün arama hatası');
+                            appendInvoiceItemFromResult(item);
+                            toastr.success(item.name + ' eklendi');
+                    } else {
+                        toastr.error('Kod ile ürün bulunamadı: ' + code);
+                    }
+                })
+                .fail(function(){
+                    toastr.error('Ürün arama hatası');
         });
 }
 
