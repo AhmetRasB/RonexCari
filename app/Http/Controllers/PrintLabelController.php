@@ -213,7 +213,8 @@ class PrintLabelController extends Controller
                 ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
 
             if ($response->successful() && $response->body()) {
-                return response($response->body(), 200, [
+                $cropped = $this->trimPngWhitespace($response->body());
+                return response($cropped, 200, [
                     'Content-Type' => 'image/png',
                 ]);
             }
@@ -268,7 +269,8 @@ class PrintLabelController extends Controller
                 ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
 
             if ($response->successful() && $response->body()) {
-                return response($response->body(), 200, [
+                $cropped = $this->trimPngWhitespace($response->body());
+                return response($cropped, 200, [
                     'Content-Type' => 'image/png',
                 ]);
             }
@@ -1187,20 +1189,20 @@ class PrintLabelController extends Controller
             
             return implode('', $blocks);
         } else {
-            // Dış etiket (sadece bu renk için)
+            // Dış etiket (sadece bu renk için) - 3x5cm alanı daha dolu kullan
             $one = "^XA\n" .    
                    "^CI28\n" .
                    "^PW500\n" .
                    "^LL300\n" .
                    "^LH10,10\n" .
                    
-                   "^FO20,20^A0N,30,30^FD{$name}^FS\n" .
-                   "^FO20,58^A0N,24,24^FD{$colorSan}^FS\n" .
-                   ($sizesCsv !== '' ? "^FO20,90^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
-                   "^FO20,120^A0N,20,20^FD{$labelBarcode}^FS\n" .
-                   "^FO360,15^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
-                   "^BY4,2,90\n" .
-                   "^FO20,148^BCN,90,N,N,N^FD{$labelBarcode}^FS\n" .
+                   "^FO20,10^A0N,32,32^FD{$name}^FS\n" .
+                   "^FO20,46^A0N,24,24^FD{$colorSan}^FS\n" .
+                   ($sizesCsv !== '' ? "^FO20,78^A0N,22,22^FD{$sizesCsv}^FS\n" : '') .
+                   "^FO20,108^A0N,20,20^FD{$labelBarcode}^FS\n" .
+                   "^FO360,10^BQN,2,3^FDLA,{$qrSeries}^FS\n" .
+                   "^BY3,2,110\n" .
+                   "^FO20,140^BCN,110,N,N,N^FD{$labelBarcode}^FS\n" .
                    "^XZ\n";
             return str_repeat($one, max(1, $count));
         }
@@ -1524,14 +1526,15 @@ class PrintLabelController extends Controller
                     ->post('https://api.labelary.com/v1/printers/24dpmm/labels/1.97x1.18/0/');
 
                 if ($response->successful() && $response->body()) {
+                    $pngData = $this->trimPngWhitespace($response->body());
                     $safeLabel = preg_replace('/[^a-zA-Z0-9_-]/', '_', $label);
                     $fileName = 'etiket_' . $safeLabel . '.png';
                     $filePath = $tempDir . '/' . $fileName;
-                    \File::put($filePath, $response->body());
+                    \File::put($filePath, $pngData);
                     \Log::info('saveLabelPng - Success', [
                         'label' => $label,
                         'fileName' => $fileName,
-                        'fileSize' => strlen($response->body())
+                        'fileSize' => strlen($pngData)
                     ]);
                     return $filePath;
                 }
@@ -1553,6 +1556,220 @@ class PrintLabelController extends Controller
         }
         \Log::error('saveLabelPng - Failed after retries', ['label' => $label, 'attempts' => $attempts]);
         return null;
+    }
+
+    /**
+     * Kırpma: PNG içindeki tüm arka plan rengini (beyaz, mavi, vs.) transparent yap ve sadece içeriği bırak.
+     * Kenarlardaki pikselleri kontrol edip en yaygın rengi arka plan olarak tespit eder.
+     */
+    private function trimPngWhitespace(string $pngBinary): string
+    {
+        if (!function_exists('imagecreatefromstring')) {
+            return $pngBinary;
+        }
+
+        $img = @imagecreatefromstring($pngBinary);
+        if (!$img) {
+            return $pngBinary;
+        }
+
+        $w = imagesx($img);
+        $h = imagesy($img);
+
+        // Alpha channel'ı aktif et
+        imagesavealpha($img, true);
+        imagealphablending($img, false);
+
+        // Kenarlardaki pikselleri örnekle ve en yaygın rengi bul (arka plan rengi)
+        $edgeColors = [];
+        $sampleSize = min(50, max(10, min($w, $h) / 10)); // Kenarlardan örnekleme sayısı
+        
+        // Üst kenar
+        for ($x = 0; $x < $w; $x += max(1, intval($w / $sampleSize))) {
+            $rgba = imagecolorat($img, $x, 0);
+            $r = ($rgba >> 16) & 0xFF;
+            $g = ($rgba >> 8) & 0xFF;
+            $b = $rgba & 0xFF;
+            $key = "$r,$g,$b";
+            $edgeColors[$key] = ($edgeColors[$key] ?? 0) + 1;
+        }
+        
+        // Alt kenar
+        for ($x = 0; $x < $w; $x += max(1, intval($w / $sampleSize))) {
+            $rgba = imagecolorat($img, $x, $h - 1);
+            $r = ($rgba >> 16) & 0xFF;
+            $g = ($rgba >> 8) & 0xFF;
+            $b = $rgba & 0xFF;
+            $key = "$r,$g,$b";
+            $edgeColors[$key] = ($edgeColors[$key] ?? 0) + 1;
+        }
+        
+        // Sol kenar
+        for ($y = 0; $y < $h; $y += max(1, intval($h / $sampleSize))) {
+            $rgba = imagecolorat($img, 0, $y);
+            $r = ($rgba >> 16) & 0xFF;
+            $g = ($rgba >> 8) & 0xFF;
+            $b = $rgba & 0xFF;
+            $key = "$r,$g,$b";
+            $edgeColors[$key] = ($edgeColors[$key] ?? 0) + 1;
+        }
+        
+        // Sağ kenar
+        for ($y = 0; $y < $h; $y += max(1, intval($h / $sampleSize))) {
+            $rgba = imagecolorat($img, $w - 1, $y);
+            $r = ($rgba >> 16) & 0xFF;
+            $g = ($rgba >> 8) & 0xFF;
+            $b = $rgba & 0xFF;
+            $key = "$r,$g,$b";
+            $edgeColors[$key] = ($edgeColors[$key] ?? 0) + 1;
+        }
+
+        // En yaygın rengi bul (arka plan)
+        arsort($edgeColors);
+        $bgColorKey = array_key_first($edgeColors);
+        list($bgR, $bgG, $bgB) = explode(',', $bgColorKey);
+        $bgR = (int)$bgR;
+        $bgG = (int)$bgG;
+        $bgB = (int)$bgB;
+
+        // Yeni transparent arka planlı görüntü oluştur
+        $transparent = imagecreatetruecolor($w, $h);
+        imagesavealpha($transparent, true);
+        imagealphablending($transparent, false);
+        $transparentColor = imagecolorallocatealpha($transparent, 255, 255, 255, 127);
+        imagefill($transparent, 0, 0, $transparentColor);
+
+        $minX = $w;
+        $minY = $h;
+        $maxX = 0;
+        $maxY = 0;
+        $hasContent = false;
+        $tolerance = 8; // Daha agresif tolerans (15'ten 8'e düşürüldü)
+
+        // Tüm pikselleri kontrol et ve arka plan rengini transparent yap
+        for ($y = 0; $y < $h; $y++) {
+            for ($x = 0; $x < $w; $x++) {
+                $rgba = imagecolorat($img, $x, $y);
+                $a = ($rgba & 0x7F000000) >> 24;
+                $r = ($rgba >> 16) & 0xFF;
+                $g = ($rgba >> 8) & 0xFF;
+                $b = $rgba & 0xFF;
+
+                // Arka plan rengine yakın mı kontrol et (daha agresif tolerans)
+                $isBackground = ($a >= 120) || 
+                    (abs($r - $bgR) <= $tolerance && 
+                     abs($g - $bgG) <= $tolerance && 
+                     abs($b - $bgB) <= $tolerance);
+
+                if (!$isBackground) {
+                    $hasContent = true;
+                    if ($x < $minX) $minX = $x;
+                    if ($y < $minY) $minY = $y;
+                    if ($x > $maxX) $maxX = $x;
+                    if ($y > $maxY) $maxY = $y;
+                    
+                    // Orijinal pikseli yeni görüntüye kopyala
+                    $color = imagecolorallocatealpha($transparent, $r, $g, $b, $a);
+                    imagesetpixel($transparent, $x, $y, $color);
+                }
+            }
+        }
+
+        imagedestroy($img);
+
+        if (!$hasContent || $maxX <= $minX || $maxY <= $minY) {
+            imagedestroy($transparent);
+            return $pngBinary;
+        }
+
+        // Kırpma yap
+        $cropWidth = $maxX - $minX + 1;
+        $cropHeight = $maxY - $minY + 1;
+        $cropped = imagecrop($transparent, [
+            'x' => $minX,
+            'y' => $minY,
+            'width' => $cropWidth,
+            'height' => $cropHeight
+        ]);
+        imagedestroy($transparent);
+
+        if (!$cropped) {
+            return $pngBinary;
+        }
+
+        // Kırpma sonrası kenarlardaki kalan arka plan piksellerini temizle
+        $cw = imagesx($cropped);
+        $ch = imagesy($cropped);
+        imagesavealpha($cropped, true);
+        imagealphablending($cropped, false);
+        
+        $edgeCleanWidth = 3; // Kenarlardan kaç piksel temizlenecek
+        
+        // Üst kenar temizliği
+        for ($y = 0; $y < min($edgeCleanWidth, $ch); $y++) {
+            for ($x = 0; $x < $cw; $x++) {
+                $rgba = imagecolorat($cropped, $x, $y);
+                $r = ($rgba >> 16) & 0xFF;
+                $g = ($rgba >> 8) & 0xFF;
+                $b = $rgba & 0xFF;
+                if (abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance) {
+                    $transparentPix = imagecolorallocatealpha($cropped, 255, 255, 255, 127);
+                    imagesetpixel($cropped, $x, $y, $transparentPix);
+                }
+            }
+        }
+        
+        // Alt kenar temizliği
+        for ($y = max(0, $ch - $edgeCleanWidth); $y < $ch; $y++) {
+            for ($x = 0; $x < $cw; $x++) {
+                $rgba = imagecolorat($cropped, $x, $y);
+                $r = ($rgba >> 16) & 0xFF;
+                $g = ($rgba >> 8) & 0xFF;
+                $b = $rgba & 0xFF;
+                if (abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance) {
+                    $transparentPix = imagecolorallocatealpha($cropped, 255, 255, 255, 127);
+                    imagesetpixel($cropped, $x, $y, $transparentPix);
+                }
+            }
+        }
+        
+        // Sol kenar temizliği
+        for ($x = 0; $x < min($edgeCleanWidth, $cw); $x++) {
+            for ($y = 0; $y < $ch; $y++) {
+                $rgba = imagecolorat($cropped, $x, $y);
+                $r = ($rgba >> 16) & 0xFF;
+                $g = ($rgba >> 8) & 0xFF;
+                $b = $rgba & 0xFF;
+                if (abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance) {
+                    $transparentPix = imagecolorallocatealpha($cropped, 255, 255, 255, 127);
+                    imagesetpixel($cropped, $x, $y, $transparentPix);
+                }
+            }
+        }
+        
+        // Sağ kenar temizliği
+        for ($x = max(0, $cw - $edgeCleanWidth); $x < $cw; $x++) {
+            for ($y = 0; $y < $ch; $y++) {
+                $rgba = imagecolorat($cropped, $x, $y);
+                $r = ($rgba >> 16) & 0xFF;
+                $g = ($rgba >> 8) & 0xFF;
+                $b = $rgba & 0xFF;
+                if (abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance) {
+                    $transparentPix = imagecolorallocatealpha($cropped, 255, 255, 255, 127);
+                    imagesetpixel($cropped, $x, $y, $transparentPix);
+                }
+            }
+        }
+
+        // PNG olarak kaydet (compression level 9 = maksimum kalite)
+        ob_start();
+        imagesavealpha($cropped, true);
+        imagealphablending($cropped, false);
+        imagepng($cropped, null, 9);
+        imagedestroy($cropped);
+        $data = ob_get_clean();
+
+        return $data !== false ? $data : $pngBinary;
     }
 
     /**
