@@ -593,8 +593,8 @@ class PrintLabelController extends Controller
                        ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
                        "^FO30," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
                        "^FO30," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$labelBarcode}^FS\n" .
-                       "^BY3,2,120\n" .
-                       "^FO30," . ($size !== '' ? '168' : '138') . "^BCN,120,N,N,N^FD{$labelBarcode}^FS\n" .
+                       "^BY2,2,80\n" .
+                       "^FO30," . ($size !== '' ? '160' : '132') . "^BCN,80,N,N,N^FD{$labelBarcode}^FS\n" .
                        "^XZ\n";
                 $blocks[] = str_repeat($one, max(1, $count));
             }
@@ -620,8 +620,8 @@ class PrintLabelController extends Controller
                    ($size !== '' ? "^FO20,80^A0N,26,26^FDBEDEN: {$size}^FS\n" : '') .
                    "^FO30," . ($size !== '' ? '110' : '80') . "^A0N,22,22^FDSeri: 5'li^FS\n" .
                    "^FO30," . ($size !== '' ? '138' : '108') . "^A0N,20,20^FD{$barcode}^FS\n" .
-                   "^BY3,2,120\n" .
-                   "^FO30," . ($size !== '' ? '168' : '138') . "^BCN,120,N,N,N^FD{$barcode}^FS\n" .
+                   "^BY2,2,80\n" .
+                   "^FO30," . ($size !== '' ? '160' : '132') . "^BCN,80,N,N,N^FD{$barcode}^FS\n" .
                    "^XZ\n";
             $blocks[] = str_repeat($one, max(1, $count));
         }
