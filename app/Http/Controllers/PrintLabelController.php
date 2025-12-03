@@ -1576,9 +1576,12 @@ class PrintLabelController extends Controller
         $w = imagesx($img);
         $h = imagesy($img);
 
-        // Alpha channel'ı aktif et
-        imagesavealpha($img, true);
-        imagealphablending($img, false);
+        // Alpha channel'ı aktif et (sunucu için kritik)
+        // Ubuntu sunucularda GD library'nin PNG alpha desteğini zorla aktif et
+        if (function_exists('imagealphablending') && function_exists('imagesavealpha')) {
+            imagesavealpha($img, true);
+            imagealphablending($img, false);
+        }
 
         // Kenarlardaki pikselleri örnekle ve en yaygın rengi bul (arka plan rengi)
         $edgeColors = [];
@@ -1700,73 +1703,80 @@ class PrintLabelController extends Controller
         // Kırpma sonrası kenarlardaki kalan arka plan piksellerini temizle
         $cw = imagesx($cropped);
         $ch = imagesy($cropped);
+        
+        // Alpha channel desteğini kesinlikle aktif et (sunucu için kritik)
         imagesavealpha($cropped, true);
         imagealphablending($cropped, false);
         
-        $edgeCleanWidth = 3; // Kenarlardan kaç piksel temizlenecek
+        $edgeCleanWidth = 5; // Kenarlardan kaç piksel temizlenecek (3'ten 5'e çıkarıldı)
         
-        // Üst kenar temizliği
-        for ($y = 0; $y < min($edgeCleanWidth, $ch); $y++) {
+        // Tüm görüntüyü tekrar tarayıp arka plan piksellerini tamamen temizle
+        // Bu özellikle sunucuda GD library'nin alpha desteği için kritik
+        for ($y = 0; $y < $ch; $y++) {
             for ($x = 0; $x < $cw; $x++) {
                 $rgba = imagecolorat($cropped, $x, $y);
+                $a = ($rgba & 0x7F000000) >> 24;
                 $r = ($rgba >> 16) & 0xFF;
                 $g = ($rgba >> 8) & 0xFF;
                 $b = $rgba & 0xFF;
-                if (abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance) {
-                    $transparentPix = imagecolorallocatealpha($cropped, 255, 255, 255, 127);
-                    imagesetpixel($cropped, $x, $y, $transparentPix);
-                }
-            }
-        }
-        
-        // Alt kenar temizliği
-        for ($y = max(0, $ch - $edgeCleanWidth); $y < $ch; $y++) {
-            for ($x = 0; $x < $cw; $x++) {
-                $rgba = imagecolorat($cropped, $x, $y);
-                $r = ($rgba >> 16) & 0xFF;
-                $g = ($rgba >> 8) & 0xFF;
-                $b = $rgba & 0xFF;
-                if (abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance) {
-                    $transparentPix = imagecolorallocatealpha($cropped, 255, 255, 255, 127);
-                    imagesetpixel($cropped, $x, $y, $transparentPix);
-                }
-            }
-        }
-        
-        // Sol kenar temizliği
-        for ($x = 0; $x < min($edgeCleanWidth, $cw); $x++) {
-            for ($y = 0; $y < $ch; $y++) {
-                $rgba = imagecolorat($cropped, $x, $y);
-                $r = ($rgba >> 16) & 0xFF;
-                $g = ($rgba >> 8) & 0xFF;
-                $b = $rgba & 0xFF;
-                if (abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance) {
-                    $transparentPix = imagecolorallocatealpha($cropped, 255, 255, 255, 127);
-                    imagesetpixel($cropped, $x, $y, $transparentPix);
-                }
-            }
-        }
-        
-        // Sağ kenar temizliği
-        for ($x = max(0, $cw - $edgeCleanWidth); $x < $cw; $x++) {
-            for ($y = 0; $y < $ch; $y++) {
-                $rgba = imagecolorat($cropped, $x, $y);
-                $r = ($rgba >> 16) & 0xFF;
-                $g = ($rgba >> 8) & 0xFF;
-                $b = $rgba & 0xFF;
-                if (abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance) {
-                    $transparentPix = imagecolorallocatealpha($cropped, 255, 255, 255, 127);
+                
+                // Arka plan rengine yakın mı kontrol et
+                $isBackground = ($a >= 120) || 
+                    (abs($r - $bgR) <= $tolerance && 
+                     abs($g - $bgG) <= $tolerance && 
+                     abs($b - $bgB) <= $tolerance);
+                
+                // Kenarlarda veya arka plan rengine yakınsa tamamen transparent yap
+                $isEdge = ($x < $edgeCleanWidth || $x >= $cw - $edgeCleanWidth || 
+                          $y < $edgeCleanWidth || $y >= $ch - $edgeCleanWidth);
+                
+                if ($isBackground || ($isEdge && abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance)) {
+                    // Alpha değerini 127 (tam transparent) yap
+                    // Sunucuda GD library için manuel alpha ayarı kritik
+                    $transparentPix = imagecolorallocatealpha($cropped, 0, 0, 0, 127);
                     imagesetpixel($cropped, $x, $y, $transparentPix);
                 }
             }
         }
 
+        // Sunucuda alpha channel'ın kaybolmaması için görüntüyü yeniden oluştur
+        // Bu Ubuntu sunucularda GD library'nin PNG alpha desteği için kritik
+        $final = imagecreatetruecolor($cw, $ch);
+        imagesavealpha($final, true);
+        imagealphablending($final, false);
+        
+        // Tamamen transparent arka plan oluştur
+        $transparentBg = imagecolorallocatealpha($final, 0, 0, 0, 127);
+        imagefill($final, 0, 0, $transparentBg);
+        
+        // Tüm pikselleri kopyala ve alpha channel'ı koru
+        for ($y = 0; $y < $ch; $y++) {
+            for ($x = 0; $x < $cw; $x++) {
+                $rgba = imagecolorat($cropped, $x, $y);
+                $a = ($rgba & 0x7F000000) >> 24;
+                $r = ($rgba >> 16) & 0xFF;
+                $g = ($rgba >> 8) & 0xFF;
+                $b = $rgba & 0xFF;
+                
+                // Alpha değerini koru ve pikseli kopyala
+                $color = imagecolorallocatealpha($final, $r, $g, $b, $a);
+                imagesetpixel($final, $x, $y, $color);
+            }
+        }
+        
+        imagedestroy($cropped);
+        
+        // PNG kaydetmeden önce alpha ayarlarını tekrar kontrol et (sunucu için kritik)
+        imagesavealpha($final, true);
+        imagealphablending($final, false);
+        
         // PNG olarak kaydet (compression level 9 = maksimum kalite)
         ob_start();
-        imagesavealpha($cropped, true);
-        imagealphablending($cropped, false);
-        imagepng($cropped, null, 9);
-        imagedestroy($cropped);
+        // Alpha blending'i kesinlikle kapalı tut
+        imagealphablending($final, false);
+        imagesavealpha($final, true);
+        imagepng($final, null, 9);
+        imagedestroy($final);
         $data = ob_get_clean();
 
         return $data !== false ? $data : $pngBinary;
