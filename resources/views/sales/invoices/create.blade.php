@@ -856,6 +856,11 @@ $(document).ready(function() {
                 color_variant_id: $('#modalColorVariant').length ? ($('#modalColorVariant').val() || null) : null,
             };
             
+            // Copy color variant list safely for use inside timeout (scannedProductData sonradan null olacak)
+            const itemColorVariants = (scannedProductData && Array.isArray(scannedProductData.color_variants))
+                ? scannedProductData.color_variants.slice()
+                : [];
+            
             // Build item to append with price/currency/tax and preferred color
             const item = Object.assign({}, scannedProductData, {
                 price: overrides.unit_price,
@@ -864,20 +869,21 @@ $(document).ready(function() {
                 preferred_color_variant_id: overrides.color_variant_id || scannedProductData.preferred_color_variant_id || null
             });
             
-            appendInvoiceItemFromResult(item);
+            const appendResult = appendInvoiceItemFromResult(item);
             
             // After row/card created, set description/qty/discount and color name
             setTimeout(() => {
-                const index = itemCounter - 1;
-                const row = $(`tr[data-item-index="${index}"]`);
-                const card = $(`.card[data-item-index="${index}"]`);
+                const targetIndex = appendResult ? appendResult.index : (itemCounter - 1);
+                console.log('🧾 [Scanner] applying overrides to index', targetIndex, 'overrides:', overrides);
+                const row = $(`tr[data-item-index="${targetIndex}"]`);
+                const card = $(`.card[data-item-index="${targetIndex}"]`);
                 const selectedVariantId = overrides.color_variant_id;
-                const selectedVariant = (scannedProductData.color_variants || []).find(v => (v.id+'' === (selectedVariantId||'')+''));
+                const selectedVariant = itemColorVariants.find(v => (v.id+'' === (selectedVariantId||'')+''));
                 const selectedColorName = selectedVariant ? selectedVariant.color : '';
                 
                 if (row.length) {
                     if (overrides.description) row.find('textarea[name*="[description]"]').val(overrides.description);
-                    row.find('input[name*="[quantity]"]').val(overrides.quantity);
+                    row.find('input[name*="[quantity]"]').val(overrides.quantity).trigger('input');
                     row.find('input[name*="[discount_rate]"]').val(overrides.discount_rate);
                     row.find('.unit-currency').val(overrides.unit_currency).trigger('change');
                     if (selectedVariantId) {
@@ -889,7 +895,7 @@ $(document).ready(function() {
                         row.find('input[name*="[selected_color]"]').val(selectedColorName);
                         // Ensure disabled select value is submitted by adding a hidden mirror input
                         if (row.find('input.color-variant-id-hidden').length === 0) {
-                            row.find('.color-cell').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${index}][color_variant_id]" value="${selectedVariantId}">`);
+                            row.find('.color-cell').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${targetIndex}][color_variant_id]" value="${selectedVariantId}">`);
             } else {
                             row.find('input.color-variant-id-hidden').val(selectedVariantId);
                         }
@@ -909,7 +915,7 @@ $(document).ready(function() {
                         card.find('input[name*="[selected_color]"]').val(selectedColorName);
                         // Ensure disabled select value is submitted by adding a hidden mirror input
                         if (card.find('input.color-variant-id-hidden').length === 0) {
-                            card.find('.color-selection-mobile').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${index}][color_variant_id]" value="${selectedVariantId}">`);
+                            card.find('.color-selection-mobile').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${targetIndex}][color_variant_id]" value="${selectedVariantId}">`);
                         } else {
                             card.find('input.color-variant-id-hidden').val(selectedVariantId);
                         }
@@ -1285,6 +1291,7 @@ function showScannedProductModal(item) {
 function appendInvoiceItemFromResult(item){
     // Check if we're on mobile or desktop
     const isMobile = window.innerWidth < 992;
+    let targetIndex = null;
     
     if (isMobile) {
         // Var olan boş kartı yeniden kullan; yoksa yeni kart ekle
@@ -1294,13 +1301,12 @@ function appendInvoiceItemFromResult(item){
             return (!name || name.trim() === '') && (!pid || pid.trim() === '');
         }).first();
 
-        let index;
         if (card.length) {
-            index = card.data('item-index');
+            targetIndex = card.data('item-index');
         } else {
             addMobileInvoiceItemRow();
-            index = itemCounter - 1;
-            card = $(`.card[data-item-index="${index}"]`);
+            targetIndex = itemCounter - 1;
+            card = $(`.card[data-item-index="${targetIndex}"]`);
         }
         
         // Set all fields exactly like manual selection
@@ -1395,13 +1401,12 @@ function appendInvoiceItemFromResult(item){
             return (!name || name.trim() === '') && (!pid || pid.trim() === '');
         }).first();
 
-        let index;
         if (row.length) {
-            index = row.data('item-index');
+            targetIndex = row.data('item-index');
         } else {
             addInvoiceItemRow();
-            index = itemCounter - 1;
-            row = $(`tr[data-item-index="${index}"]`);
+            targetIndex = itemCounter - 1;
+            row = $(`tr[data-item-index="${targetIndex}"]`);
         }
         
         // Set all fields exactly like manual selection
@@ -1450,6 +1455,8 @@ function appendInvoiceItemFromResult(item){
         // Recalculate totals
     calculateLineTotal.call(row.find('.unit-price')[0]);
     }
+    
+    return { index: targetIndex, isMobile };
 }
 
 function searchCustomers(query) {

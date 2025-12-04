@@ -1476,7 +1476,7 @@ class PrintLabelController extends Controller
                 }
 
                 if ($addedCount === 0) {
-                    $zip->close();
+                $zip->close();
                     \File::deleteDirectory($tempDir);
                     \Log::error('downloadColorsZip - No valid PNG files added to ZIP', [
                         'png_files_count' => count($pngFiles),
@@ -1633,7 +1633,7 @@ class PrintLabelController extends Controller
                 ->withHeaders(['Accept' => 'image/png'])
                 ->withOptions(['verify' => false])
                 ->withBody($zpl, 'application/x-www-form-urlencoded')
-                    ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
+                ->post('https://api.labelary.com/v1/printers/12dpmm/labels/1.97x1.18/0/');
 
             if ($response->successful() && $response->body()) {
                 $safeLabel = preg_replace('/[^a-zA-Z0-9_-]/', '_', $label);
