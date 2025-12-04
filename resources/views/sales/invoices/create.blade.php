@@ -839,7 +839,12 @@ $(document).ready(function() {
 
     // Add scanned product button
     $('#addScannedProduct').on('click', function(){
+        // Guard against double-clicks
+        if (scannedAddInProgress) {
+            return;
+        }
         if (scannedProductData) {
+            scannedAddInProgress = true;
             // Collect overrides from modal inputs
             const overrides = {
                 description: ($('#modalDescription').val() || '').trim(),
@@ -913,7 +918,7 @@ $(document).ready(function() {
                 }
             }, 120);
             
-            toastr.success(scannedProductData.name + ' eklendi');
+            notifySuccess(scannedProductData.name + ' eklendi');
             
             // Close modal using Bootstrap method
             (function(){
@@ -934,7 +939,14 @@ $(document).ready(function() {
                     $('#scannedProductModal').attr('aria-hidden','true');
                 }, 150);
             })();
+            // Reset state so user can scan again without double-add
             scannedProductData = null;
+            scannedAddInProgress = false;
+            // Put focus back to QR ile Ekle button for faster next scan
+            const qrButton = document.getElementById('openInvoiceScanner');
+            if (qrButton) {
+                qrButton.focus();
+            }
         }
     });
     
@@ -1066,13 +1078,13 @@ window.addScannedProductById = function(id){
             const item = list.find(i => (i.id+'').endsWith(id+''));
             if (item) {
                 appendInvoiceItemFromResult(item);
-                toastr.success(item.name + ' eklendi');
+                notifySuccess(item.name + ' eklendi');
             } else {
-                toastr.error('Ürün bulunamadı: #' + id);
+                notifyError('Ürün bulunamadı: #' + id);
             }
         })
         .fail(function(){
-            toastr.error('Ürün arama hatası');
+            notifyError('Ürün arama hatası');
         });
 }
 
@@ -1085,11 +1097,11 @@ window.addScannedProductByCode = function(code){
                 const item = list[0];
                 showScannedProductModal(item);
                             } else {
-                alert('Kod ile ürün bulunamadı: ' + code);
+                notifyError('Kod ile ürün bulunamadı: ' + code);
             }
         })
         .fail(function(xhr, status, error){
-            alert('Ürün arama hatası');
+            notifyError('Ürün arama hatası');
         });
 }
 
@@ -1097,6 +1109,31 @@ window.addScannedProductByCode = function(code){
 let scannedProductData = null;
 // Guard to prevent multiple quick clicks on "Ekle"
 let scannedAddInProgress = false;
+
+// Lightweight notification helpers (toastr varsa onu, yoksa alert kullan)
+function notifySuccess(message) {
+    if (window.toastr && typeof toastr.success === 'function') {
+        toastr.success(message);
+    } else {
+        alert(message);
+    }
+}
+
+function notifyError(message) {
+    if (window.toastr && typeof toastr.error === 'function') {
+        toastr.error(message);
+    } else {
+        alert(message);
+    }
+}
+
+function notifyWarning(message) {
+    if (window.toastr && typeof toastr.warning === 'function') {
+        toastr.warning(message);
+    } else {
+        alert(message);
+    }
+}
 
 function showScannedProductModal(item) {
     scannedProductData = item;
@@ -1250,9 +1287,21 @@ function appendInvoiceItemFromResult(item){
     const isMobile = window.innerWidth < 992;
     
     if (isMobile) {
-        addMobileInvoiceItemRow();
-        const index = itemCounter - 1;
-        const card = $(`.card[data-item-index="${index}"]`);
+        // Var olan boş kartı yeniden kullan; yoksa yeni kart ekle
+        let card = $('#mobileInvoiceItems .card').filter(function () {
+            const name = $(this).find('input[name*="[product_service_name]"]').val();
+            const pid  = $(this).find('input[name*="[product_id]"]').val();
+            return (!name || name.trim() === '') && (!pid || pid.trim() === '');
+        }).first();
+
+        let index;
+        if (card.length) {
+            index = card.data('item-index');
+        } else {
+            addMobileInvoiceItemRow();
+            index = itemCounter - 1;
+            card = $(`.card[data-item-index="${index}"]`);
+        }
         
         // Set all fields exactly like manual selection
         card.find('input[name*="[product_service_name]"]').val(item.name);
@@ -1339,16 +1388,28 @@ function appendInvoiceItemFromResult(item){
         // Recalculate totals
         calculateMobileLineTotal.call(card.find('.unit-price')[0]);
     } else {
-    addInvoiceItemRow();
-    const index = itemCounter - 1;
-    const row = $(`tr[data-item-index="${index}"]`);
+        // Masaüstü: var olan boş satırı yeniden kullan; yoksa yeni satır ekle
+        let row = $('#invoiceItemsBody tr').filter(function () {
+            const name = $(this).find('input[name*="[product_service_name]"]').val();
+            const pid  = $(this).find('input[name*="[product_id]"]').val();
+            return (!name || name.trim() === '') && (!pid || pid.trim() === '');
+        }).first();
+
+        let index;
+        if (row.length) {
+            index = row.data('item-index');
+        } else {
+            addInvoiceItemRow();
+            index = itemCounter - 1;
+            row = $(`tr[data-item-index="${index}"]`);
+        }
         
         // Set all fields exactly like manual selection
-    row.find('input[name*="[product_service_name]"]').val(item.name);
-    row.find('input[name*="[unit_price]"]').val(item.price);
-    row.find('select[name*="[tax_rate]"]').val(item.vat_rate);
-    row.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
-    row.find('input[name*="[type]"]').val(item.type);
+        row.find('input[name*="[product_service_name]"]').val(item.name);
+        row.find('input[name*="[unit_price]"]').val(item.price);
+        row.find('select[name*="[tax_rate]"]').val(item.vat_rate);
+        row.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
+        row.find('input[name*="[type]"]').val(item.type);
     
         // Handle color variants - EXACTLY like manual selection
     if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {
@@ -1836,16 +1897,14 @@ function calculateMobileLineTotal() {
         unitPrice = invoiceCurrency === 'TRY' ? priceInTRY : (priceInTRY / rates[invoiceCurrency]);
     }
     
-    // Calculate discount (fixed amount)
-    const discountAmount = Math.max(0, Math.min(discountRate, unitPrice * quantity));
-    const subtotal = (unitPrice * quantity) - discountAmount;
+    // Calculate discount (fixed amount) and NET line total (without KDV)
+    // Desktop hesaplaması ile aynı mantık: satır toplamı = (miktar * birim fiyat) - indirim
+    const lineSubtotal = unitPrice * quantity;
+    const discountAmount = Math.max(0, Math.min(discountRate, lineSubtotal));
+    const lineTotalAfterDiscount = lineSubtotal - discountAmount;
     
-    // Calculate tax
-    const taxAmount = (subtotal * taxRate) / 100;
-    const total = subtotal + taxAmount;
-    
-    // Update line total
-    card.find('.line-total').val(total.toFixed(2).replace('.', ','));
+    // Update line total (still NET – KDV totals ekranında ayrıca hesaplanacak)
+    card.find('.line-total').val(lineTotalAfterDiscount.toFixed(2).replace('.', ','));
     
     // Update currency symbol
     card.find('.invoice-currency-symbol').text($('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺');
@@ -2284,7 +2343,7 @@ function saveManualRates() {
     $('#manualRatesModal').modal('hide');
     
     // Show success message
-    toastr.success('Döviz kurları başarıyla kaydedildi!');
+    notifySuccess('Döviz kurları başarıyla kaydedildi!');
 }
 
 function saveNewCustomer() {
