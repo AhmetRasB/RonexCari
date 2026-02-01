@@ -11,11 +11,26 @@ use Illuminate\Http\Request;
 
 class ProductVariantController extends Controller
 {
+	private function currentAccountId(): ?int
+	{
+		$accountId = session('current_account_id');
+		return $accountId ? (int) $accountId : null;
+	}
+
+	private function assertBelongsToCurrentAccount(?int $modelAccountId): void
+	{
+		$accountId = $this->currentAccountId();
+		if ($accountId !== null && (int) ($modelAccountId ?? 0) !== $accountId) {
+			abort(404);
+		}
+	}
+
 	/**
 	 * Show a product focused on a specific color variant.
 	 */
 	public function productColor(Product $product, ProductColorVariant $variant)
 	{
+		$this->assertBelongsToCurrentAccount($product->account_id);
 		if ($variant->product_id !== $product->id) {
 			abort(404);
 		}
@@ -33,6 +48,7 @@ class ProductVariantController extends Controller
 	 */
 	public function productColorByName(Product $product, string $color)
 	{
+		$this->assertBelongsToCurrentAccount($product->account_id);
 		$normalized = mb_strtolower($color);
 		$variant = ProductColorVariant::where('product_id', $product->id)
 			->whereRaw('LOWER(color) = ?', [$normalized])
@@ -58,6 +74,7 @@ class ProductVariantController extends Controller
 	 */
 	public function seriesColor(ProductSeries $series, ProductSeriesColorVariant $variant)
 	{
+		$this->assertBelongsToCurrentAccount($series->account_id);
 		if ($variant->product_series_id !== $series->id) {
 			abort(404);
 		}
@@ -75,6 +92,7 @@ class ProductVariantController extends Controller
 	 */
 	public function seriesColorByName(ProductSeries $series, string $color)
 	{
+		$this->assertBelongsToCurrentAccount($series->account_id);
 		$normalized = mb_strtolower($color);
 		$variant = ProductSeriesColorVariant::where('product_series_id', $series->id)
 			->whereRaw('LOWER(color) = ?', [$normalized])

@@ -131,7 +131,7 @@
                                 <option value="EUR" {{ (old('price_currency', $series->price_currency ?? 'TRY')) == 'EUR' ? 'selected' : '' }}>EUR</option>
                             </select>
                         </div>
-ß
+
                         <!-- Renk Yönetimi -->
                         <div class="col-12">
                             <h6 class="fw-semibold text-primary mb-3">Renkler</h6>

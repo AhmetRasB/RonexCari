@@ -171,7 +171,12 @@ Route::middleware(['auth', 'account.selection'])->group(function () {
     
     // API: Get colors for a series
     Route::get('/api/series/{id}/colors', function($id) {
-        $series = \App\Models\ProductSeries::with('colorVariants')->find($id);
+        $accountId = session('current_account_id');
+        abort_unless($accountId, 403, 'Account not selected.');
+
+        $series = \App\Models\ProductSeries::with('colorVariants')
+            ->where('account_id', $accountId)
+            ->find($id);
         if (!$series) {
             return response()->json(['error' => 'Series not found'], 404);
         }

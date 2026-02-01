@@ -27,7 +27,7 @@ class InvoiceController extends Controller
     public function index()
     {
         $currentAccountId = session('current_account_id');
-        
+
         // Admin kullanıcılar tüm hesapları görebilir
         if (auth()->user()->isAdmin()) {
             $invoices = PurchaseInvoice::with(['supplier', 'account', 'user'])
@@ -39,14 +39,14 @@ class InvoiceController extends Controller
                 ->latest()
                 ->paginate(10);
         }
-        
+
         // Her fatura için ödeme kontrolü yap (şimdilik devre dışı - payments tablosu ile entegre edilecek)
         foreach ($invoices as $invoice) {
             // TODO: Implement proper payment tracking with payments table
             $invoice->payments_amount = 0;
             $invoice->has_payments = false;
         }
-        
+
         return view('purchases.invoices.index', compact('invoices'));
     }
 
@@ -67,7 +67,7 @@ class InvoiceController extends Controller
                 $q->whereNotNull('account_id');
             })
             ->get();
-        
+
         return view('purchases.invoices.create', compact('suppliers', 'products'));
     }
 
@@ -82,7 +82,7 @@ class InvoiceController extends Controller
             'ip' => $request->ip(),
             'timestamp' => now()
         ]);
-        
+
         // Get account_id with fallback
         $accountId = session('current_account_id');
         if (!$accountId) {
@@ -111,7 +111,7 @@ class InvoiceController extends Controller
             'vat_status' => $request->input('vat_status', 'included'),
             'description' => $request->input('description'),
             'payment_completed' => (bool) $request->input('payment_completed', false),
-            'items' => $request->input('items', []),    
+            'items' => $request->input('items', []),
         ];
 
         DB::beginTransaction();
@@ -130,11 +130,11 @@ class InvoiceController extends Controller
                 $sequence++;
                 $invoiceNumber = $prefix . str_pad($sequence, 6, '0', STR_PAD_LEFT);
             }
-            
+
             // Calculate totals
             $subtotal = 0;
             $vatAmount = 0;
-            
+
             foreach ($validated['items'] as $item) {
                 $quantityVal = (float) ($item['quantity'] ?? 0);
                 $unitPriceVal = (float) ($item['unit_price'] ?? 0);
@@ -144,30 +144,30 @@ class InvoiceController extends Controller
                 $lineTotal = $quantityVal * $unitPriceVal;
                 $discountAmount = $lineTotal * ($discountRateVal / 100);
                 $lineTotalAfterDiscount = $lineTotal - $discountAmount;
-                
+
                 if ($validated['vat_status'] === 'included') {
                     $vatAmount += $lineTotalAfterDiscount * ($taxRateVal / 100);
                 }
-                
+
                 $subtotal += $lineTotalAfterDiscount;
             }
-            
+
             $totalAmount = $subtotal + $vatAmount;
-            
+
             // Get account_id and user_id with fallbacks
             $accountId = session('current_account_id');
             $userId = auth()->id();
-            
+
             // Fallback for account_id if not in session
             if (!$accountId) {
                 $accountId = \App\Models\Account::active()->first()?->id ?? 1;
             }
-            
+
             // Fallback for user_id if not authenticated
             if (!$userId) {
                 $userId = \App\Models\User::first()?->id ?? 1;
             }
-            
+
             // Create invoice
             $invoice = PurchaseInvoice::create([
                 'account_id' => $accountId,
@@ -184,8 +184,9 @@ class InvoiceController extends Controller
                 'vat_amount' => $vatAmount,
                 'total_amount' => $totalAmount,
                 'payment_completed' => $validated['payment_completed'] ?? false
+
             ]);
-            
+
             // Create invoice items
             foreach ($validated['items'] as $index => $item) {
                 // Unit price is already converted by JavaScript
@@ -198,7 +199,7 @@ class InvoiceController extends Controller
                 $lineTotal = $quantity * $unitPrice;
                 $discountAmount = $lineTotal * ($discountRate / 100);
                 $lineTotalAfterDiscount = $lineTotal - $discountAmount;
-                
+
                 PurchaseInvoiceItem::create([
                     'purchase_invoice_id' => $invoice->id,
                     'product_service_name' => $item['product_service_name'],
@@ -215,14 +216,14 @@ class InvoiceController extends Controller
                     'sort_order' => $index
                 ]);
             }
-            
+
             // Stok artırma işlemi
             foreach ($validated['items'] as $item) {
                 $quantity = (float) ($item['quantity'] ?? 0);
                 $productId = $item['product_id'] ?? null;
                 $type = $item['type'] ?? 'product';
                 $colorVariantId = $item['color_variant_id'] ?? null;
-                
+
                 if ($productId && $quantity > 0) {
                     if ($type === 'product') {
                         // Normal ürün stok artırma
@@ -243,7 +244,7 @@ class InvoiceController extends Controller
                                 // Color variant yoksa ana ürünün stokunu artır
                                 $product->increment('stock_quantity', $quantity);
                             }
-                            
+
                             // Ana ürünün initial_stock'unu da güncelle
                             $product->increment('initial_stock', $quantity);
                         }
@@ -257,13 +258,13 @@ class InvoiceController extends Controller
                     // Service'ler için stok artırma yok
                 }
             }
-            
+
             // Handle supplier balance if payment is not completed
             if (!$validated['payment_completed']) {
                 $supplier = \App\Models\Supplier::find($validated['supplier_id']);
                 if ($supplier) {
                     $currency = $validated['currency'];
-                    
+
                     // Update balance based on currency
                     switch ($currency) {
                         case 'TRY':
@@ -276,23 +277,23 @@ class InvoiceController extends Controller
                             $supplier->increment('balance_eur', $totalAmount);
                             break;
                     }
-                    
+
                     // Also update the legacy balance field for backward compatibility
                     $supplier->increment('balance', $totalAmount);
                 }
             }
-            
+
             DB::commit();
-            
+
             \Log::info('Purchase Invoice stored successfully', [
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoiceNumber,
                 'total_amount' => $totalAmount
             ]);
-            
+
             return redirect()->route('purchases.invoices.show', $invoice)
                 ->with('success', 'Alış faturası başarıyla oluşturuldu.');
-                
+
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Purchase Invoice store failed', [
@@ -300,7 +301,7 @@ class InvoiceController extends Controller
                 'trace' => $e->getTraceAsString(),
                 'request_data' => $request->all()
             ]);
-            
+
             return back()->withInput()
                 ->with('error', 'Alış faturası oluşturulurken bir hata oluştu: ' . $e->getMessage());
         }
@@ -351,7 +352,7 @@ class InvoiceController extends Controller
                 $q->whereNotNull('account_id');
             })
             ->get();
-        
+
         return view('purchases.invoices.edit', compact('invoice', 'suppliers', 'products'));
     }
 
@@ -411,7 +412,7 @@ class InvoiceController extends Controller
                 $lineSubtotal = $quantity * $unitPrice;
                 $discountAmount = $lineSubtotal * ($discountRate / 100);
                 $lineSubtotalAfterDiscount = $lineSubtotal - $discountAmount;
-                
+
                 $vatAmount = $lineSubtotalAfterDiscount * ($taxRate / 100);
                 $lineTotal = $lineSubtotalAfterDiscount + $vatAmount;
 
@@ -453,7 +454,7 @@ class InvoiceController extends Controller
                 'error' => $e->getMessage(),
                 'invoice_id' => $invoice->id
             ]);
-            
+
             return back()->withInput()
                 ->with('error', 'Alış faturası güncellenirken bir hata oluştu: ' . $e->getMessage());
         }
@@ -476,7 +477,7 @@ class InvoiceController extends Controller
                 'error' => $e->getMessage(),
                 'invoice_id' => $invoice->id
             ]);
-            
+
             return back()->with('error', 'Alış faturası silinirken bir hata oluştu: ' . $e->getMessage());
         }
     }
@@ -590,7 +591,7 @@ class InvoiceController extends Controller
             ->get()
             ->map(function ($product) {
                 $hasColorVariants = $product->colorVariants->count() > 0;
-                
+
                 return [
                     'id' => 'product_' . $product->id,
                     'name' => $product->name,

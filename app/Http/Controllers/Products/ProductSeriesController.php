@@ -8,22 +8,41 @@ use App\Models\ProductSeriesItem;
 use Illuminate\Http\Request;
 use App\Models\ProductCategory;
 use App\Models\ProductBrand;
+use Illuminate\Support\Facades\DB;
 
 class ProductSeriesController extends Controller
 {
+    private function currentAccountId(): int
+    {
+        $accountId = session('current_account_id');
+        abort_unless($accountId, 403, 'Account not selected.');
+        return (int) $accountId;
+    }
+
+    private function assertSeriesBelongsToCurrentAccount(ProductSeries $series): void
+    {
+        $accountId = $this->currentAccountId();
+        if ((int) ($series->account_id ?? 0) !== $accountId) {
+            abort(404);
+        }
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
-        $currentAccountId = session('current_account_id');
+        $currentAccountId = $this->currentAccountId();
         $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
         
         // Eğer account'a ait kategori yoksa, hiçbir seri ürün gösterilmemeli
         if (empty($allowedCategories)) {
-            $series = ProductSeries::where('id', 0)->paginate(15);
+            $series = ProductSeries::where('account_id', $currentAccountId)
+                ->whereRaw('1=0')
+                ->paginate(15);
         } else {
-        $series = ProductSeries::with('seriesItems')
+        $series = ProductSeries::with(['seriesItems', 'colorVariants'])
+                ->where('account_id', $currentAccountId)
                 ->whereIn('category', $allowedCategories)
                 ->when($request->filled('category'), function($q) use ($request, $allowedCategories) {
                     // Seçilen kategori, allowedCategories içinde olmalı
@@ -45,12 +64,14 @@ class ProductSeriesController extends Controller
      */
     public function create(Request $request)
     {
-        $currentAccountId = session('current_account_id');
+        $currentAccountId = $this->currentAccountId();
         $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
         $parentId = $request->query('parent');
         $parentSeries = null;
         if ($parentId) {
-            $parentSeries = ProductSeries::with(['seriesItems','colorVariants'])->find($parentId);
+            $parentSeries = ProductSeries::with(['seriesItems','colorVariants'])
+                ->where('account_id', $currentAccountId)
+                ->find($parentId);
         }
         return view('products.series.create', compact('allowedCategories', 'parentSeries'));
     }
@@ -60,7 +81,7 @@ class ProductSeriesController extends Controller
      */
     public function store(Request $request)
     {
-        $currentAccountId = session('current_account_id');
+        $currentAccountId = $this->currentAccountId();
         $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
         
         $validated = $request->validate([
@@ -91,7 +112,15 @@ class ProductSeriesController extends Controller
             'color_variants.*.color' => 'required|string',
             'color_variants.*.stock_quantity' => 'required|integer|min:0',
             'color_variants.*.critical_stock' => 'nullable|integer|min:0',
+            'parent_series_id' => 'nullable|integer',
         ]);
+
+        // Ensure sizes & quantities align
+        if (count($validated['sizes'] ?? []) !== count($validated['quantities'] ?? [])) {
+            return back()->withInput()->withErrors([
+                'quantities' => 'Beden ve miktar sayısı eşleşmiyor.',
+            ]);
+        }
         
         // Parse colors_input (comma-separated text) into colors array
         if (!empty($validated['colors_input'])) {
@@ -112,43 +141,42 @@ class ProductSeriesController extends Controller
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
-        // account_id default değeri
-        if (!isset($validated['account_id'])) {
-            $validated['account_id'] = session('current_account_id', 1);
-        }
+        // Enforce account_id from selected account (never from request)
+        $validated['account_id'] = $currentAccountId;
 
-        // Marka: varsa bul/yoksa oluştur ve metin alanını normalize et
-        if (!empty($validated['brand'])) {
-            $brandName = trim($validated['brand']);
-            if ($brandName !== '') {
-                $brand = ProductBrand::firstOrCreate([
-                    'account_id' => $validated['account_id'] ?? session('current_account_id'),
-                    'name' => $brandName,
-                ], [
-                    'is_active' => true,
-                ]);
-                $validated['brand'] = $brand->name; // normalize to stored name
-            }
-        }
-
-        // Eğer bir üst seri seçilerek gelindiyse, adı/barkodu üst seriden zorla kullan
-        $parentSeriesId = $request->input('parent_series_id');
-        if ($parentSeriesId) {
-            $parent = ProductSeries::find($parentSeriesId);
-            if ($parent) {
-                $validated['name'] = $parent->name;
-                $validated['barcode'] = $parent->barcode;
-                // SKU boş ise üst serininkiyle eşle
-                if (empty($validated['sku'])) {
-                    $validated['sku'] = $parent->sku;
+        return DB::transaction(function () use ($request, $validated, $currentAccountId) {
+            // Marka: varsa bul/yoksa oluştur ve metin alanını normalize et
+            if (!empty($validated['brand'])) {
+                $brandName = trim($validated['brand']);
+                if ($brandName !== '') {
+                    $brand = ProductBrand::firstOrCreate([
+                        'account_id' => $currentAccountId,
+                        'name' => $brandName,
+                    ], [
+                        'is_active' => true,
+                    ]);
+                    $validated['brand'] = $brand->name; // normalize to stored name
                 }
-                // Varsayılan olarak kategori/marka boşsa üst seriden kopyala
-                $validated['category'] = $validated['category'] ?? $parent->category;
-                $validated['brand'] = $validated['brand'] ?? $parent->brand;
-                // Bağlantıyı kur
-                $validated['parent_series_id'] = $parent->id;
             }
-        }
+
+            // Eğer bir üst seri seçilerek gelindiyse, adı/barkodu üst seriden zorla kullan
+            $parentSeriesId = $request->input('parent_series_id');
+            if ($parentSeriesId) {
+                $parent = ProductSeries::where('account_id', $currentAccountId)->find($parentSeriesId);
+                if ($parent) {
+                    $validated['name'] = $parent->name;
+                    $validated['barcode'] = $parent->barcode;
+                    // SKU boş ise üst serininkiyle eşle
+                    if (empty($validated['sku'])) {
+                        $validated['sku'] = $parent->sku;
+                    }
+                    // Varsayılan olarak kategori/marka boşsa üst seriden kopyala
+                    $validated['category'] = $validated['category'] ?? $parent->category;
+                    $validated['brand'] = $validated['brand'] ?? $parent->brand;
+                    // Bağlantıyı kur
+                    $validated['parent_series_id'] = $parent->id;
+                }
+            }
 
         // Seri boyutunu belirle: girilen miktarların toplamı (yoksa beden sayısı)
         $quantities = (array) ($validated['quantities'] ?? []);
@@ -203,6 +231,10 @@ class ProductSeriesController extends Controller
         // Yeni oluşturulan seri için eksik varyant barkodlarını ata (seri barkodunu temel alarak kısaltılmış)
         $this->ensureVariantBarcodes($series);
 
+        // Keep series stock_quantity consistent with variant totals
+        $series->stock_quantity = (int) $series->colorVariants()->sum('stock_quantity');
+        $series->save();
+
         $successMessage = 'Seri başarıyla oluşturuldu.';
         if (!empty($colors)) {
             $successMessage = 'Seri ' . count($colors) . ' renk varyasyonu ile oluşturuldu.';
@@ -210,6 +242,7 @@ class ProductSeriesController extends Controller
 
         return redirect()->route('products.series.index')
             ->with('success', $successMessage);
+        });
     }
 
     /**
@@ -217,8 +250,32 @@ class ProductSeriesController extends Controller
      */
     public function show(ProductSeries $series)
     {
-        $series->load('seriesItems');
-        return view('products.series.show', compact('series'));
+        $this->assertSeriesBelongsToCurrentAccount($series);
+
+        $currentAccountId = $this->currentAccountId();
+        $series->load(['seriesItems', 'colorVariants', 'children.colorVariants', 'parent.children.colorVariants']);
+
+        // Precompute grouping (avoid DB queries inside Blade)
+        $groupSeries = collect();
+        if ($series->parent_series_id && $series->parent) {
+            $groupSeries = $series->parent->children->push($series->parent)->sortBy('series_size')->values();
+        } else {
+            $children = $series->children;
+            if ($children->count() > 0) {
+                $groupSeries = $children->push($series)->sortBy('series_size')->values();
+            } elseif (!empty($series->barcode)) {
+                $groupSeries = ProductSeries::with('colorVariants')
+                    ->where('account_id', $currentAccountId)
+                    ->where('barcode', $series->barcode)
+                    ->orderBy('series_size')
+                    ->get();
+            }
+        }
+
+        $hasGroup = $groupSeries->count() > 1;
+        $groupTotalStock = $hasGroup ? (int) $groupSeries->flatMap->colorVariants->sum('stock_quantity') : 0;
+
+        return view('products.series.show', compact('series', 'groupSeries', 'hasGroup', 'groupTotalStock'));
     }
 
     /**
@@ -226,9 +283,10 @@ class ProductSeriesController extends Controller
      */
     public function edit(ProductSeries $series)
     {
-        $currentAccountId = session('current_account_id');
+        $this->assertSeriesBelongsToCurrentAccount($series);
+        $currentAccountId = $this->currentAccountId();
         $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
-        $series->load('seriesItems');
+        $series->load(['seriesItems', 'colorVariants']);
         return view('products.series.edit', compact('series', 'allowedCategories'));
     }
 
@@ -237,14 +295,16 @@ class ProductSeriesController extends Controller
      */
     public function update(Request $request, ProductSeries $series)
     {
-        $currentAccountId = session('current_account_id');
+        $this->assertSeriesBelongsToCurrentAccount($series);
+        $currentAccountId = $this->currentAccountId();
         $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
         
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'sku' => 'nullable|string|max:255',
+            'barcode' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            'category' => ['nullable','string', function($attr,$val,$fail) use ($allowedCategories){
+            'category' => ['required','string', function($attr,$val,$fail) use ($allowedCategories){
                 if (!empty($allowedCategories) && !in_array($val, $allowedCategories, true)) {
                     $fail('Bu kategori mevcut hesap için izinli değil.');
                 }
@@ -263,82 +323,74 @@ class ProductSeriesController extends Controller
             'color_variants.*.is_active' => 'boolean',
         ]);
 
-        // Görsel yükleme
-        if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('products', 'public');
-        }
+        return DB::transaction(function () use ($request, $series, $validated, $currentAccountId) {
+            // Görsel yükleme
+            if ($request->hasFile('image')) {
+                $validated['image'] = $request->file('image')->store('products', 'public');
+            }
 
-        // Renk varyantlarını güncelle/oluştur
-        if (isset($validated['color_variants'])) {
-            $existingColorNames = $series->colorVariants->pluck('color')->toArray();
-            
-            foreach ($validated['color_variants'] as $variantId => $variantData) {
-                // Eğer 'color' alanı varsa, bu yeni bir renktir
-                if (!empty($variantData['color'])) {
-                    $colorName = trim($variantData['color']);
-                    // Yeni renk varsa, oluştur
-                    if (!in_array($colorName, $existingColorNames)) {
-                        $series->colorVariants()->create([
-                            'color' => $colorName,
-                            'stock_quantity' => $variantData['stock_quantity'] ?? 0,
-                            'critical_stock' => $variantData['critical_stock'] ?? 0,
-                            'is_active' => $variantData['is_active'] ?? true,
-                        ]);
-                        $existingColorNames[] = $colorName; // Listeye ekle
+            // Marka güncelle: varsa oluştur/bul
+            if (!empty($validated['brand'])) {
+                $brandName = trim($validated['brand']);
+                if ($brandName !== '') {
+                    $brand = ProductBrand::firstOrCreate([
+                        'account_id' => $currentAccountId,
+                        'name' => $brandName,
+                    ], [
+                        'is_active' => true,
+                    ]);
+                    $validated['brand'] = $brand->name;
+                }
+            }
+
+            $series->update($validated);
+
+            // Renk varyantlarını güncelle/oluştur (no implicit deletes: deletion must be explicit for safety)
+            if (isset($validated['color_variants'])) {
+                $series->loadMissing('colorVariants');
+                $existingColorNames = $series->colorVariants->pluck('color')->map(fn($c) => trim((string)$c))->toArray();
+
+                foreach ($validated['color_variants'] as $variantKey => $variantData) {
+                    // New color rows: key is "new_x" and includes color
+                    if (!empty($variantData['color'])) {
+                        $colorName = trim((string) $variantData['color']);
+                        if ($colorName !== '' && !in_array($colorName, $existingColorNames, true)) {
+                            $series->colorVariants()->create([
+                                'color' => $colorName,
+                                'stock_quantity' => (int) ($variantData['stock_quantity'] ?? 0),
+                                'critical_stock' => (int) ($variantData['critical_stock'] ?? 0),
+                                'is_active' => (bool) ($variantData['is_active'] ?? true),
+                            ]);
+                            $existingColorNames[] = $colorName;
+                        }
+                        continue;
                     }
-                } else {
-                    // Mevcut rengi güncelle (ID ile)
-                    $variant = \App\Models\ProductSeriesColorVariant::find($variantId);
-                    if ($variant && $variant->product_series_id == $series->id) {
-                        $variant->update([
-                            'stock_quantity' => $variantData['stock_quantity'] ?? 0,
-                            'critical_stock' => $variantData['critical_stock'] ?? 0,
-                            'is_active' => $variantData['is_active'] ?? true,
-                        ]);
+
+                    // Existing rows: numeric key = variant id
+                    if (is_numeric($variantKey)) {
+                        $variantId = (int) $variantKey;
+                        $variant = \App\Models\ProductSeriesColorVariant::where('product_series_id', $series->id)->find($variantId);
+                        if ($variant) {
+                            $variant->update([
+                                'stock_quantity' => (int) ($variantData['stock_quantity'] ?? $variant->stock_quantity),
+                                'critical_stock' => (int) ($variantData['critical_stock'] ?? $variant->critical_stock),
+                                'is_active' => (bool) ($variantData['is_active'] ?? $variant->is_active),
+                            ]);
+                        }
                     }
                 }
             }
-            
-            // Kullanıcı arayüzünde silinmiş olan renk varyantlarını kalıcı olarak kaldır
-            // (Formda gönderilmeyen mevcut ID'ler silinmiş kabul edilir)
-            $incomingExistingIds = collect(array_keys($validated['color_variants']))
-                ->filter(fn($k) => is_numeric($k))
-                ->map(fn($k) => (int)$k)
-                ->values()
-                ->all();
-            
-            $series->colorVariants()
-                ->when(!empty($incomingExistingIds), function($q) use ($incomingExistingIds) {
-                    $q->whereNotIn('id', $incomingExistingIds);
-                }, function($q) {
-                    // Eğer hiç mevcut ID gelmediyse ve form renk alanları içeriyorsa, tüm mevcutları sil
-                    // (Sadece yeni eklenenler kalır)
-                    // Not: Bu davranış istenmiyorsa, bu blok kaldırılabilir
-                })
-                ->delete();
-        }
 
-        // Güncel seri için eksik varyant barkodlarını ata (seri barkodunu temel alarak kısaltılmış)
-        $this->ensureVariantBarcodes($series);
+            // Keep series stock_quantity consistent with variant totals
+            $series->stock_quantity = (int) $series->colorVariants()->sum('stock_quantity');
+            $series->save();
 
-        // Marka güncelle: varsa oluştur/bul
-        if (!empty($validated['brand'])) {
-            $brandName = trim($validated['brand']);
-            if ($brandName !== '') {
-                $brand = ProductBrand::firstOrCreate([
-                    'account_id' => session('current_account_id'),
-                    'name' => $brandName,
-                ], [
-                    'is_active' => true,
-                ]);
-                $validated['brand'] = $brand->name;
-            }
-        }
+            // Güncel seri için eksik varyant barkodlarını ata (seri barkodunu temel alarak kısaltılmış)
+            $this->ensureVariantBarcodes($series);
 
-        $series->update($validated);
-
-        return redirect()->route('products.series.index')
-            ->with('success', 'Seri başarıyla güncellendi.');
+            return redirect()->route('products.series.index')
+                ->with('success', 'Seri başarıyla güncellendi.');
+        });
     }
 
     /**
@@ -398,6 +450,7 @@ class ProductSeriesController extends Controller
      */
     public function normalizeBarcodes(ProductSeries $series)
     {
+        $this->assertSeriesBelongsToCurrentAccount($series);
         $this->ensureVariantBarcodes($series);
         return back()->with('success', 'Varyant barkodları kısa formata dönüştürüldü.');
     }
@@ -407,6 +460,7 @@ class ProductSeriesController extends Controller
      */
     public function destroy(ProductSeries $series)
     {
+        $this->assertSeriesBelongsToCurrentAccount($series);
         $series->delete();
 
         return redirect()->route('products.series.index')
@@ -418,38 +472,45 @@ class ProductSeriesController extends Controller
      */
     public function quickStockUpdate(Request $request, ProductSeries $series)
     {
+        $this->assertSeriesBelongsToCurrentAccount($series);
         \Log::info('Series quick stock update started', [
             'series_id' => $series->id,
             'request_data' => $request->all()
         ]);
         
         $data = $request->validate([
-            'add_stock' => 'required|integer|min:0',
+            'add_stock' => 'required|integer|min:1',
         ]);
 
         $addStockAmount = (int) $data['add_stock'];
-        
-        // Renk varyantlarını güncelle
-        $colorVariants = $series->colorVariants;
-        if ($colorVariants->count() > 0) {
-            // Her renk varyantına direkt aynı miktarı ekle
-            foreach ($colorVariants as $variant) {
-                $currentStock = (int) $variant->stock_quantity;
-                $newVariantStock = $currentStock + $addStockAmount;
-                $variant->update(['stock_quantity' => $newVariantStock]);
-            }
-        } else {
-            // Renk varyantı yoksa hata döndür
+
+        try {
+            DB::transaction(function () use ($series, $addStockAmount) {
+                $variants = $series->colorVariants()->lockForUpdate()->get();
+                if ($variants->count() < 1) {
+                    throw new \RuntimeException('Bu seri için renk varyantı bulunamadı.');
+                }
+                foreach ($variants as $variant) {
+                    $variant->increment('stock_quantity', $addStockAmount);
+                }
+                $series->stock_quantity = (int) $series->colorVariants()->sum('stock_quantity');
+                $series->save();
+            });
+        } catch (\Throwable $e) {
+            \Log::warning('Series quick stock update failed', [
+                'series_id' => $series->id,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Bu seri için renk varyantı bulunamadı.'
+                'message' => $e->getMessage(),
             ], 400);
         }
 
         \Log::info('Series quick stock update completed', [
             'series_id' => $series->id,
             'added_stock' => $addStockAmount,
-            'total_variants' => $colorVariants->count()
+            'total_variants' => $series->colorVariants()->count()
         ]);
 
         // Renk varyantlarının güncel stok bilgilerini al
@@ -522,6 +583,7 @@ class ProductSeriesController extends Controller
      */
     public function bulkDelete(Request $request)
     {
+        $currentAccountId = $this->currentAccountId();
         try {
             $ids = json_decode($request->input('ids'), true);
             
@@ -529,7 +591,7 @@ class ProductSeriesController extends Controller
                 return redirect()->back()->with('error', 'Geçersiz seçim');
             }
 
-            $deletedCount = ProductSeries::whereIn('id', $ids)->delete();
+            $deletedCount = ProductSeries::where('account_id', $currentAccountId)->whereIn('id', $ids)->delete();
             
             return redirect()->route('products.series.index')
                 ->with('success', $deletedCount . ' seri başarıyla silindi');
@@ -544,6 +606,7 @@ class ProductSeriesController extends Controller
      */
     public function addSize(Request $request, ProductSeries $series)
     {
+        $this->assertSeriesBelongsToCurrentAccount($series);
         $validated = $request->validate([
             'series_size' => 'required|integer|min:2|max:50',
             'color_variants' => 'required|array|min:1',
@@ -553,38 +616,43 @@ class ProductSeriesController extends Controller
         ]);
 
         try {
-            DB::beginTransaction();
+            $newSeries = DB::transaction(function () use ($series, $validated) {
+                // Create new series with the same data but different series_size
+                $newSeries = $series->replicate();
+                $newSeries->series_size = $validated['series_size'];
+                // Keep the same name to group under a single product name
+                $newSeries->name = $series->name;
+                // IMPORTANT: Reuse the same barcode so all sizes share one code
+                $newSeries->barcode = $series->barcode;
+                // Link as child
+                $newSeries->parent_series_id = $series->parent_series_id ?: $series->id;
+                $newSeries->save();
 
-            // Create new series with the same data but different series_size
-            $newSeries = $series->replicate();
-            $newSeries->series_size = $validated['series_size'];
-            // Keep the same name to group under a single product name
-            $newSeries->name = $series->name;
-            // IMPORTANT: Reuse the same barcode so all sizes share one code
-            $newSeries->barcode = $series->barcode;
-            // Link as child
-            $newSeries->parent_series_id = $series->parent_series_id ?: $series->id;
-            $newSeries->save();
+                // Create series items based on existing series items
+                foreach ($series->seriesItems as $item) {
+                    $newSeries->seriesItems()->create([
+                        'size' => $item->size,
+                        'quantity_per_series' => $item->quantity_per_series,
+                    ]);
+                }
 
-            // Create series items based on existing series items
-            foreach ($series->seriesItems as $item) {
-                $newSeries->seriesItems()->create([
-                    'size' => $item->size,
-                    'quantity_per_series' => $item->quantity_per_series,
-                ]);
-            }
+                // Create color variants
+                foreach ($validated['color_variants'] as $colorData) {
+                    $newSeries->colorVariants()->create([
+                        'color' => $colorData['color'],
+                        'stock_quantity' => $colorData['stock_quantity'],
+                        'critical_stock' => $colorData['critical_stock'],
+                        'is_active' => true,
+                    ]);
+                }
 
-            // Create color variants
-            foreach ($validated['color_variants'] as $colorData) {
-                $newSeries->colorVariants()->create([
-                    'color' => $colorData['color'],
-                    'stock_quantity' => $colorData['stock_quantity'],
-                    'critical_stock' => $colorData['critical_stock'],
-                    'is_active' => true,
-                ]);
-            }
+                // Keep series stock consistent + ensure barcodes
+                $this->ensureVariantBarcodes($newSeries);
+                $newSeries->stock_quantity = (int) $newSeries->colorVariants()->sum('stock_quantity');
+                $newSeries->save();
 
-            DB::commit();
+                return $newSeries;
+            });
 
             return response()->json([
                 'success' => true,
@@ -596,7 +664,6 @@ class ProductSeriesController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            DB::rollBack();
             \Log::error('Add series size error: ' . $e->getMessage());
             
             return response()->json([

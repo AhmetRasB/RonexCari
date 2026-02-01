@@ -1304,7 +1304,7 @@ function appendInvoiceItemFromResult(item){
         if (card.length) {
             targetIndex = card.data('item-index');
         } else {
-            addMobileInvoiceItemRow();
+        addMobileInvoiceItemRow();
             targetIndex = itemCounter - 1;
             card = $(`.card[data-item-index="${targetIndex}"]`);
         }
@@ -1403,18 +1403,18 @@ function appendInvoiceItemFromResult(item){
 
         if (row.length) {
             targetIndex = row.data('item-index');
-        } else {
-            addInvoiceItemRow();
+    } else {
+    addInvoiceItemRow();
             targetIndex = itemCounter - 1;
             row = $(`tr[data-item-index="${targetIndex}"]`);
         }
         
         // Set all fields exactly like manual selection
-        row.find('input[name*="[product_service_name]"]').val(item.name);
-        row.find('input[name*="[unit_price]"]').val(item.price);
-        row.find('select[name*="[tax_rate]"]').val(item.vat_rate);
-        row.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
-        row.find('input[name*="[type]"]').val(item.type);
+    row.find('input[name*="[product_service_name]"]').val(item.name);
+    row.find('input[name*="[unit_price]"]').val(item.price);
+    row.find('select[name*="[tax_rate]"]').val(item.vat_rate);
+    row.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
+    row.find('input[name*="[type]"]').val(item.type);
     
         // Handle color variants - EXACTLY like manual selection
     if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {

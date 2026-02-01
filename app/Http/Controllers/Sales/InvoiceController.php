@@ -1296,7 +1296,6 @@ class InvoiceController extends Controller
                     }
                 }
             } elseif ($validated['type'] === 'series') {
-            } elseif ($validated['type'] === 'series') {
                 $series = \App\Models\ProductSeries::with('colorVariants')->find($validated['product_id']);
                 if ($series) {
                     // Seri ürünlerde iade miktarı birebir alınır (çarpan uygulanmaz)
