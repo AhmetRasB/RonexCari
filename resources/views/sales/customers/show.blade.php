@@ -10,6 +10,10 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Müşteri Detayı</h5>
                 <div class="d-flex gap-2">
+                    <a href="{{ route('sales.customers.debt', $customer) }}" class="btn btn-secondary">
+                        <iconify-icon icon="solar:wallet-mone-outline" class="me-2"></iconify-icon>
+                        Borç Ekle
+                    </a>
                     <a href="{{ route('sales.customers.edit', $customer) }}" class="btn btn-primary">
                         <iconify-icon icon="lucide:edit" class="me-2"></iconify-icon>
                         Düzenle

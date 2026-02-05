@@ -18,6 +18,47 @@ class CustomerController extends Controller
         return view('sales.customers.index', compact('customers'));
     }
 
+    public function debt(Customer $customer)
+    {
+        return view('sales.customers.debt', compact('customer'));
+    }
+
+    public function storeDebt(Request $request, Customer $customer)
+    {
+        $validated = $request->validate([
+            'currency' => 'required|in:TRY,USD,EUR',
+            'amount' => 'required|numeric|min:0.01',
+            'description' => 'nullable|string|max:1000',
+        ], [
+            'currency.required' => 'Para birimi zorunludur.',
+            'currency.in' => 'Geçerli bir para birimi seçin.',
+            'amount.required' => 'Tutar zorunludur.',
+            'amount.numeric' => 'Tutar sayısal bir değer olmalıdır.',
+            'amount.min' => 'Tutar 0,01 değerinden büyük olmalıdır.',
+            'description.max' => 'Açıklama çok uzun.',
+        ]);
+
+        $currencyField = 'balance_' . strtolower($validated['currency']);
+
+        if (!in_array($currencyField, ['balance_try', 'balance_usd', 'balance_eur'])) {
+            return back()->withInput()->with('error', 'Geçersiz para birimi alanı.');
+        }
+
+        // Mevcut bakiyeye borç ekle
+        $currentBalance = (float) ($customer->$currencyField ?? 0);
+        $newBalance = $currentBalance + (float) $validated['amount'];
+        $customer->$currencyField = $newBalance;
+
+        // Eski toplam bakiye alanını da güncelle (varsa)
+        $customer->balance = ($customer->balance ?? 0) + (float) $validated['amount'];
+
+        $customer->save();
+
+        return redirect()
+            ->route('sales.customers.show', $customer)
+            ->with('success', 'Müşteriye borç başarıyla eklendi.');
+    }
+
     /**
      * Show the form for creating a new resource.
      */
