@@ -83,23 +83,21 @@ class CustomerController extends Controller
 
         try {
             $validated = $request->validate([
-                'name' => 'required|string|max:255',
+                'name' => 'nullable|string|max:255',
                 'company_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email|unique:customers,email|max:255',
-                'phone' => 'required|string|max:20',
+                'phone' => 'nullable|string|max:20',
                 'address' => 'nullable|string|max:1000',
                 'tax_number' => 'nullable|string|max:50',
                 'contact_person' => 'nullable|string|max:255',
                 'notes' => 'nullable|string|max:2000',
                 'is_active' => 'boolean'
             ], [
-                'name.required' => 'Müşteri adı zorunludur.',
                 'name.max' => 'Müşteri adı çok uzun.',
                 'company_name.max' => 'Şirket adı çok uzun.',
                 'email.email' => 'Geçerli bir e-posta adresi girin.',
                 'email.unique' => 'Bu e-posta adresi zaten kullanılıyor.',
                 'email.max' => 'E-posta adresi çok uzun.',
-                'phone.required' => 'Telefon numarası zorunludur.',
                 'phone.max' => 'Telefon numarası çok uzun.',
                 'address.max' => 'Adres çok uzun.',
                 'tax_number.max' => 'Vergi numarası çok uzun.',
@@ -182,10 +180,10 @@ class CustomerController extends Controller
     public function update(Request $request, Customer $customer)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
             'company_name' => 'nullable|string|max:255',
             'email' => ['nullable', 'email', Rule::unique('customers')->ignore($customer->id)],
-            'phone' => 'required|string|max:20',
+            'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:500',
             'tax_number' => 'nullable|string|max:50',
             'contact_person' => 'nullable|string|max:255',

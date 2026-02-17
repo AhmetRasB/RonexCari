@@ -351,62 +351,85 @@
                 </tr>
             </thead>
             <tbody>
-            @foreach($invoice->items as $index => $item)
             @php
-                $isExchange = str_starts_with($item->description ?? '', 'Değişim -');
+                $grouped = [];
+                $totalVatAmount = 0;
+                $totalDiscountAmount = 0;
+                foreach ($invoice->items as $item) {
+                    $key = $item->product_service_name . '|' . (float)$item->unit_price . '|' . (float)$item->tax_rate . '|' . (float)($item->discount_rate ?? 0) . '|' . ($item->is_return ? '1' : '0') . '|' . ($item->description ?? '');
+                    if (!isset($grouped[$key])) {
+                        $grouped[$key] = [
+                            'product_service_name' => $item->product_service_name,
+                            'unit_price' => $item->unit_price,
+                            'tax_rate' => $item->tax_rate,
+                            'discount_rate' => $item->discount_rate ?? 0,
+                            'is_return' => $item->is_return,
+                            'description' => $item->description,
+                            'quantity' => 0,
+                            'line_total' => 0,
+                            'colors' => [],
+                        ];
+                    }
+                    $grouped[$key]['quantity'] += $item->quantity;
+                    $grouped[$key]['line_total'] += $item->line_total ?? 0;
+                    if (!empty($item->selected_color) && !in_array($item->selected_color, $grouped[$key]['colors'])) {
+                        $grouped[$key]['colors'][] = $item->selected_color;
+                    }
+                    // KDV ve indirim toplamlarını hesapla
+                    if (!$item->is_return) {
+                        $lineSubtotal = $item->quantity * $item->unit_price;
+                        $lineDiscount = $item->discount_rate ?? 0;
+                        $lineAfterDiscount = $lineSubtotal - $lineDiscount;
+                        $lineVat = ($lineAfterDiscount * $item->tax_rate) / 100;
+                        $totalVatAmount += $lineVat;
+                        $totalDiscountAmount += $lineDiscount;
+                    }
+                }
             @endphp
-            <tr class="{{ $item->is_return ? 'table-danger' : ($isExchange ? 'table-info' : '') }}" style="{{ $item->is_return ? 'background-color: #fee; border-left: 3px solid #dc2626;' : ($isExchange ? 'background-color: #e6f3ff; border-left: 3px solid #0dcaf0;' : '') }}">
-                <td class="text-center">{{ $index + 1 }}</td>
+            @foreach($grouped as $rowIndex => $row)
+            @php
+                $isExchange = str_starts_with($row['description'] ?? '', 'Değişim -');
+            @endphp
+            <tr class="{{ $row['is_return'] ? 'table-danger' : ($isExchange ? 'table-info' : '') }}" style="{{ $row['is_return'] ? 'background-color: #fee; border-left: 3px solid #dc2626;' : ($isExchange ? 'background-color: #e6f3ff; border-left: 3px solid #0dcaf0;' : '') }}">
+                <td class="text-center">{{ $loop->iteration }}</td>
                 <td>
-                    {{ $item->product_service_name }}
-                    @if($item->is_return)
+                    {{ $row['product_service_name'] }}
+                    @if($row['is_return'])
                         <span class="badge bg-danger ms-2" style="font-size: 10px;">İADE</span>
                     @elseif($isExchange)
                         <span class="badge bg-info ms-2" style="font-size: 10px;">DEĞİŞİM</span>
                     @endif
-                    @if($item->selected_color)
-                        <br><small class="text-muted">Renk: {{ $item->selected_color }}</small>
+                    @if(count($row['colors']) > 0)
+                        <br><small class="text-muted">Renk: {{ implode(', ', $row['colors']) }}</small>
                     @endif
                 </td>
-                <td>{{ $item->description ?? ($item->is_return ? 'İade' : ($isExchange ? 'Değişim' : '-')) }}</td>
-                    <td class="text-center">{{ $item->quantity }}</td>
-                    <td class="text-right">
-                        {{ number_format($item->unit_price, 2) }}
-                        @if($invoice->currency === 'USD')
-                            $
-                        @elseif($invoice->currency === 'EUR')
-                            €
-                        @else
-                            ₺
-                        @endif
-                    </td>
-                    <td class="text-center">%{{ $item->tax_rate }}</td>
-                    <td class="text-center">
-                        {{ number_format($item->discount_rate, 2) }}
-                        @if($invoice->currency === 'USD')
-                            $
-                        @elseif($invoice->currency === 'EUR')
-                            €
-                        @else
-                            ₺
-                        @endif
-                    </td>
-                    <td class="text-right {{ $item->is_return ? 'text-danger fw-bold' : '' }}">
-                        @if($item->is_return)
-                            -{{ number_format(abs($item->line_total), 2) }}
-                        @else
-                        {{ number_format($item->line_total, 2) }}
-                        @endif
-                        @if($invoice->currency === 'USD')
-                            $
-                        @elseif($invoice->currency === 'EUR')
-                            €
-                        @else
-                            ₺
-                        @endif
-                    </td>
-                </tr>
-                @endforeach
+                <td>{{ $row['description'] ?? ($row['is_return'] ? 'İade' : ($isExchange ? 'Değişim' : '-')) }}</td>
+                <td class="text-center">{{ $row['quantity'] }}</td>
+                <td class="text-right">
+                    {{ number_format($row['unit_price'], 2) }}
+                    @if($invoice->currency === 'USD') $
+                    @elseif($invoice->currency === 'EUR') €
+                    @else ₺ @endif
+                </td>
+                <td class="text-center">%{{ $row['tax_rate'] }}</td>
+                <td class="text-center">
+                    {{ number_format($row['discount_rate'], 2) }}
+                    @if($invoice->currency === 'USD') $
+                    @elseif($invoice->currency === 'EUR') €
+                    @else ₺ @endif
+                </td>
+                <td class="text-right {{ $row['is_return'] ? 'text-danger fw-bold' : '' }}">
+                    @if($row['is_return'])
+                        -{{ number_format(abs($row['line_total']), 2) }}
+                    @else
+                        {{ number_format($row['line_total'], 2) }}
+                    @endif
+                    @if($invoice->currency === 'USD') $
+                    @elseif($invoice->currency === 'EUR') €
+                    @else ₺ @endif
+                </td>
+            </tr>
+            @endforeach
             </tbody>
         </table>
 
@@ -424,6 +447,32 @@
                         <td>{{ $translations['subtotal'] }}:</td>
                         <td>
                             {{ number_format($invoice->subtotal, 2) }}
+                            @if($invoice->currency === 'USD')
+                                $
+                            @elseif($invoice->currency === 'EUR')
+                                €
+                            @else
+                                ₺
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Toplam İndirim:</td>
+                        <td>
+                            {{ number_format($totalDiscountAmount, 2) }}
+                            @if($invoice->currency === 'USD')
+                                $
+                            @elseif($invoice->currency === 'EUR')
+                                €
+                            @else
+                                ₺
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Toplam KDV:</td>
+                        <td>
+                            {{ number_format($totalVatAmount, 2) }}
                             @if($invoice->currency === 'USD')
                                 $
                             @elseif($invoice->currency === 'EUR')

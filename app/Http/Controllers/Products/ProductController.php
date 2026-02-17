@@ -546,7 +546,6 @@ class ProductController extends Controller
             return [];
         }
         return ProductCategory::where('account_id', $accountId)
-            ->where('is_active', true)
             ->orderBy('name')
             ->pluck('name')
             ->toArray();

@@ -41,16 +41,6 @@
                                         <label class="form-label fw-semibold text-muted">Seri Adı</label>
                                         <div class="form-control-plaintext fw-semibold">{{ $series->name }}</div>
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-semibold text-muted">SKU</label>
-                                        <div class="form-control-plaintext">
-                                            @if($series->sku)
-                                                <span class="badge bg-secondary">{{ $series->sku }}</span>
-                                            @else
-                                                <span class="text-muted">SKU Yok</span>
-                                            @endif
-                                        </div>
-                                    </div>
                                     <div class="col-12">
                                         <label class="form-label fw-semibold text-muted">Açıklama</label>
                                         <div class="form-control-plaintext">
@@ -91,19 +81,6 @@
                             <div class="col-12">
                                 <h6 class="fw-semibold text-primary mb-3">Fiyat Bilgileri</h6>
                                 <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-semibold text-muted">Maliyet</label>
-                                        <div class="form-control-plaintext fw-semibold text-danger">
-        @php
-            $costCurrency = $series->cost_currency ?? 'TRY';
-            $costSymbol = $costCurrency === 'USD' ? '$' : ($costCurrency === 'EUR' ? '€' : '₺');
-        @endphp
-        {{ number_format($series->cost, 2) }} {{ $costSymbol }}
-        @if($costCurrency !== 'TRY')
-            <br><small class="text-muted" id="costTRY">-</small>
-        @endif
-                                        </div>
-                                    </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold text-muted">Satış Fiyatı</label>
                                         <div class="form-control-plaintext fw-semibold text-success">
@@ -521,26 +498,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const qrImg = document.getElementById('qrImg');
     qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(seriesQRUrl)}`;
     
-    // Currency conversion for cost and price
-    @if(($series->cost_currency ?? 'TRY') !== 'TRY' || ($series->price_currency ?? 'TRY') !== 'TRY')
-        const seriesCostCurrency = '{{ $series->cost_currency ?? 'TRY' }}';
+    // Currency conversion for price
+    @if(($series->price_currency ?? 'TRY') !== 'TRY')
         const seriesPriceCurrency = '{{ $series->price_currency ?? 'TRY' }}';
-        const seriesCost = {{ $series->cost }};
         const seriesPrice = {{ $series->price }};
         
         $.get('{{ route("sales.invoices.currency.rates") }}')
             .done(function(response) {
                 const fallbackRates = { 'USD': 41.29, 'EUR': 48.55 };
-                const rateCost = response.success && response.rates[seriesCostCurrency] ? response.rates[seriesCostCurrency] : (fallbackRates[seriesCostCurrency] || 1);
                 const ratePrice = response.success && response.rates[seriesPriceCurrency] ? response.rates[seriesPriceCurrency] : (fallbackRates[seriesPriceCurrency] || 1);
-                const costTRY = seriesCost * rateCost;
                 const priceTRY = seriesPrice * ratePrice;
                 
-                $('#costTRY').text('(' + costTRY.toFixed(2).replace('.', ',') + ' ₺)');
                 $('#priceTRY').text('(' + priceTRY.toFixed(2).replace('.', ',') + ' ₺)');
             })
             .fail(function() {
-                $('#costTRY').text('(Kur alınamadı)');
                 $('#priceTRY').text('(Kur alınamadı)');
             });
     @endif

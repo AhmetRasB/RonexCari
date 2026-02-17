@@ -89,10 +89,21 @@
                                 </div>
                                 <div class="col-12 col-md-3 mb-3 mb-md-0">
                                     <label class="form-label">KDV Durumu</label>
-                                    <select name="vat_status" class="form-select" style="min-height: 44px; font-size: 16px;">
+                                    <select name="vat_status" id="vatStatus" class="form-select" style="min-height: 44px; font-size: 16px;">
                                         <option value="included" selected>Dahil</option>
                                         <option value="excluded">Hariç</option>
                                     </select>
+                                </div>
+                                <div class="col-12 col-md-3 mb-3 mb-md-0">
+                                    <label class="form-label">KDV Oranı (%)</label>
+                                    <input type="number" name="general_vat_rate" id="generalVatRate" class="form-control" value="10" min="0" max="100" step="0.01" style="min-height: 44px; font-size: 16px;">
+                                </div>
+                                <div class="col-12 col-md-3 mb-3 mb-md-0">
+                                    <label class="form-label">Genel İndirim</label>
+                                    <div class="input-group" style="min-height: 44px;">
+                                        <input type="number" name="general_discount" id="generalDiscount" class="form-control" value="0" min="0" step="0.01" style="font-size: 16px;">
+                                        <span class="input-group-text" id="discountCurrencySymbol">₺</span>
+                                    </div>
                                 </div>
                                 <div class="col-12 col-md-3 mt-3 mt-md-0">
                                     <div class="form-check mt-4 mt-md-0">
@@ -139,8 +150,8 @@
                                                 <th style="min-width: 200px; padding: 15px;">AÇIKLAMA</th>
                                                 <th style="min-width: 140px; padding: 15px;">MİKTAR</th>
                                                 <th style="min-width: 160px; padding: 15px;">B. FİYAT</th>
-                                                <th style="min-width: 120px; padding: 15px;">KDV</th>
-                                                <th style="min-width: 120px; padding: 15px;">İNDİRİM</th>
+                                                <th style="min-width: 160px; padding: 15px; display: none;">KDV</th>
+                                                <th style="min-width: 120px; padding: 15px; display: none;">İNDİRİM</th>
                                                 <th style="min-width: 160px; padding: 15px;">TOPLAM</th>
                                                 <th style="min-width: 80px; padding: 15px;">İŞLEM</th>
                                         </tr>
@@ -225,7 +236,7 @@
 
 <!-- Scanned Product Modal -->
 <div class="modal fade" id="scannedProductModal" tabindex="-1" aria-labelledby="scannedProductModalLabel" aria-hidden="true" style="z-index: 1060;">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-fullscreen-sm-down">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title" id="scannedProductModalLabel">
@@ -280,8 +291,8 @@
                             <input type="email" id="newCustomerEmail" class="form-control" placeholder="ornek@email.com">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Telefon <span class="text-danger">*</span></label>
-                            <input type="text" id="newCustomerPhone" class="form-control" placeholder="+90 555 123 4567" required>
+                            <label class="form-label fw-semibold">Telefon</label>
+                            <input type="text" id="newCustomerPhone" class="form-control" placeholder="+90 555 123 4567">
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-semibold">Adres</label>
@@ -359,10 +370,12 @@
 #invoiceItemsTable th:nth-child(6),
 #invoiceItemsTable td:nth-child(6) { /* KDV */
     width: 120px;
+    display: none !important;
 }
 #invoiceItemsTable th:nth-child(7),
 #invoiceItemsTable td:nth-child(7) { /* İNDİRİM */
     width: 120px;
+    display: none !important;
 }
 #invoiceItemsTable th:nth-child(8),
 #invoiceItemsTable td:nth-child(8) { /* TOPLAM */
@@ -450,14 +463,12 @@
     
     #invoiceItemsTable th:nth-child(6), /* KDV */
     #invoiceItemsTable td:nth-child(6) {
-        min-width: 120px;
-        max-width: 120px;
+        display: none !important;
     }
     
     #invoiceItemsTable th:nth-child(7), /* İNDİRİM */
     #invoiceItemsTable td:nth-child(7) {
-        min-width: 120px;
-        max-width: 120px;
+        display: none !important;
     }
     
     #invoiceItemsTable th:nth-child(8), /* TOPLAM */
@@ -839,120 +850,162 @@ $(document).ready(function() {
 
     // Add scanned product button
     $('#addScannedProduct').on('click', function(){
+        console.log('=== ADD SCANNED PRODUCT CLICKED ===');
         // Guard against double-clicks
         if (scannedAddInProgress) {
+            console.log('Add in progress, skipping');
             return;
         }
+        
         if (scannedProductData) {
+            console.log('Scanned product data:', scannedProductData);
             scannedAddInProgress = true;
-            // Collect overrides from modal inputs
-            const overrides = {
-                description: ($('#modalDescription').val() || '').trim(),
-                quantity: parseFloat($('#modalQuantity').val()) || 1,
-                discount_rate: parseFloat($('#modalDiscountAmount').val()) || 0,
-                unit_price: parseFloat($('#modalUnitPrice').val()) || (parseFloat(scannedProductData.price || 0) || 0),
-                unit_currency: $('#modalUnitCurrency').val() || (scannedProductData.currency || $('#currency').val()),
-                tax_rate: parseFloat($('#modalTaxRate').val()) || (parseFloat(scannedProductData.vat_rate || 10) || 10),
-                color_variant_id: $('#modalColorVariant').length ? ($('#modalColorVariant').val() || null) : null,
-            };
             
-            // Copy color variant list safely for use inside timeout (scannedProductData sonradan null olacak)
-            const itemColorVariants = (scannedProductData && Array.isArray(scannedProductData.color_variants))
-                ? scannedProductData.color_variants.slice()
-                : [];
+            // Check if we are in multi-variant mode (table of variants)
+            const isMultiVariantMode = !!(scannedProductData.has_color_variants && scannedProductData.color_variants && scannedProductData.color_variants.length > 0);
+            console.log('Multi-variant mode:', isMultiVariantMode);
             
-            // Build item to append with price/currency/tax and preferred color
-            const item = Object.assign({}, scannedProductData, {
-                price: overrides.unit_price,
-                vat_rate: overrides.tax_rate,
-                currency: overrides.unit_currency,
-                preferred_color_variant_id: overrides.color_variant_id || scannedProductData.preferred_color_variant_id || null
-            });
+            const commonDescription = ($('#modalDescription').val() || '').trim();
+            const commonUnitPrice = parseFloat($('#modalUnitPrice').val()) || (parseFloat(scannedProductData.price || 0) || 0);
+            const commonUnitCurrency = $('#modalUnitCurrency').val() || (scannedProductData.currency || $('#currency').val());
             
-            const appendResult = appendInvoiceItemFromResult(item);
+            let itemsToAdd = [];
             
-            // After row/card created, set description/qty/discount and color name
-            setTimeout(() => {
-                const targetIndex = appendResult ? appendResult.index : (itemCounter - 1);
-                console.log('🧾 [Scanner] applying overrides to index', targetIndex, 'overrides:', overrides);
-                const row = $(`tr[data-item-index="${targetIndex}"]`);
-                const card = $(`.card[data-item-index="${targetIndex}"]`);
-                const selectedVariantId = overrides.color_variant_id;
-                const selectedVariant = itemColorVariants.find(v => (v.id+'' === (selectedVariantId||'')+''));
-                const selectedColorName = selectedVariant ? selectedVariant.color : '';
+            if (isMultiVariantMode) {
+                // Loop through all variant rows
+                $('.variant-qty-input').each(function() {
+                    const qtyVal = parseFloat($(this).val());
+                    if (qtyVal > 0) {
+                        const variantId = $(this).data('variant-id');
+                        const variantColor = $(this).data('variant-color');
+                        
+                        console.log(`Found variant: ID=${variantId}, Color=${variantColor}, Qty=${qtyVal}`);
+                        
+                        itemsToAdd.push({
+                            ...scannedProductData,
+                            quantity: qtyVal,
+                            price: commonUnitPrice,
+                            currency: commonUnitCurrency,
+                            description: commonDescription,
+                            color_variant_id: variantId,
+                            selected_color: variantColor, 
+                            preferred_color_variant_id: variantId 
+                        });
+                    }
+                });
                 
-                if (row.length) {
-                    if (overrides.description) row.find('textarea[name*="[description]"]').val(overrides.description);
-                    row.find('input[name*="[quantity]"]').val(overrides.quantity).trigger('input');
-                    row.find('input[name*="[discount_rate]"]').val(overrides.discount_rate);
-                    row.find('.unit-currency').val(overrides.unit_currency).trigger('change');
-                    if (selectedVariantId) {
-                        const colorSelect = row.find('.color-variant-select');
-                        if (colorSelect.length) {
-                            colorSelect.val(selectedVariantId).trigger('change');
-                            colorSelect.prop('disabled', true).addClass('bg-light');
-                        }
-                        row.find('input[name*="[selected_color]"]').val(selectedColorName);
-                        // Ensure disabled select value is submitted by adding a hidden mirror input
-                        if (row.find('input.color-variant-id-hidden').length === 0) {
-                            row.find('.color-cell').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${targetIndex}][color_variant_id]" value="${selectedVariantId}">`);
-            } else {
-                            row.find('input.color-variant-id-hidden').val(selectedVariantId);
-                        }
-                    }
-                    calculateLineTotal.call(row.find('.unit-price')[0]);
-                } else if (card.length) {
-                    if (overrides.description) card.find('textarea[name*="[description]"]').val(overrides.description);
-                    card.find('input[name*="[quantity]"]').val(overrides.quantity).trigger('input');
-                    card.find('input[name*="[discount_rate]"]').val(overrides.discount_rate);
-                    card.find('.unit-currency').val(overrides.unit_currency).trigger('change');
-                    if (selectedVariantId) {
-                        const colorSelect = card.find('.color-variant-select');
-                        if (colorSelect.length) {
-                            colorSelect.val(selectedVariantId).trigger('change');
-                            colorSelect.prop('disabled', true).addClass('bg-light');
-                        }
-                        card.find('input[name*="[selected_color]"]').val(selectedColorName);
-                        // Ensure disabled select value is submitted by adding a hidden mirror input
-                        if (card.find('input.color-variant-id-hidden').length === 0) {
-                            card.find('.color-selection-mobile').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${targetIndex}][color_variant_id]" value="${selectedVariantId}">`);
-                        } else {
-                            card.find('input.color-variant-id-hidden').val(selectedVariantId);
-                        }
-                    }
-                    calculateMobileLineTotal.call(card.find('.unit-price')[0]);
+                if (itemsToAdd.length === 0) {
+                    notifyWarning('Lütfen en az bir varyant için miktar girin.');
+                    scannedAddInProgress = false;
+                    return;
                 }
-            }, 120);
+            } else {
+                // Single product mode
+                const qtyVal = parseFloat($('#modalQuantity').val()) || 1;
+                console.log('Single product mode, qty:', qtyVal);
+                
+                itemsToAdd.push({
+                    ...scannedProductData,
+                    quantity: qtyVal,
+                    price: commonUnitPrice,
+                    currency: commonUnitCurrency,
+                    description: commonDescription
+                });
+            }
             
-            notifySuccess(scannedProductData.name + ' eklendi');
+            console.log('Items to add:', itemsToAdd);
             
-            // Close modal using Bootstrap method
-            (function(){
+            // Process all items
+            let addedCount = 0;
+            try {
+                itemsToAdd.forEach((item, index) => {
+                    console.log(`Adding item ${index + 1}/${itemsToAdd.length}`, item);
+                    const appendResult = appendInvoiceItemFromResult(item);
+                    addedCount++;
+                    
+                    const targetIndex = appendResult ? appendResult.index : (itemCounter - 1);
+                    console.log(`Item added at index: ${targetIndex}`);
+                    
+                    // We need to wait for DOM updates or handle them synchronously. 
+                    // appendInvoiceItemFromResult is mostly sync, but let's be safe and direct.
+                    const row = $(`tr[data-item-index="${targetIndex}"]`);
+                    const card = $(`.card[data-item-index="${targetIndex}"]`);
+                    
+                    // Helper to apply post-add fixes
+                    const applyFixes = (container) => {
+                        console.log('Applying fixes to container:', container);
+                        if (item.description) container.find('textarea[name*="[description]"]').val(item.description);
+                        
+                        if (item.color_variant_id) {
+                             const colorSelect = container.find('.color-variant-select');
+                             console.log('Color select found:', colorSelect.length > 0);
+                             
+                             if (colorSelect.length) {
+                                 // Force value assignment with type conversion safety
+                                 colorSelect.val(item.color_variant_id).trigger('change');
+                                 if (!colorSelect.val()) {
+                                     // Try string if int failed or vice versa
+                                     colorSelect.val(item.color_variant_id.toString()).trigger('change');
+                                 }
+                                 console.log('Color select value after set:', colorSelect.val());
+                                 
+                                 // Lock the select since user chose it in modal
+                                 colorSelect.prop('disabled', true).addClass('bg-light');
+                                 
+                                 // CRITICAL: Add hidden input because disabled select value is NOT sent on submit
+                                 // Check if already exists to avoid duplicates
+                                 let hiddenInput = container.find(`input[type="hidden"][name="items[${targetIndex}][color_variant_id]"]`);
+                                 if (hiddenInput.length === 0) {
+                                     console.log('Creating new hidden color input');
+                                     // Add it near the select
+                                     if (container.hasClass('card')) {
+                                         container.find('.color-selection-mobile').append(`<input type="hidden" name="items[${targetIndex}][color_variant_id]" value="${item.color_variant_id}">`);
+                                     } else {
+                                         container.find('.color-cell').append(`<input type="hidden" name="items[${targetIndex}][color_variant_id]" value="${item.color_variant_id}">`);
+                                     }
+                                 } else {
+                                     console.log('Updating existing hidden color input');
+                                     hiddenInput.val(item.color_variant_id);
+                                 }
+                             }
+                             
+                             // Ensure selected_color name is also set correctly
+                             if (item.selected_color) {
+                                 container.find(`input[name="items[${targetIndex}][selected_color]"]`).val(item.selected_color);
+                             }
+                        }
+                    };
+
+                    if (row.length) {
+                        applyFixes(row);
+                        calculateLineTotal.call(row.find('.unit-price')[0]);
+                    } else if (card.length) {
+                        applyFixes(card);
+                        calculateMobileLineTotal.call(card.find('.unit-price')[0]);
+                    }
+                });
+            } catch (error) {
+                console.error('Error adding items:', error);
+                notifyError('Ürünler eklenirken bir hata oluştu: ' + error.message);
+            } finally {
+                scannedAddInProgress = false;
+            }
+            
+            if (addedCount > 0) {
+                notifySuccess(addedCount + ' ürün eklendi');
+                // Close modal proper clean up
+                $('#scannedProductModal').modal('hide');
                 try {
-                    const m = bootstrap.Modal.getInstance(document.getElementById('scannedProductModal'));
-                    if (m) m.hide();
+                     const gs = bootstrap.Modal.getInstance(document.getElementById('globalScannerModal'));
+                     if (gs) gs.hide();
                 } catch(e){}
-                // Fallback for jQuery plugin
-                try { $('#scannedProductModal').modal('hide'); } catch(e){}
-                // Also ensure any scanner modal/backdrop is removed if still present
-                try {
-                    const gs = bootstrap.Modal.getInstance(document.getElementById('globalScannerModal'));
-                    if (gs) gs.hide();
-                } catch(e){}
-                setTimeout(function(){
-                    $('.modal-backdrop').remove();
-                    $('body').removeClass('modal-open').css('padding-right','');
-                    $('#scannedProductModal').attr('aria-hidden','true');
-                }, 150);
-            })();
-            // Reset state so user can scan again without double-add
+            }
+            
+            // Reset state
             scannedProductData = null;
             scannedAddInProgress = false;
-            // Put focus back to QR ile Ekle button for faster next scan
-            const qrButton = document.getElementById('openInvoiceScanner');
-            if (qrButton) {
-                qrButton.focus();
-            }
+            // Focus back to scanner button
+            $('#openInvoiceScanner').focus();
         }
     });
     
@@ -1005,7 +1058,14 @@ $(document).ready(function() {
         // Keep TL totals hidden
         $('#foreignCurrencyTotals').hide();
         updateCurrencySymbols(selectedCurrency === 'USD' ? '$' : (selectedCurrency === 'EUR' ? '€' : '₺'));
-            calculateTotals();
+        // Update discount currency symbol
+        $('#discountCurrencySymbol').text(selectedCurrency === 'USD' ? '$' : (selectedCurrency === 'EUR' ? '€' : '₺'));
+        calculateTotals();
+    });
+    
+    // General VAT rate and discount change handlers
+    $('#generalVatRate, #generalDiscount, #vatStatus').on('input change', function() {
+        calculateTotals();
     });
     
     // Form validation
@@ -1144,6 +1204,12 @@ function notifyWarning(message) {
 function showScannedProductModal(item) {
     scannedProductData = item;
     
+    // Check if item has multiple variants to show
+    const hasVariants = !!(item.has_color_variants && item.color_variants && item.color_variants.length > 0);
+    
+    // Determine preferred variant if any
+    const preferredVariantId = item.preferred_color_variant_id || null;
+    
     const modalContent = `
         <div class="row g-3">
             <div class="col-12">
@@ -1216,7 +1282,66 @@ function showScannedProductModal(item) {
     $('#scannedProductContent').html(modalContent);
     $('#scannedProductModal').modal('show');
     
-    // Append line settings (inputs) into modal
+    // Build the variant table or single input form
+    let variantsHtml = '';
+    
+    if (hasVariants) {
+        // Multi-variant table
+        variantsHtml = `
+            <div class="col-12 mt-2">
+                <label class="form-label fw-semibold mb-2">Renk Varyantları ve Miktarlar</label>
+                <div class="table-responsive" style="max-height: 250px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px;">
+                    <table class="table table-sm table-hover mb-0 sticky-header">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%">Renk</th>
+                                <th style="width: 30%">Stok</th>
+                                <th style="width: 30%">Miktar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${item.color_variants.map(v => {
+                                // If preferred variant is set, pre-fill it with 1
+                                const initialQty = (preferredVariantId && (v.id == preferredVariantId)) ? 1 : '';
+                                const isCritical = (v.stock_quantity <= 0);
+                                return `
+                                <tr class="${isCritical ? 'table-danger' : ''} ${initialQty ? 'table-active' : ''}">
+                                    <td class="align-middle">
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge rounded-circle bg-secondary me-2 p-1" style="width: 10px; height: 10px;"> </span>
+                                            ${v.color}
+                                        </div>
+                                    </td>
+                                    <td class="align-middle ${isCritical ? 'text-danger fw-bold' : ''}">
+                                        ${v.stock_quantity}
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm variant-qty-input" 
+                                               data-variant-id="${v.id}" 
+                                               data-variant-color="${v.color}"
+                                               value="${initialQty}" min="0" step="1" 
+                                               placeholder="0"
+                                               style="min-width: 60px;">
+                                    </td>
+                                </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="form-text text-muted mt-1"><small>İstediğiniz renklerin karşısına miktar giriniz. Stokta olmayanlar kırmızı ile işaretlenmiştir.</small></div>
+            </div>
+        `;
+    } else {
+        // Single product input
+        variantsHtml = `
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Miktar</label>
+                <input type="number" id="modalQuantity" class="form-control" value="1" min="0.01" step="0.01">
+            </div>
+        `;
+    }
+
     const settingsHtml = `
         <div class="row g-3 mt-3">
             <div class="col-12">
@@ -1225,44 +1350,22 @@ function showScannedProductModal(item) {
                         <h6 class="fw-semibold text-primary mb-3">Satır Ayarları</h6>
                         <div class="row g-3">
                             <div class="col-12">
-                                <label class="form-label fw-semibold">Açıklama</label>
+                                <label class="form-label fw-semibold">Açıklama (Tüm satırlar için)</label>
                                 <textarea id="modalDescription" class="form-control" rows="2" placeholder="Açıklama girin"></textarea>
                             </div>
-                            ${item.has_color_variants && item.color_variants && item.color_variants.length > 0 ? `
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Renk</label>
-                                <select id="modalColorVariant" class="form-select">
-                                    <option value="">Renk Seçin</option>
-                                    ${(item.color_variants || []).map(v => `<option value="${v.id}">${v.color}${v.stock_quantity ? ' ('+v.stock_quantity+' adet)' : ''}</option>`).join('')}
-                                </select>
-                            </div>` : ``}
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">Miktar</label>
-                                <input type="number" id="modalQuantity" class="form-control" value="1" min="0.01" step="0.01">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">İndirim (Tutar)</label>
-                                <input type="number" id="modalDiscountAmount" class="form-control" value="0" min="0" step="0.01">
-                            </div>
+                            
+                            ${variantsHtml}
+                            
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Birim Fiyat</label>
                                 <input type="number" id="modalUnitPrice" class="form-control" value="${parseFloat(item.price || 0).toFixed(2)}" min="0" step="0.01">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold">Para Birimi</label>
                                 <select id="modalUnitCurrency" class="form-select">
                                     <option value="TRY" ${(item.currency || $('#currency').val()) === 'TRY' ? 'selected' : ''}>₺ TRY</option>
                                     <option value="USD" ${(item.currency || $('#currency').val()) === 'USD' ? 'selected' : ''}>$ USD</option>
                                     <option value="EUR" ${(item.currency || $('#currency').val()) === 'EUR' ? 'selected' : ''}>€ EUR</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">KDV</label>
-                                <select id="modalTaxRate" class="form-select">
-                                    <option value="0" ${(+item.vat_rate === 0 ? 'selected' : '')}>KDV %0</option>
-                                    <option value="1" ${(+item.vat_rate === 1 ? 'selected' : '')}>KDV %1</option>
-                                    <option value="10" ${(+item.vat_rate === 10 || item.vat_rate === undefined ? 'selected' : '')}>KDV %10</option>
-                                    <option value="20" ${(+item.vat_rate === 20 ? 'selected' : '')}>KDV %20</option>
                                 </select>
                             </div>
                         </div>
@@ -1271,21 +1374,19 @@ function showScannedProductModal(item) {
             </div>
         </div>
     `;
+    
     $('#scannedProductContent').append(settingsHtml);
-    // Auto-select preferred or single color
-    if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {
-        const preferred = item.preferred_color_variant_id || (item.color_variants.length === 1 ? item.color_variants[0].id : null);
-        if (preferred) {
-            setTimeout(() => { 
-                $('#modalColorVariant').val(preferred).trigger('change');
-                // Lock selection when color comes from scanned variant
-                $('#modalColorVariant').prop('disabled', true).addClass('bg-light');
-                if ($('#modalColorVariant').next('.form-text').length === 0) {
-                    $('#modalColorVariant').after('<div class="form-text text-success">Renk barkoddan otomatik belirlendi.</div>');
-                }
-            }, 50);
+    
+    // Auto-focus preferred input or first input
+    setTimeout(() => {
+        if (hasVariants) {
+            const prefInput = $('.variant-qty-input[value!=""]');
+            if (prefInput.length) prefInput.first().focus().select();
+            else $('.variant-qty-input').first().focus();
+        } else {
+            $('#modalQuantity').focus().select();
         }
-    }
+    }, 100);
 }
 
 function appendInvoiceItemFromResult(item){
@@ -1315,6 +1416,10 @@ function appendInvoiceItemFromResult(item){
         card.find('select[name*="[tax_rate]"]').val(item.vat_rate);
         card.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
         card.find('input[name*="[type]"]').val(item.type);
+        // Quantity (from scanner modal)
+        if (item.quantity != null && item.quantity !== '') {
+            card.find('input[name*="[quantity]"]').val(item.quantity).trigger('input');
+        }
         // Persist raw id/type for robustness on submit
         card.attr('data-raw-id', item.id);
         card.attr('data-type', item.type);
@@ -1335,21 +1440,12 @@ function appendInvoiceItemFromResult(item){
             // Store color variants data
             card.data('color-variants', item.color_variants);
             
-            // Auto-select preferred color if provided
+            // Auto-select preferred color if provided (user can change)
             if (item.preferred_color_variant_id) {
                 colorSelect.val(item.preferred_color_variant_id).trigger('change');
                 const selected = item.color_variants.find(v => v.id == item.preferred_color_variant_id);
                 if (selected) {
                     card.find('input[name*="[selected_color]"]').val(selected.color);
-                }
-                // Lock color selection on mobile when scanned variant defines color
-                colorSelect.prop('disabled', true).addClass('bg-light');
-                // Add hidden mirror input so disabled select value is submitted
-                const idx = card.data('item-index');
-                if (card.find('input.color-variant-id-hidden').length === 0) {
-                    card.find('.color-selection-mobile').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${idx}][color_variant_id]" value="${item.preferred_color_variant_id}">`);
-                } else {
-                    card.find('input.color-variant-id-hidden').val(item.preferred_color_variant_id);
                 }
             } else 
             // If there's only one color, auto-select it and show stock info
@@ -1365,10 +1461,6 @@ function appendInvoiceItemFromResult(item){
                             <div>
                                 <small class="text-muted d-block">Mevcut Stok</small>
                                 <strong class="text-success">${variant.stock_quantity} Adet</strong>
-                            </div>
-                            <div class="text-end">
-                                <small class="text-muted d-block">Kritik Stok</small>
-                                <small class="text-warning">${variant.critical_stock} Adet</small>
                             </div>
                         </div>
                     </div>
@@ -1415,6 +1507,10 @@ function appendInvoiceItemFromResult(item){
     row.find('select[name*="[tax_rate]"]').val(item.vat_rate);
     row.find('input[name*="[product_id]"]').val(item.id.replace(/^(product_|series_|service_)/, ''));
     row.find('input[name*="[type]"]').val(item.type);
+    // Quantity (from scanner modal)
+    if (item.quantity != null && item.quantity !== '') {
+        row.find('input[name*="[quantity]"]').val(item.quantity).trigger('input');
+    }
     
         // Handle color variants - EXACTLY like manual selection
     if (item.has_color_variants && item.color_variants && item.color_variants.length > 0) {
@@ -1426,20 +1522,11 @@ function appendInvoiceItemFromResult(item){
         
         // Store color variants data
         row.data('color-variants', item.color_variants);
-        // Auto-select preferred color if provided
+        // Auto-select preferred color if provided (user can change)
         if (item.preferred_color_variant_id) {
             const colorSelect = row.find('.color-variant-select');
             if (colorSelect.length) {
                 colorSelect.val(item.preferred_color_variant_id).trigger('change');
-                // Lock color selection on desktop when scanned variant defines color
-                colorSelect.prop('disabled', true).addClass('bg-light');
-                // Add hidden mirror input so disabled select value is submitted
-                const idx = row.data('item-index');
-                if (row.find('input.color-variant-id-hidden').length === 0) {
-                    row.find('.color-cell').append(`<input type="hidden" class="color-variant-id-hidden" name="items[${idx}][color_variant_id]" value="${item.preferred_color_variant_id}">`);
-                } else {
-                    row.find('input.color-variant-id-hidden').val(item.preferred_color_variant_id);
-                }
             }
         }
     }
@@ -1680,8 +1767,11 @@ $(document).on('click touchend', '.customer-option', function(e) {
     $('#customerId').val(customerId);
     $('#customerSearch').val(customerName);
     const dd = $('#customerDropdown');
+    
+    // CRITICAL FIX: Remove the style attribute to clear !important flags
+    dd.removeAttr('style');
     dd.hide();
-    dd.removeClass('force-visible');
+    dd.removeClass('force-visible mobile-dropdown-visible');
     
     // Show customer info
     let infoHtml = `<div class="text-success"><iconify-icon icon="solar:check-circle-outline" class="me-1"></iconify-icon>${customerName}`;
@@ -1737,15 +1827,15 @@ function addInvoiceItemRow() {
                     </select>
                 </div>
             </td>
-            <td style="padding: 20px 15px;">
+            <td style="padding: 20px 15px; display: none;">
                 <select name="items[${itemCounter}][tax_rate]" class="form-select tax-rate" style="min-height: 45px; font-size: 14px; border-radius: 8px;">
-                    <option value="0">KDV %0</option>
+                    <option value="0" selected>KDV %0</option>
                     <option value="1">KDV %1</option>
-                    <option value="10" selected>KDV %10</option>
+                    <option value="10">KDV %10</option>
                     <option value="20">KDV %20</option>
                 </select>
             </td>
-            <td style="padding: 20px 15px;">
+            <td style="padding: 20px 15px; display: none;">
                 <div class="input-group">
                     <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" step="0.01" style="min-height: 45px; font-size: 15px; border-radius: 8px 0 0 8px;">
                     <span class="input-group-text discount-currency-symbol" style="min-height: 45px; font-size: 14px; border-radius: 0 8px 8px 0;">${$('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺'}</span>
@@ -1841,17 +1931,17 @@ function addMobileInvoiceItemRow() {
                 </div>
                 
                 <!-- Tax and Discount Row -->
-                <div class="mb-3">
+                <div class="mb-3" style="display: none;">
                     <label class="form-label fw-semibold">KDV</label>
                     <select name="items[${itemCounter}][tax_rate]" class="form-select tax-rate" style="min-height: 50px; font-size: 14px; border-radius: 10px;">
-                        <option value="0">KDV %0</option>
+                        <option value="0" selected>KDV %0</option>
                         <option value="1">KDV %1</option>
-                        <option value="10" selected>KDV %10</option>
+                        <option value="10">KDV %10</option>
                         <option value="20">KDV %20</option>
                     </select>
                 </div>
                 
-                <div class="mb-3">
+                <div class="mb-3" style="display: none;">
                     <label class="form-label fw-semibold">İndirim (Tutar)</label>
                     <div class="input-group">
                         <input type="number" name="items[${itemCounter}][discount_rate]" class="form-control discount-rate" value="0" min="0" step="0.01" style="min-height: 50px; font-size: 16px; border-radius: 10px 0 0 10px;">
@@ -1904,14 +1994,21 @@ function calculateMobileLineTotal() {
         unitPrice = invoiceCurrency === 'TRY' ? priceInTRY : (priceInTRY / rates[invoiceCurrency]);
     }
     
-    // Calculate discount (fixed amount) and NET line total (without KDV)
-    // Desktop hesaplaması ile aynı mantık: satır toplamı = (miktar * birim fiyat) - indirim
-    const lineSubtotal = unitPrice * quantity;
-    const discountAmount = Math.max(0, Math.min(discountRate, lineSubtotal));
-    const lineTotalAfterDiscount = lineSubtotal - discountAmount;
+    // Line total is just quantity * unitPrice (no discount/VAT at line level)
+    const lineTotal = unitPrice * quantity;
     
-    // Update line total (still NET – KDV totals ekranında ayrıca hesaplanacak)
-    card.find('.line-total').val(lineTotalAfterDiscount.toFixed(2).replace('.', ','));
+    // Validate stock
+    const colorVariants = card.data('color-variants');
+    const selectedColorId = card.find('.color-variant-select').val();
+    let variant = null;
+    if (colorVariants && selectedColorId) {
+        variant = colorVariants.find(v => v.id == selectedColorId);
+    }
+    const valid = validateMobileStock(card, variant);
+    const finalLineTotal = (!valid || card.data('invalid-stock')) ? 0 : lineTotal;
+    
+    // Update line total
+    card.find('.line-total').val(finalLineTotal.toFixed(2).replace('.', ','));
     
     // Update currency symbol
     card.find('.invoice-currency-symbol').text($('#currency').val() === 'USD' ? '$' : $('#currency').val() === 'EUR' ? '€' : '₺');
@@ -1939,64 +2036,58 @@ function calculateLineTotal() {
         unitPrice = priceInTL / (exchangeRates[invoiceCurrency] || 1);
     }
     
+    // Line total is just quantity * unitPrice (no discount/VAT at line level)
     let lineTotal = quantity * unitPrice;
-    const discountAmount = Math.max(0, Math.min(discountRate, lineTotal));
-    let lineTotalAfterDiscount = lineTotal - discountAmount;
     
     if (!valid || row.data('invalid-stock')) {
-        lineTotalAfterDiscount = 0;
+        lineTotal = 0;
     }
     
-    row.find('.line-total').val(lineTotalAfterDiscount.toFixed(2).replace('.', ','));
+    row.find('.line-total').val(lineTotal.toFixed(2).replace('.', ','));
     
     calculateTotals();
 }
 
 function calculateTotals() {
     let subtotal = 0;
-    let totalDiscount = 0;
-    let totalVat = 0;
     
-    // Calculate from desktop table rows
+    // Calculate subtotal from desktop table rows (without discount and VAT)
     $('#invoiceItemsBody tr').each(function() {
-        const lineTotalVal = $(this).find('.line-total').val() || '0';
-        const lineTotal = parseFloat(lineTotalVal.replace(',', '.')) || 0;
-        const discountFixed = parseFloat($(this).find('.discount-rate').val()) || 0;
-        const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
-        console.log('rowTotals:', { lineTotal, discountFixed, taxRate });
-        
-        // Line total already includes discount
+        const quantity = parseFloat($(this).find('input[name*="[quantity]"]').val()) || 0;
+        const unitPrice = parseFloat($(this).find('.unit-price').val().replace(',', '.')) || 0;
+        const lineTotal = quantity * unitPrice;
         subtotal += lineTotal;
-        totalDiscount += discountFixed;
-        
-        if ($('select[name="vat_status"]').val() === 'included') {
-            totalVat += lineTotal * (taxRate / 100);
-        }
     });
     
-    // Calculate from mobile cards
+    // Calculate subtotal from mobile cards (without discount and VAT)
     $('#mobileInvoiceItems .card').each(function() {
-        const lineTotal = parseFloat($(this).find('.line-total').val().replace(',', '.')) || 0;
-        const discountFixed = parseFloat($(this).find('.discount-rate').val()) || 0;
-        const taxRate = parseFloat($(this).find('.tax-rate').val()) || 0;
-        console.log('rowTotalsMobile:', { lineTotal, discountFixed, taxRate });
-        // Line total already includes discount
+        const quantity = parseFloat($(this).find('input[name*="[quantity]"]').val()) || 0;
+        const unitPrice = parseFloat($(this).find('.unit-price').val().replace(',', '.')) || 0;
+        const lineTotal = quantity * unitPrice;
         subtotal += lineTotal;
-        totalDiscount += discountFixed;
-        
-        if ($('select[name="vat_status"]').val() === 'included') {
-            totalVat += lineTotal * (taxRate / 100);
-        }
     });
     
-    const totalAmount = subtotal + totalVat;
+    // Get general discount and VAT rate
+    const generalDiscount = parseFloat($('#generalDiscount').val()) || 0;
+    const generalVatRate = parseFloat($('#generalVatRate').val()) || 0;
+    
+    // Apply general discount
+    const subtotalAfterDiscount = Math.max(0, subtotal - generalDiscount);
+    
+    // KDV: her zaman net tutar üzerinden hesaplanır
+    const totalVat = subtotalAfterDiscount * (generalVatRate / 100);
+    
+    // Genel Toplam: net + KDV
+    const totalAmount = subtotalAfterDiscount + totalVat;
     const selectedCurrency = $('#currency').val();
     const currencySymbol = selectedCurrency === 'USD' ? '$' : selectedCurrency === 'EUR' ? '€' : '₺';
-    console.log('totals:', { subtotal, totalVat, totalAmount, selectedCurrency });
+    
+    // Update currency symbol for discount input
+    $('#discountCurrencySymbol').text(currencySymbol);
     
     // Always show totals in the selected currency
     $('#subtotal').text(subtotal.toFixed(2).replace('.', ',') + ' ' + currencySymbol);
-    $('#discount').text(totalDiscount.toFixed(2).replace('.', ',') + ' ' + currencySymbol);
+    $('#discount').text(generalDiscount.toFixed(2).replace('.', ',') + ' ' + currencySymbol);
     $('#additionalDiscount').text('0,00 ' + currencySymbol);
     $('#vatAmount').text(totalVat.toFixed(2).replace('.', ',') + ' ' + currencySymbol);
     $('#totalAmount').text(totalAmount.toFixed(2).replace('.', ',') + ' ' + currencySymbol);
@@ -2364,8 +2455,8 @@ function saveNewCustomer() {
     
     console.log('Customer data:', { name, company, email, phone, address });
     
-    if (!name || !phone) {
-        alert('Ad Soyad ve Telefon alanları zorunludur.');
+    if (!name) {
+        alert('Ad Soyad alanı zorunludur.');
         return;
     }
     
@@ -3196,7 +3287,6 @@ $(document).on('change', '.card .color-variant-select', function() {
             // Remove existing stock info
             card.find('.mobile-stock-info').remove();
             
-            // Add stock information
             const stockInfoHtml = `
                 <div class="mobile-stock-info mt-2 p-3" style="background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
                     <div class="d-flex justify-content-between align-items-center">
@@ -3204,17 +3294,11 @@ $(document).on('change', '.card .color-variant-select', function() {
                             <small class="text-muted d-block">Mevcut Stok</small>
                             <strong class="text-success">${variant.stock_quantity} Adet</strong>
                         </div>
-                        <div class="text-end">
-                            <small class="text-muted d-block">Kritik Stok</small>
-                            <small class="text-warning">${variant.critical_stock} Adet</small>
-                        </div>
                     </div>
                 </div>
             `;
             
             card.find('.color-selection-mobile').after(stockInfoHtml);
-            
-            // Validate stock
             validateMobileStock(card, variant, quantityInput, seriesSizeSelect);
         }
     } else {
@@ -3225,7 +3309,44 @@ $(document).on('change', '.card .color-variant-select', function() {
 
 // Mobile stock validation function (series size removed)
 function validateMobileStock(card, variant, quantityInput) {
-    const quantity = parseFloat(quantityInput.val()) || 0;
+    // If variant is required/expected but missing, we can't strict validate against it yet.
+    // However, if the card has color variants but no variant is passed, check if one is selected.
+    if (!variant) {
+        // Try to find variant if not passed, just in case called from context where lookup wasn't done
+         const colorVariants = card.data('color-variants');
+         const selectedColorId = card.find('.color-variant-select').val();
+         if (colorVariants && selectedColorId) {
+             variant = colorVariants.find(v => v.id == selectedColorId);
+         }
+    }
+    
+    // If still no variant, check if it's a simple product with direct stock
+    if (!variant) {
+        const stockQty = card.data('stock-quantity');
+        if (stockQty && !isNaN(stockQty)) {
+            // Mock variant object for simple product validation
+            variant = { stock_quantity: stockQty };
+        } else {
+             // Safe return if no stock info available at all
+             return true; 
+        }
+    }
+    
+    // Normalize quantityInput to a jQuery object and provide safe fallback
+    let $quantityInput = null;
+    if (quantityInput && quantityInput.jquery) {
+        $quantityInput = quantityInput;
+    } else if (quantityInput) {
+        $quantityInput = $(quantityInput);
+    } else {
+        $quantityInput = card.find('.quantity-input');
+    }
+    if (!$quantityInput || $quantityInput.length === 0) {
+        // No quantity input found; nothing to validate
+        return;
+    }
+
+    const quantity = parseFloat($quantityInput.val()) || 0;
     const actualQuantity = quantity;
     
     // Remove existing warnings
@@ -3251,20 +3372,6 @@ function validateMobileStock(card, variant, quantityInput) {
         
         card.find('.mobile-stock-info').after(warningHtml);
         card.addClass('border-danger');
-    } else if (variant.critical_stock && actualQuantity > variant.critical_stock) {
-        const warningHtml = `
-            <div class="mobile-stock-warning mt-2 p-3" style="background-color: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
-                <div class="d-flex align-items-center">
-                    <iconify-icon icon="solar:warning-outline" class="text-warning me-2" style="font-size: 20px;"></iconify-icon>
-                    <div>
-                        <strong class="text-warning d-block">Kritik Stok!</strong>
-                        <small class="text-muted">Kritik seviye: ${variant.critical_stock ?? 0} Adet</small>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        card.find('.mobile-stock-info').after(warningHtml);
     }
 }
 

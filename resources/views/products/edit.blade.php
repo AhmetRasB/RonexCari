@@ -92,14 +92,6 @@
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Döviz</label>
-                            <select name="cost_currency" class="form-control">
-                                <option value="TRY" {{ ($product->cost_currency ?? 'TRY') == 'TRY' ? 'selected' : '' }}>TRY</option>
-                                <option value="USD" {{ ($product->cost_currency ?? 'TRY') == 'USD' ? 'selected' : '' }}>USD</option>
-                                <option value="EUR" {{ ($product->cost_currency ?? 'TRY') == 'EUR' ? 'selected' : '' }}>EUR</option>
-                            </select>
-                        </div>
                         <div class="col-md-4">
                             <label class="form-label">Satış Fiyatı</label>
                             <input type="number" name="price" class="form-control" value="{{ $product->price }}" step="0.01" min="0">
@@ -107,13 +99,15 @@
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Döviz</label>
-                            <select name="price_currency" class="form-control">
-                                <option value="TRY" {{ ($product->price_currency ?? 'TRY') == 'TRY' ? 'selected' : '' }}>TRY</option>
-                                <option value="USD" {{ ($product->price_currency ?? 'TRY') == 'USD' ? 'selected' : '' }}>USD</option>
-                                <option value="EUR" {{ ($product->price_currency ?? 'TRY') == 'EUR' ? 'selected' : '' }}>EUR</option>
+                        <div class="col-md-4">
+                            <label class="form-label">Döviz (Maliyet & Satış)</label>
+                            @php $cur = $product->cost_currency ?? 'TRY'; @endphp
+                            <select name="cost_currency" id="productCostCurrency" class="form-control">
+                                <option value="TRY" {{ $cur == 'TRY' ? 'selected' : '' }}>TRY</option>
+                                <option value="USD" {{ $cur == 'USD' ? 'selected' : '' }}>USD</option>
+                                <option value="EUR" {{ $cur == 'EUR' ? 'selected' : '' }}>EUR</option>
                             </select>
+                            <input type="hidden" name="price_currency" id="productPriceCurrency" value="{{ $cur }}">
                         </div>
                     </div>
 
@@ -387,6 +381,11 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
+    // Tek döviz: cost_currency değişince price_currency'i eşle
+    $('#productCostCurrency').on('change', function() {
+        $('#productPriceCurrency').val(this.value);
+    });
+    
     // Turkish color names
     const colors = [
         'Beyaz', 'Siyah', 'Kırmızı', 'Mavi', 'Yeşil', 'Sarı', 'Turuncu', 'Mor', 'Pembe', 'Kahverengi',

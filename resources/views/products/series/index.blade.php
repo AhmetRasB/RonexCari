@@ -55,11 +55,9 @@
                                         </div>
                                     </th>
                                     <th>Seri Adı</th>
-                                    <th>SKU</th>
                                     <th>Seri Boyutu</th>
                                     <th>Toplam Stok (Adet)</th>
                                     <th>Renk Sayısı</th>
-                                    <th>Maliyet</th>
                                     <th>Satış Fiyatı</th>
                                     <th>Durum</th>
                                     <th class="text-center">İşlemler</th>
@@ -92,7 +90,6 @@
                                                 </div>
                                             </div>
                                         </td>
-                                        <td>{{ $serie->sku ?? 'SKU Yok' }}</td>
                                         <td>
                                             <div class="d-flex flex-column">
                                                 @php
@@ -112,26 +109,10 @@
                                         <td>
                                             <span class="fw-semibold text-success">{{ number_format($serie->colorVariants->sum('stock_quantity')) }}</span>
                                             <small class="text-muted d-block">Toplam Stok</small>
-                                            @php
-                                                $hasCriticalStock = $serie->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0;
-                                            @endphp
-                                            @if($hasCriticalStock)
-                                                <i class="ri-alert-line text-danger ms-1" title="Kritik Stok"></i>
-                                            @endif
                                         </td>
                                         <td>
                                             <span class="fw-semibold text-info">{{ $serie->colorVariants->count() }}</span>
                                             <small class="text-muted d-block">Renk</small>
-                                        </td>
-                                        <td>
-                    @php
-                        $costCurrency = $serie->cost_currency ?? 'TRY';
-                        $costSymbol = $costCurrency === 'USD' ? '$' : ($costCurrency === 'EUR' ? '€' : '₺');
-                    @endphp
-                    <span class="fw-semibold">{{ number_format($serie->cost, 2) }} {{ $costSymbol }}</span>
-                    @if($costCurrency !== 'TRY')
-                        <br><small class="text-muted currency-convert" data-amount="{{ $serie->cost }}" data-currency="{{ $costCurrency }}" data-type="cost">-</small>
-                    @endif
                                         </td>
                                         <td>
                     @php

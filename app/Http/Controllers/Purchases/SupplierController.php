@@ -42,7 +42,7 @@ class SupplierController extends Controller
 
         try {
             $validated = $request->validate([
-                'name' => 'required|string|max:255',
+                'name' => 'nullable|string|max:255',
                 'company_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email|unique:suppliers,email|max:255',
                 'phone' => 'nullable|string|max:20',
@@ -52,7 +52,6 @@ class SupplierController extends Controller
                 'notes' => 'nullable|string|max:2000',
                 'is_active' => 'boolean'
             ], [
-                'name.required' => 'Tedarikçi adı zorunludur.',
                 'name.max' => 'Tedarikçi adı çok uzun.',
                 'company_name.max' => 'Şirket adı çok uzun.',
                 'email.email' => 'Geçerli bir e-posta adresi girin.',
@@ -140,7 +139,7 @@ class SupplierController extends Controller
     public function update(Request $request, Supplier $supplier)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
             'company_name' => 'nullable|string|max:255',
             'email' => 'nullable|email|unique:suppliers,email,' . $supplier->id . '|max:255',
             'phone' => 'nullable|string|max:20',
@@ -150,7 +149,6 @@ class SupplierController extends Controller
             'notes' => 'nullable|string|max:2000',
             'is_active' => 'boolean'
         ], [
-            'name.required' => 'Tedarikçi adı zorunludur.',
             'name.max' => 'Tedarikçi adı çok uzun.',
             'company_name.max' => 'Şirket adı çok uzun.',
             'email.email' => 'Geçerli bir e-posta adresi girin.',

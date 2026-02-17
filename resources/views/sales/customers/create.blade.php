@@ -54,13 +54,13 @@
                             @enderror
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Telefon <span class="text-danger">*</span></label>
+                            <label class="form-label">Telefon</label>
                             <div class="icon-field">
                                 <span class="icon">
                                     <iconify-icon icon="solar:phone-calling-linear"></iconify-icon>
                                 </span>
                                 <input type="text" name="phone" class="form-control @error('phone') is-invalid @enderror" 
-                                       placeholder="Telefon numarası girin" value="{{ old('phone') }}" required>
+                                       placeholder="Telefon numarası girin" value="{{ old('phone') }}">
                             </div>
                             @error('phone')
                                 <div class="invalid-feedback d-block">{{ $message }}</div>

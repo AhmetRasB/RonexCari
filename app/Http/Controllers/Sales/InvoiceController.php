@@ -151,29 +151,27 @@ class InvoiceController extends Controller
                 $invoiceNumber = $prefix . str_pad($sequence, 6, '0', STR_PAD_LEFT);
             }
             
-            // Calculate totals
+            // Calculate totals - use general VAT and discount (her zaman KDV'yi genel toplama ekle)
             $subtotal = 0;
-            $vatAmount = 0;
             
+            // Calculate subtotal from items (without discount/VAT)
             foreach ($validated['items'] as $item) {
                 $quantityVal = (float) ($item['quantity'] ?? 0);
                 $unitPriceVal = (float) ($item['unit_price'] ?? 0);
-                $discountRateVal = (float) ($item['discount_rate'] ?? 0);
-                $taxRateVal = (float) ($item['tax_rate'] ?? 0);
-
                 $lineTotal = $quantityVal * $unitPriceVal;
-                // İndirim artık sabit tutar olarak geldiği için yüzdeye çevirmiyoruz
-                $discountAmount = $discountRateVal; // Sabit tutar
-                $lineTotalAfterDiscount = max(0, $lineTotal - $discountAmount);
-                
-                if ($validated['vat_status'] === 'included') {
-                    $vatAmount += $lineTotalAfterDiscount * ($taxRateVal / 100);
-                }
-                
-                $subtotal += $lineTotalAfterDiscount;
+                $subtotal += $lineTotal;
             }
             
-            $totalAmount = $subtotal + $vatAmount;
+            // Apply general discount
+            $generalDiscount = (float) ($request->input('general_discount') ?? 0);
+            $subtotalAfterDiscount = max(0, $subtotal - $generalDiscount);
+            
+            // KDV: her zaman net tutar (indirim sonrası) üzerinden hesaplanır
+            $generalVatRate = (float) ($request->input('general_vat_rate') ?? 0);
+            $vatAmount = $subtotalAfterDiscount * ($generalVatRate / 100);
+            
+            // Genel Toplam: net + KDV
+            $totalAmount = $subtotalAfterDiscount + $vatAmount;
             // Get account_id and user_id with fallbacks
             $accountId = session('current_account_id');
             $userId = auth()->id();
@@ -200,6 +198,7 @@ class InvoiceController extends Controller
                 'vat_status' => $validated['vat_status'],
                 'description' => $validated['description'],
                 'subtotal' => $subtotal,
+                'discount_amount' => $generalDiscount,
                 'vat_amount' => $vatAmount,
                 'total_amount' => $totalAmount,
                 'payment_completed' => $validated['payment_completed'] ?? false
@@ -213,10 +212,8 @@ class InvoiceController extends Controller
                 $taxRate = (float) ($item['tax_rate'] ?? 0);
                 $discountRate = (float) ($item['discount_rate'] ?? 0);
                 
+                // Line total is just quantity * unitPrice (no discount/VAT at line level)
                 $lineTotal = $quantity * $unitPrice;
-                // İndirim artık sabit tutar olarak geldiği için yüzdeye çevirmiyoruz
-                $discountAmount = $discountRate; // Sabit tutar
-                $lineTotalAfterDiscount = max(0, $lineTotal - $discountAmount);
                 
                 // Clean product_id for database storage
                 $cleanProductId = $item['product_id'] ?? null;
@@ -248,9 +245,9 @@ class InvoiceController extends Controller
                     'quantity' => $quantity,
                     'unit' => 'Ad', // Default unit
                     'unit_price' => $unitPrice, // Already converted by JavaScript
-                    'tax_rate' => $taxRate,
-                    'discount_rate' => $discountRate,
-                    'line_total' => $lineTotalAfterDiscount,
+                    'tax_rate' => $taxRate, // Not used for calculation, kept for compatibility
+                    'discount_rate' => $discountRate, // Not used for calculation, kept for compatibility
+                    'line_total' => $lineTotal,
                     'sort_order' => $index
                 ]);
             }

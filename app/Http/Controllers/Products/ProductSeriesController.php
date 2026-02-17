@@ -34,26 +34,16 @@ class ProductSeriesController extends Controller
     {
         $currentAccountId = $this->currentAccountId();
         $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
-        
-        // Eğer account'a ait kategori yoksa, hiçbir seri ürün gösterilmemeli
-        if (empty($allowedCategories)) {
-            $series = ProductSeries::where('account_id', $currentAccountId)
-                ->whereRaw('1=0')
-                ->paginate(15);
-        } else {
+
+        // Kategori manuel: kategori tablosu boş olsa bile serileri göster
         $series = ProductSeries::with(['seriesItems', 'colorVariants'])
-                ->where('account_id', $currentAccountId)
-                ->whereIn('category', $allowedCategories)
-                ->when($request->filled('category'), function($q) use ($request, $allowedCategories) {
-                    // Seçilen kategori, allowedCategories içinde olmalı
-                    if (in_array($request->get('category'), $allowedCategories, true)) {
+            ->where('account_id', $currentAccountId)
+            ->when($request->filled('category'), function ($q) use ($request) {
                 $q->where('category', $request->get('category'));
-                    }
             })
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString();
-        }
             
         $selectedCategory = $request->get('category');
         return view('products.series.index', compact('series', 'allowedCategories', 'selectedCategory'));
@@ -82,18 +72,13 @@ class ProductSeriesController extends Controller
     public function store(Request $request)
     {
         $currentAccountId = $this->currentAccountId();
-        $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
         
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'sku' => 'nullable|string|max:255',
             'barcode' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            'category' => ['required','string', function($attr,$val,$fail) use ($allowedCategories){
-                if (!empty($allowedCategories) && !in_array($val, $allowedCategories, true)) {
-                    $fail('Bu kategori mevcut hesap için izinli değil.');
-                }
-            }],
+            'category' => 'required|string|max:255',
             'brand' => 'nullable|string',
             'cost' => 'nullable|numeric|min:0',
             'price' => 'nullable|numeric|min:0',
@@ -156,6 +141,20 @@ class ProductSeriesController extends Controller
                         'is_active' => true,
                     ]);
                     $validated['brand'] = $brand->name; // normalize to stored name
+                }
+            }
+
+            // Kategori manuel: varsa bul/yoksa oluştur ve metin alanını normalize et
+            if (!empty($validated['category'])) {
+                $categoryName = trim($validated['category']);
+                if ($categoryName !== '') {
+                    $cat = ProductCategory::firstOrCreate([
+                        'account_id' => $currentAccountId,
+                        'name' => $categoryName,
+                    ], [
+                        'is_active' => true,
+                    ]);
+                    $validated['category'] = $cat->name;
                 }
             }
 
@@ -297,18 +296,12 @@ class ProductSeriesController extends Controller
     {
         $this->assertSeriesBelongsToCurrentAccount($series);
         $currentAccountId = $this->currentAccountId();
-        $allowedCategories = $this->getAllowedCategoriesForAccount($currentAccountId);
-        
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'sku' => 'nullable|string|max:255',
             'barcode' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            'category' => ['required','string', function($attr,$val,$fail) use ($allowedCategories){
-                if (!empty($allowedCategories) && !in_array($val, $allowedCategories, true)) {
-                    $fail('Bu kategori mevcut hesap için izinli değil.');
-                }
-            }],
+            'category' => 'required|string|max:255',
             'brand' => 'nullable|string',
             'cost' => 'nullable|numeric|min:0',
             'price' => 'nullable|numeric|min:0',
@@ -340,6 +333,20 @@ class ProductSeriesController extends Controller
                         'is_active' => true,
                     ]);
                     $validated['brand'] = $brand->name;
+                }
+            }
+
+            // Kategori manuel: varsa oluştur/bul
+            if (!empty($validated['category'])) {
+                $categoryName = trim($validated['category']);
+                if ($categoryName !== '') {
+                    $cat = ProductCategory::firstOrCreate([
+                        'account_id' => $currentAccountId,
+                        'name' => $categoryName,
+                    ], [
+                        'is_active' => true,
+                    ]);
+                    $validated['category'] = $cat->name;
                 }
             }
 
@@ -571,11 +578,24 @@ class ProductSeriesController extends Controller
         if (!$accountId) {
             return [];
         }
-        return ProductCategory::where('account_id', $accountId)
-            ->where('is_active', true)
+
+        // Kategori listesi: hem kategori tablosundan hem de serilerde kayıtlı kategorilerden gelsin
+        $fromCategories = ProductCategory::where('account_id', $accountId)
             ->orderBy('name')
             ->pluck('name')
             ->toArray();
+
+        $fromSeries = ProductSeries::where('account_id', $accountId)
+            ->whereNotNull('category')
+            ->where('category', '!=', '')
+            ->distinct()
+            ->orderBy('category')
+            ->pluck('category')
+            ->toArray();
+
+        $merged = array_values(array_unique(array_merge($fromCategories, $fromSeries)));
+        sort($merged);
+        return $merged;
     }
 
     /**

@@ -32,35 +32,9 @@ class DashboardController extends Controller
         $lowStockProducts = collect();
         $lowStockColorVariants = collect();
             
-        // Kritik stok uyarıları - Seri ürünler
-        $lowStockSeriesQuery = \App\Models\ProductSeries::whereNotNull('critical_stock')
-            ->where('critical_stock', '>', 0)
-            ->whereColumn('stock_quantity', '<=', 'critical_stock');
-            
-        // Filter by account
-        if ($accountId !== null) {
-            $lowStockSeriesQuery->where('account_id', $accountId);
-        }
-        
-        $lowStockSeries = $lowStockSeriesQuery->orderBy('stock_quantity')
-            ->limit(10)
-            ->get(['id','name','stock_quantity','critical_stock','series_size','category']);
-            
-        // Seri ürün renk varyantları kritik stok uyarıları
+        // Kritik stok uyarıları kaldırıldı
+        $lowStockSeries = collect();
         $lowStockSeriesColorVariants = collect();
-        if ($accountId) {
-            $seriesColorVariantsQuery = \App\Models\ProductSeriesColorVariant::whereHas('productSeries', function($query) use ($accountId) {
-                $query->where('account_id', $accountId);
-            })
-            ->whereNotNull('critical_stock')
-            ->where('critical_stock', '>', 0)
-            ->whereColumn('stock_quantity', '<=', 'critical_stock');
-            
-            $lowStockSeriesColorVariants = $seriesColorVariantsQuery->with('productSeries:id,name,category')
-                ->orderBy('stock_quantity')
-                ->limit(10)
-                ->get(['id','product_series_id','color','stock_quantity','critical_stock']);
-        }
 
         // Yaklaşan ve vadesi geçmiş tahsilatlar (TR saatiyle bugün dahil + 7 gün ileri)
         $todayTr = Carbon::now('Europe/Istanbul')->startOfDay();

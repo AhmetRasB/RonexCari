@@ -94,9 +94,6 @@
                     <li>
                         <a href="{{ route('products.brands.index') }}"><i class="ri-circle-fill circle-icon text-info w-auto"></i> Markalar</a>
                     </li>
-                    <li>
-                        <a href="{{ route('barcode.index') }}"><i class="ri-circle-fill circle-icon text-success w-auto"></i> Barkod Bölümü</a>
-                    </li>
                 </ul>
             </li>
 

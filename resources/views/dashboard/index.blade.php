@@ -48,12 +48,6 @@
                         </a>
                     </div>
                     <div class="col-6 col-sm-4 col-md-2">
-                        <a href="{{ route('barcode.index') }}" class="btn btn-outline-secondary w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
-                            <iconify-icon icon="heroicons:printer" class="text-lg text-md-xl mb-1"></iconify-icon>
-                            <span class="fw-medium text-xs text-md-sm">Barkod Yazdır</span>
-                        </a>
-                    </div>
-                    <div class="col-6 col-sm-4 col-md-2">
                         <a href="{{ route('expenses.expenses.create') }}" class="btn btn-outline-danger w-100 d-flex flex-column align-items-center py-2 py-md-3 text-decoration-none">
                             <iconify-icon icon="heroicons:currency-dollar" class="text-lg text-md-xl mb-1"></iconify-icon>
                             <span class="fw-medium text-xs text-md-sm">Gider Ekle</span>
@@ -69,48 +63,6 @@
             @if(isset($lowStockProducts) || isset($lowStockSeries) || isset($dueSales) || isset($duePurchases))
 <div class="row mb-4">
     <div class="col-12">
-                @if((!empty($lowStockProducts) && $lowStockProducts->count()) || (!empty($lowStockColorVariants) && $lowStockColorVariants->count()) || (!empty($lowStockSeries) && $lowStockSeries->count()) || (!empty($lowStockSeriesColorVariants) && $lowStockSeriesColorVariants->count()))
-        <div class="alert alert-danger d-flex flex-column flex-md-row align-items-start align-items-md-center mb-3" role="alert">
-            <iconify-icon icon="solar:danger-triangle-outline" class="text-xl me-2 mb-2 mb-md-0 flex-shrink-0"></iconify-icon>
-                    <div class="flex-grow-1">
-                <strong>🚨 Kritik Stok Uyarısı ({{ ($lowStockProducts->count() ?? 0) + ($lowStockColorVariants->count() ?? 0) + ($lowStockSeries->count() ?? 0) + ($lowStockSeriesColorVariants->count() ?? 0) }} ürün):</strong>
-                <div class="mt-2 d-flex flex-wrap gap-1">
-                        @if(!empty($lowStockProducts))
-                        @foreach($lowStockProducts as $p)
-                            <a href="{{ route('products.edit', $p->id) }}?focus=stock" class="badge bg-danger text-decoration-none text-white critical-stock-badge" title="Stok güncellemek için tıklayın - {{ $p->name }} ({{ $p->category }})">
-                                {{ Str::limit($p->name, 15) }} ({{ $p->initial_stock }}/{{ $p->critical_stock }}) [{{ $p->category }}] ✏️
-                            </a>
-                            @endforeach
-                        @endif
-                        
-                        @if(!empty($lowStockColorVariants))
-                            @foreach($lowStockColorVariants as $cv)
-                            <a href="{{ route('products.edit', $cv->product_id) }}?focus=stock" class="badge bg-warning text-decoration-none text-dark critical-stock-badge" title="Renk stok güncellemek için tıklayın - {{ $cv->product->name }} ({{ $cv->color }})">
-                                {{ Str::limit($cv->product->name, 12) }} ({{ $cv->color }}) ({{ $cv->stock_quantity }}/{{ $cv->critical_stock }}) [{{ $cv->product->category }}] 🎨
-                            </a>
-                            @endforeach
-                        @endif
-                        
-                        @if(!empty($lowStockSeries))
-                            @foreach($lowStockSeries as $s)
-                            <a href="{{ route('products.series.edit', $s->id) }}?focus=stock" class="badge bg-danger text-decoration-none text-white critical-stock-badge" title="Seri stok güncellemek için tıklayın - {{ $s->name }} ({{ $s->category }})">
-                                {{ Str::limit($s->name, 15) }} ({{ $s->stock_quantity }}/{{ $s->critical_stock }}) [{{ $s->category }}] 📦
-                            </a>
-                        @endforeach
-                        @endif
-                        
-                        @if(!empty($lowStockSeriesColorVariants))
-                            @foreach($lowStockSeriesColorVariants as $scv)
-                            <a href="{{ route('products.series.show', $scv->product_series_id) }}?focus=stock" class="badge bg-warning text-decoration-none text-dark critical-stock-badge" title="Seri renk stok güncellemek için tıklayın - {{ $scv->productSeries->name }} ({{ $scv->color }})">
-                                {{ Str::limit($scv->productSeries->name, 12) }} ({{ $scv->color }}) ({{ $scv->stock_quantity }}/{{ $scv->critical_stock }}) [{{ $scv->productSeries->category }}] 🎨📦
-                            </a>
-                            @endforeach
-                        @endif
-                </div>
-            </div>
-                    </div>
-                @endif
-        
                 @if(!empty($customersToCollect) && $customersToCollect->count())
         <div class="alert alert-warning d-flex flex-column flex-md-row align-items-start align-items-md-center mb-3" role="alert">
             <iconify-icon icon="solar:hand-money-outline" class="text-xl me-2 mb-2 mb-md-0 flex-shrink-0"></iconify-icon>

@@ -41,9 +41,8 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">SKU</label>
-                            <input type="text" class="form-control radius-8 @error('sku') is-invalid @enderror" 
-                                   name="sku" value="{{ old('sku', $series->sku) }}">
+                            <label class="form-label fw-semibold text-primary-light text-sm mb-8 d-none">SKU</label>
+                            <input type="hidden" name="sku" value="{{ old('sku', $series->sku) }}">
                             @error('sku')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -70,12 +69,17 @@
                         <!-- Kategori ve Marka -->
                         <div class="col-md-6">
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Kategori</label>
-                            <select class="form-control radius-8 @error('category') is-invalid @enderror" name="category">
-                                <option value="">Kategori seçin</option>
-                                @foreach($allowedCategories as $cat)
-                                    <option value="{{ $cat }}" {{ old('category', $series->category) == $cat ? 'selected' : '' }}>{{ $cat }}</option>
-                                @endforeach
-                            </select>
+                            <div class="position-relative">
+                                <input type="text" class="form-control radius-8 @error('category') is-invalid @enderror" 
+                                       name="category" id="categoryInput" value="{{ old('category', $series->category) }}" 
+                                       placeholder="Kategori yazın veya seçin..." autocomplete="off">
+                                <div class="position-absolute top-50 end-0 translate-middle-y me-3">
+                                    <iconify-icon icon="solar:tag-outline" class="text-secondary-light"></iconify-icon>
+                                </div>
+                                <div id="categoryDropdown" class="dropdown-menu w-100" style="display: none; max-height: 200px; overflow-y: auto;">
+                                    <!-- Category suggestions will be populated here -->
+                                </div>
+                            </div>
                             @error('category')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -98,24 +102,7 @@
                             <h6 class="fw-semibold text-primary mb-3">Fiyat Bilgileri</h6>
                         </div>
 
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Maliyet</label>
-                            <input type="number" class="form-control radius-8 @error('cost') is-invalid @enderror" 
-                                   name="cost" value="{{ old('cost', $series->cost) }}" step="0.01" min="0" max="999999.99">
-                            @error('cost')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Döviz</label>
-                            <select name="cost_currency" class="form-control radius-8">
-                                <option value="TRY" {{ (old('cost_currency', $series->cost_currency ?? 'TRY')) == 'TRY' ? 'selected' : '' }}>TRY</option>
-                                <option value="USD" {{ (old('cost_currency', $series->cost_currency ?? 'TRY')) == 'USD' ? 'selected' : '' }}>USD</option>
-                                <option value="EUR" {{ (old('cost_currency', $series->cost_currency ?? 'TRY')) == 'EUR' ? 'selected' : '' }}>EUR</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Satış Fiyatı</label>
                             <input type="number" class="form-control radius-8 @error('price') is-invalid @enderror" 
                                    name="price" value="{{ old('price', $series->price) }}" step="0.01" min="0" max="999999.99">
@@ -123,13 +110,16 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-6">
                             <label class="form-label fw-semibold text-primary-light text-sm mb-8">Döviz</label>
-                            <select name="price_currency" class="form-control radius-8">
-                                <option value="TRY" {{ (old('price_currency', $series->price_currency ?? 'TRY')) == 'TRY' ? 'selected' : '' }}>TRY</option>
-                                <option value="USD" {{ (old('price_currency', $series->price_currency ?? 'TRY')) == 'USD' ? 'selected' : '' }}>USD</option>
-                                <option value="EUR" {{ (old('price_currency', $series->price_currency ?? 'TRY')) == 'EUR' ? 'selected' : '' }}>EUR</option>
+                            @php $cur = old('cost_currency', $series->cost_currency ?? 'TRY'); @endphp
+                            <select name="cost_currency" id="seriesCostCurrencySelect" class="form-control radius-8">
+                                <option value="TRY" {{ $cur == 'TRY' ? 'selected' : '' }}>TRY</option>
+                                <option value="USD" {{ $cur == 'USD' ? 'selected' : '' }}>USD</option>
+                                <option value="EUR" {{ $cur == 'EUR' ? 'selected' : '' }}>EUR</option>
                             </select>
+                            <input type="hidden" name="price_currency" id="seriesPriceCurrencyHidden" value="{{ $cur }}">
+                            <input type="hidden" name="cost" value="{{ old('cost', $series->cost ?? 0) }}">
                         </div>
 
                         <!-- Renk Yönetimi -->
@@ -165,12 +155,6 @@
                                    value="{{ number_format($series->colorVariants->sum('stock_quantity')) }} Adet" readonly>
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Toplam Kritik Stok (Adet)</label>
-                            <input type="text" class="form-control radius-8" 
-                                   value="{{ number_format($series->colorVariants->sum('critical_stock')) }} Adet" readonly>
-                        </div>
-
                         @if($series->colorVariants && $series->colorVariants->count() > 0)
                             <!-- Multi-Color Series Stock Management -->
                             <div class="col-12">
@@ -186,14 +170,11 @@
                                                     <tr>
                                                         <th>Renk</th>
                                                         <th>Mevcut Stok (Adet)</th>
-                                                        <th>Kritik Stok (Adet)</th>
-                                                        <th>Durum</th>
-                                                        <th>İşlemler</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     @foreach($series->colorVariants as $index => $variant)
-                                                        <tr class="{{ ($variant->critical_stock > 0 && $variant->stock_quantity <= $variant->critical_stock) ? 'table-warning' : '' }}">
+                                                        <tr>
                                                             <td>
                                                                 <span class="badge" style="background:#e9f7ef; color:#198754; border:1px solid #c3e6cb;">
                                                                     {{ $variant->color }}
@@ -206,31 +187,8 @@
                                                                        value="{{ $variant->stock_quantity }}" 
                                                                        min="0" 
                                                                        style="width: 80px;">
-                                                            </td>
-                                                            <td>
-                                                                <input type="number" 
-                                                                       name="color_variants[{{ $variant->id }}][critical_stock]" 
-                                                                       class="form-control form-control-sm" 
-                                                                       value="{{ $variant->critical_stock }}" 
-                                                                       min="0" 
-                                                                       style="width: 80px;">
-                                                            </td>
-                                                            <td>
-                                                                @if($variant->critical_stock > 0 && $variant->stock_quantity <= $variant->critical_stock)
-                                                                    <span class="badge bg-danger">Kritik</span>
-                                                                @else
-                                                                    <span class="badge bg-success">Normal</span>
-                                                                @endif
-                                                            </td>
-                                                            <td>
-                                                                <div class="form-check form-switch">
-                                                                    <input type="hidden" name="color_variants[{{ $variant->id }}][is_active]" value="0">
-                                                                    <input class="form-check-input" 
-                                                                           type="checkbox" 
-                                                                           name="color_variants[{{ $variant->id }}][is_active]" 
-                                                                           value="1" 
-                                                                           {{ $variant->is_active ? 'checked' : '' }}>
-                                                                </div>
+                                                                <input type="hidden" name="color_variants[{{ $variant->id }}][critical_stock]" value="0">
+                                                                <input type="hidden" name="color_variants[{{ $variant->id }}][is_active]" value="1">
                                                             </td>
                                                         </tr>
                                                     @endforeach
@@ -239,18 +197,6 @@
                                                     <tr>
                                                         <th>Toplam</th>
                                                         <th class="fw-bold">{{ $series->colorVariants->sum('stock_quantity') }} Adet</th>
-                                                        <th class="fw-bold">{{ $series->colorVariants->sum('critical_stock') }} Adet</th>
-                                                        <th>
-                                                            @php
-                                                                $hasSeriesCritical = $series->colorVariants->filter(function($v){ return $v->critical_stock > 0 && $v->stock_quantity <= $v->critical_stock; })->count() > 0;
-                                                            @endphp
-                                                            @if($hasSeriesCritical)
-                                                                <span class="badge bg-warning">Dikkat</span>
-                                                            @else
-                                                                <span class="badge bg-success">İyi</span>
-                                                            @endif
-                                                        </th>
-                                                        <th></th>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -287,17 +233,7 @@
                             @endif
                         </div>
 
-                        <!-- Durum -->
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">Durum</label>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="is_active" value="1" 
-                                       id="is_active" {{ old('is_active', $series->is_active) ? 'checked' : '' }}>
-                                <label class="form-check-label" for="is_active">
-                                    Aktif
-                                </label>
-                            </div>
-                        </div>
+                        <input type="hidden" name="is_active" value="1">
 
                         <!-- Seri İçeriği (Readonly) -->
                         <div class="col-12">
@@ -438,11 +374,6 @@
                     <input type="number" id="colorStockQuantity" class="form-control" placeholder="Stok miktarı" min="0" required>
                     <small class="text-muted">Bu renk için stok miktarı (adet)</small>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Kritik Stok Miktarı</label>
-                    <input type="number" id="colorCriticalStock" class="form-control" placeholder="Kritik stok miktarı" min="0">
-                    <small class="text-muted">Bu miktarın altına düşünce uyarı gönderilir</small>
-                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
@@ -481,6 +412,60 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Kategori autocomplete
+    $('#categoryInput').on('input', function() {
+        const query = $(this).val();
+        if (query.length >= 2) {
+            searchCategories(query);
+        } else {
+            $('#categoryDropdown').hide();
+        }
+    });
+
+    // Hide category dropdown when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#categoryInput, #categoryDropdown').length) {
+            $('#categoryDropdown').hide();
+        }
+    });
+
+    async function searchCategories(query) {
+        try {
+            const categories = @json($allowedCategories ?? []);
+            let html = '';
+            const filtered = categories.filter(cat => cat.toLowerCase().includes(query.toLowerCase()));
+            if (filtered.length) {
+                filtered.forEach(function(cat){
+                    html += `
+                        <div class="dropdown-item category-option" data-category="${cat}" style="cursor: pointer;">
+                            <i class="ri-tag-line me-2"></i>${cat}
+                        </div>
+                    `;
+                });
+            } else {
+                html = '<div class="dropdown-item text-muted">Kategori bulunamadı</div>';
+            }
+            $('#categoryDropdown').html(html).show();
+        } catch (e) {
+            $('#categoryDropdown').hide();
+        }
+    }
+
+    // Handle category selection
+    $(document).on('click', '.category-option', function() {
+        const category = $(this).data('category');
+        $('#categoryInput').val(category);
+        $('#categoryDropdown').hide();
+    });
+
+    // Tek döviz: cost_currency değişince price_currency'i eşle
+    const costSel = document.getElementById('seriesCostCurrencySelect');
+    const priceHidden = document.getElementById('seriesPriceCurrencyHidden');
+    if (costSel && priceHidden) {
+        priceHidden.value = costSel.value;
+        costSel.addEventListener('change', function() { priceHidden.value = this.value; });
+    }
+    
     // Renk sistemi - Create sayfasındaki gibi
     let colorTags = []; // Only NEW colors added by user
     let currentColorIndex = -1;
@@ -544,7 +529,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function openColorStockModal(colorName) {
         $('#selectedColorName').text(colorName);
         $('#colorStockQuantity').val('');
-        $('#colorCriticalStock').val('');
         currentColorIndex = colorTags.indexOf(colorName);
         
         const modal = new bootstrap.Modal(document.getElementById('colorStockModal'));
@@ -555,18 +539,13 @@ document.addEventListener('DOMContentLoaded', function() {
     $('#saveColorStock').on('click', function() {
         const colorName = $('#selectedColorName').text();
         const stockQuantity = $('#colorStockQuantity').val();
-        const criticalStock = $('#colorCriticalStock').val();
         
         if (!stockQuantity) {
             alert('Stok miktarı gereklidir!');
             return;
         }
         
-        // Stok bilgilerini sakla
-        colorStocks[colorName] = {
-            stock: stockQuantity,
-            critical: criticalStock || '0'
-        };
+        colorStocks[colorName] = { stock: stockQuantity, critical: '0' };
         
         // Tag'i güncelle
         const tagElement = $(`[data-color="${colorName}"]`);
@@ -599,30 +578,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Yeni input'ları ekle
         colorTags.forEach((colorName, index) => {
-            const stockData = colorStocks[colorName] || { stock: '0', critical: '0' };
+            const stockData = colorStocks[colorName] || { stock: '0' };
             const stockQuantity = stockData.stock || '0';
-            const criticalStock = stockData.critical || '0';
             
-            // Hidden input'lar ekle
-            $('<input>').attr({
-                type: 'hidden',
-                name: `color_variants[new_${index}][color]`,
-                value: colorName
-            }).appendTo('#colorTagsContainer');
-            
-            $('<input>').attr({
-                type: 'hidden',
-                name: `color_variants[new_${index}][stock_quantity]`,
-                value: stockQuantity
-            }).appendTo('#colorTagsContainer');
-            
-            $('<input>').attr({
-                type: 'hidden',
-                name: `color_variants[new_${index}][critical_stock]`,
-                value: criticalStock || '0'
-            }).appendTo('#colorTagsContainer');
+            $('<input>').attr({ type: 'hidden', name: `color_variants[new_${index}][color]`, value: colorName }).appendTo('#colorTagsContainer');
+            $('<input>').attr({ type: 'hidden', name: `color_variants[new_${index}][stock_quantity]`, value: stockQuantity }).appendTo('#colorTagsContainer');
+            $('<input>').attr({ type: 'hidden', name: `color_variants[new_${index}][critical_stock]`, value: '0' }).appendTo('#colorTagsContainer');
         });
     }
     

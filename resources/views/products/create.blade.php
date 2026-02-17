@@ -77,14 +77,6 @@
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Döviz</label>
-                            <select name="cost_currency" class="form-control">
-                                <option value="TRY" {{ old('cost_currency') == 'TRY' ? 'selected' : '' }}>TRY</option>
-                                <option value="USD" {{ old('cost_currency') == 'USD' ? 'selected' : '' }}>USD</option>
-                                <option value="EUR" {{ old('cost_currency') == 'EUR' ? 'selected' : '' }}>EUR</option>
-                            </select>
-                        </div>
                         <div class="col-md-4">
                             <label class="form-label">Satış Fiyatı</label>
                             <div class="position-relative">
@@ -98,13 +90,15 @@
                                 <div class="text-danger mt-1">{{ $message }}</div>
                             @enderror
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Döviz</label>
-                            <select name="price_currency" class="form-control">
-                                <option value="TRY" {{ old('price_currency', 'TRY') == 'TRY' ? 'selected' : '' }}>TRY</option>
-                                <option value="USD" {{ old('price_currency') == 'USD' ? 'selected' : '' }}>USD</option>
-                                <option value="EUR" {{ old('price_currency') == 'EUR' ? 'selected' : '' }}>EUR</option>
+                        <div class="col-md-4">
+                            <label class="form-label">Döviz (Maliyet & Satış)</label>
+                            @php $cur = old('cost_currency', 'TRY'); @endphp
+                            <select name="cost_currency" id="productCostCurrency" class="form-control">
+                                <option value="TRY" {{ $cur == 'TRY' ? 'selected' : '' }}>TRY</option>
+                                <option value="USD" {{ $cur == 'USD' ? 'selected' : '' }}>USD</option>
+                                <option value="EUR" {{ $cur == 'EUR' ? 'selected' : '' }}>EUR</option>
                             </select>
+                            <input type="hidden" name="price_currency" id="productPriceCurrency" value="{{ $cur }}">
                         </div>
                     </div>
 
@@ -282,11 +276,6 @@
                     <input type="number" id="colorStockQuantity" class="form-control" placeholder="Stok miktarı" min="0" required>
                     <small class="text-muted">Bu renk için stok miktarı</small>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Kritik Stok Miktarı</label>
-                    <input type="number" id="colorCriticalStock" class="form-control" placeholder="Kritik stok miktarı" min="0">
-                    <small class="text-muted">Bu miktarın altına düşünce uyarı gönderilir</small>
-                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
@@ -299,6 +288,11 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
+    // Tek döviz: form gönderilirken price_currency = cost_currency
+    $('form').on('submit', function() {
+        $('#productPriceCurrency').val($('#productCostCurrency').val());
+    });
+    
     // Otomatik SKU ve Barkod oluştur
     generateProductCodes();
     
@@ -346,7 +340,6 @@ $(document).ready(function() {
     function openColorStockModal(colorName) {
         $('#selectedColorName').text(colorName);
         $('#colorStockQuantity').val('');
-        $('#colorCriticalStock').val('');
         currentColorIndex = colorTags.indexOf(colorName);
         
         const modal = new bootstrap.Modal(document.getElementById('colorStockModal'));
@@ -357,18 +350,12 @@ $(document).ready(function() {
     $('#saveColorStock').on('click', function() {
         const colorName = $('#selectedColorName').text();
         const stockQuantity = $('#colorStockQuantity').val();
-        const criticalStock = $('#colorCriticalStock').val();
-        
         if (!stockQuantity) {
             alert('Stok miktarı gereklidir!');
             return;
         }
         
-        // Stok bilgilerini sakla
-        colorStocks[colorName] = {
-            stock: stockQuantity,
-            critical: criticalStock || '0'
-        };
+        colorStocks[colorName] = { stock: stockQuantity, critical: '0' };
         
         // Tag'i güncelle
         const tagElement = $(`[data-color="${colorName}"]`);
@@ -392,9 +379,8 @@ $(document).ready(function() {
         
         // Yeni input'ları ekle
         colorTags.forEach((colorName, index) => {
-            const stockData = colorStocks[colorName] || { stock: '0', critical: '0' };
+            const stockData = colorStocks[colorName] || { stock: '0' };
             const stockQuantity = stockData.stock;
-            const criticalStock = stockData.critical;
             
             // Hidden input'lar ekle
             $('<input>').attr({
@@ -412,7 +398,7 @@ $(document).ready(function() {
             $('<input>').attr({
                 type: 'hidden',
                 name: `color_variants[${index}][critical_stock]`,
-                value: criticalStock || '0'
+                value: '0'
             }).appendTo('#colorTagsContainer');
         });
     }
